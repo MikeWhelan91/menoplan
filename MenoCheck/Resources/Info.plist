@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+  <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+  <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+  <key>CFBundleDisplayName</key><string>Menoplan</string>
+  <key>NSCameraUsageDescription</key><string>Menoplan uses your camera to capture FSH test results.</string>
+  <key>NSPhotoLibraryUsageDescription</key><string>Menoplan lets you import a photo of an FSH test.</string>
+  <key>NSHealthShareUsageDescription</key><string>Menoplan reads your sleep and activity from Apple Health only when you choose to connect it.</string>
+  <key>NSHealthUpdateUsageDescription</key><string>Menoplan only writes to Apple Health if you enable a future sharing option.</string>
+  <key>MenoAIEndpoint</key><string>https://YOUR_VERCEL_PROJECT.vercel.app/api/analyse-fsh</string>
+  <key>MenoAssistantEndpoint</key><string>https://YOUR_VERCEL_PROJECT.vercel.app/api/assistant</string>
+  <key>MenoAIClientToken</key><string>OPTIONAL_SHARED_SECRET</string>
+  <key>UILaunchScreen</key><dict><key>UIColorName</key><string></string></dict>
+</dict></plist>

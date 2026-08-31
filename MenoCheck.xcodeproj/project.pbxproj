@@ -1,0 +1,495 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		085AF6CB3DC40D42181281E0 /* check.json in Resources */ = {isa = PBXBuildFile; fileRef = A87A7FE95F4197E7A91C044D /* check.json */; };
+		1269DD6D97C03E94CEBF7815 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = ECA143A155D4C726B260E381 /* Assets.xcassets */; };
+		13BB9379E816B6C612A0E8FF /* MenoVectors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6237473E8C2176329572DE4D /* MenoVectors.swift */; };
+		40910062FE699C59CC293D8C /* InsightsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B30FA4CF9C00BD25A2DD21AC /* InsightsView.swift */; };
+		44045CFCD1904FD6972BF52E /* MenoCheckApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4045514B947B9CCB8C5C5F3 /* MenoCheckApp.swift */; };
+		530E84C0AC93588EB0487F65 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F0905CAF39668DDFA32F2BA /* TodayView.swift */; };
+		5972F4DFD3A26700726D8985 /* SymptomLogView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 26CDB8B184C77D61A4255849 /* SymptomLogView.swift */; };
+		6437DAEB74E3C6A558803C7A /* HealthDataService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E08002D52AE98B0B62F82B7 /* HealthDataService.swift */; };
+		6EF6AF8FFB0A236749EA4CF8 /* MenoHealthConnectionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F810DC7846EEEE61A74E4CCD /* MenoHealthConnectionsView.swift */; };
+		702C86F3867FA6F45C4B1733 /* calendar - woman.json in Resources */ = {isa = PBXBuildFile; fileRef = 4959406DC20BFC4749D223B8 /* calendar - woman.json */; };
+		70F7B314AB5508281E272EEE /* MenoCameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9CDE1E66BA6322FD14353834 /* MenoCameraCapture.swift */; };
+		7137B7B14948C452EC20238A /* welcome.json in Resources */ = {isa = PBXBuildFile; fileRef = AA5364403F5B6406D61BCD43 /* welcome.json */; };
+		72403AADC57433D217781E21 /* MenoAssistantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E4EF7BB87AA550595A1F6D7 /* MenoAssistantService.swift */; };
+		7C47BBCF711DE9DEA27BDAD0 /* MenoCareSummaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31FF44FD34238C6158E06367 /* MenoCareSummaryView.swift */; };
+		7FB2BA21FD73EC76226193B1 /* MenoModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 611BA0C8B9B89C2A837F90B4 /* MenoModels.swift */; };
+		90BFBA607BA362CD1D576956 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = BF6B21745576C1AE2C4D8D62 /* Lottie */; };
+		99CB6E8EAE144E9958C78A34 /* MenoComponents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 59641540E55B23DD31F1F15A /* MenoComponents.swift */; };
+		A65FB45D9BC39B6669A6ACC9 /* ScanFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A795C087BD60B93D49204D81 /* ScanFlowView.swift */; };
+		D2D255902EED0A7C4DD9C3B9 /* MenoTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = C73E2BBBD0E2F8CAFA1AF180 /* MenoTheme.swift */; };
+		DA3EE13666410787EA83909B /* ProfileView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C4BBF772897C168B8B2373B /* ProfileView.swift */; };
+		DECE9B3F1F6E813B48E27EB0 /* MenoHRTReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03D3B19A6F4B4AB175BE64C9 /* MenoHRTReviewView.swift */; };
+		E071A808A3467D8AAD41575C /* MenoOnboardingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DF7CD67CC485F4CE22C0C752 /* MenoOnboardingView.swift */; };
+		E3313CEF4B33A66E4098EB96 /* MenoLottieView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 475FE64EB56929F520389535 /* MenoLottieView.swift */; };
+		EF4921B3ACD4E4BD55D535BA /* MenoAIAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE1B47DBB19BD7A6FAF434DF /* MenoAIAnalysisService.swift */; };
+		F41901CED9CE4C654A891D08 /* MenoPlanView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 005536C393DD5DC9ECA80801 /* MenoPlanView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		005536C393DD5DC9ECA80801 /* MenoPlanView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoPlanView.swift; sourceTree = "<group>"; };
+		00F7782FC8650E25DE5C133B /* Menoplan.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Menoplan.entitlements; sourceTree = "<group>"; };
+		03D3B19A6F4B4AB175BE64C9 /* MenoHRTReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoHRTReviewView.swift; sourceTree = "<group>"; };
+		1E08002D52AE98B0B62F82B7 /* HealthDataService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthDataService.swift; sourceTree = "<group>"; };
+		1E4EF7BB87AA550595A1F6D7 /* MenoAssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoAssistantService.swift; sourceTree = "<group>"; };
+		26CDB8B184C77D61A4255849 /* SymptomLogView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SymptomLogView.swift; sourceTree = "<group>"; };
+		31FF44FD34238C6158E06367 /* MenoCareSummaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoCareSummaryView.swift; sourceTree = "<group>"; };
+		475FE64EB56929F520389535 /* MenoLottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoLottieView.swift; sourceTree = "<group>"; };
+		4959406DC20BFC4749D223B8 /* calendar - woman.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "calendar - woman.json"; sourceTree = "<group>"; };
+		59641540E55B23DD31F1F15A /* MenoComponents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoComponents.swift; sourceTree = "<group>"; };
+		611BA0C8B9B89C2A837F90B4 /* MenoModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoModels.swift; sourceTree = "<group>"; };
+		6237473E8C2176329572DE4D /* MenoVectors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoVectors.swift; sourceTree = "<group>"; };
+		6C4BBF772897C168B8B2373B /* ProfileView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProfileView.swift; sourceTree = "<group>"; };
+		6F0905CAF39668DDFA32F2BA /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		761D25D13C0A3E37DA8A8032 /* MenoCheck.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MenoCheck.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9CDE1E66BA6322FD14353834 /* MenoCameraCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoCameraCapture.swift; sourceTree = "<group>"; };
+		A795C087BD60B93D49204D81 /* ScanFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanFlowView.swift; sourceTree = "<group>"; };
+		A87A7FE95F4197E7A91C044D /* check.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = check.json; sourceTree = "<group>"; };
+		AA5364403F5B6406D61BCD43 /* welcome.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = welcome.json; sourceTree = "<group>"; };
+		B30FA4CF9C00BD25A2DD21AC /* InsightsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InsightsView.swift; sourceTree = "<group>"; };
+		BBADFE076BEE0AF8299E34DC /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		C73E2BBBD0E2F8CAFA1AF180 /* MenoTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoTheme.swift; sourceTree = "<group>"; };
+		DF7CD67CC485F4CE22C0C752 /* MenoOnboardingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoOnboardingView.swift; sourceTree = "<group>"; };
+		E4045514B947B9CCB8C5C5F3 /* MenoCheckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoCheckApp.swift; sourceTree = "<group>"; };
+		ECA143A155D4C726B260E381 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		F810DC7846EEEE61A74E4CCD /* MenoHealthConnectionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoHealthConnectionsView.swift; sourceTree = "<group>"; };
+		FE1B47DBB19BD7A6FAF434DF /* MenoAIAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoAIAnalysisService.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		7F65AB3391F6EE8571506466 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				90BFBA607BA362CD1D576956 /* Lottie in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		15689116B515E81938EC577B /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				611BA0C8B9B89C2A837F90B4 /* MenoModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		186E0B8F4F0161D9D9792B9D /* MenoCheck */ = {
+			isa = PBXGroup;
+			children = (
+				F84D11E2ED8991A721C23471 /* App */,
+				31D5DEBBF3477325D052A411 /* Design */,
+				15689116B515E81938EC577B /* Models */,
+				DCFEE74819308D35D7D758CE /* Resources */,
+				E0568B2D9008200E482580C6 /* Services */,
+				BC53504ABFA2E34BDA203941 /* Views */,
+			);
+			path = MenoCheck;
+			sourceTree = "<group>";
+		};
+		31D5DEBBF3477325D052A411 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+				59641540E55B23DD31F1F15A /* MenoComponents.swift */,
+				C73E2BBBD0E2F8CAFA1AF180 /* MenoTheme.swift */,
+				6237473E8C2176329572DE4D /* MenoVectors.swift */,
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		ADBAE6F36724249F195AEABB /* Animations */ = {
+			isa = PBXGroup;
+			children = (
+				4959406DC20BFC4749D223B8 /* calendar - woman.json */,
+				A87A7FE95F4197E7A91C044D /* check.json */,
+				AA5364403F5B6406D61BCD43 /* welcome.json */,
+			);
+			path = Animations;
+			sourceTree = "<group>";
+		};
+		BB21C291C584D7ED4F8DB6A3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				761D25D13C0A3E37DA8A8032 /* MenoCheck.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		BC53504ABFA2E34BDA203941 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				B30FA4CF9C00BD25A2DD21AC /* InsightsView.swift */,
+				31FF44FD34238C6158E06367 /* MenoCareSummaryView.swift */,
+				F810DC7846EEEE61A74E4CCD /* MenoHealthConnectionsView.swift */,
+				03D3B19A6F4B4AB175BE64C9 /* MenoHRTReviewView.swift */,
+				475FE64EB56929F520389535 /* MenoLottieView.swift */,
+				DF7CD67CC485F4CE22C0C752 /* MenoOnboardingView.swift */,
+				005536C393DD5DC9ECA80801 /* MenoPlanView.swift */,
+				6C4BBF772897C168B8B2373B /* ProfileView.swift */,
+				A795C087BD60B93D49204D81 /* ScanFlowView.swift */,
+				26CDB8B184C77D61A4255849 /* SymptomLogView.swift */,
+				6F0905CAF39668DDFA32F2BA /* TodayView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		D0D42C3E999C01A0D5D85F97 = {
+			isa = PBXGroup;
+			children = (
+				186E0B8F4F0161D9D9792B9D /* MenoCheck */,
+				BB21C291C584D7ED4F8DB6A3 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		DCFEE74819308D35D7D758CE /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				ECA143A155D4C726B260E381 /* Assets.xcassets */,
+				BBADFE076BEE0AF8299E34DC /* Info.plist */,
+				00F7782FC8650E25DE5C133B /* Menoplan.entitlements */,
+				ADBAE6F36724249F195AEABB /* Animations */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		E0568B2D9008200E482580C6 /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				1E08002D52AE98B0B62F82B7 /* HealthDataService.swift */,
+				FE1B47DBB19BD7A6FAF434DF /* MenoAIAnalysisService.swift */,
+				1E4EF7BB87AA550595A1F6D7 /* MenoAssistantService.swift */,
+				9CDE1E66BA6322FD14353834 /* MenoCameraCapture.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		F84D11E2ED8991A721C23471 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				E4045514B947B9CCB8C5C5F3 /* MenoCheckApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3A3190A68B5B86C150898E8B /* MenoCheck */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4B72A70AEC0E207C366B2A30 /* Build configuration list for PBXNativeTarget "MenoCheck" */;
+			buildPhases = (
+				AE3CFD5C6166ACFA2631D31E /* Sources */,
+				F4A1C28F9B92BCCE184160FE /* Resources */,
+				7F65AB3391F6EE8571506466 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MenoCheck;
+			packageProductDependencies = (
+				BF6B21745576C1AE2C4D8D62 /* Lottie */,
+			);
+			productName = MenoCheck;
+			productReference = 761D25D13C0A3E37DA8A8032 /* MenoCheck.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		3671F0330A03743DBCDEE16F /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 2630;
+				TargetAttributes = {
+					3A3190A68B5B86C150898E8B = {
+						DevelopmentTeam = 5976U4WSJN;
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = 1CDA745854937A3087675A20 /* Build configuration list for PBXProject "MenoCheck" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = D0D42C3E999C01A0D5D85F97;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				46EA09874C48B04F98104A9D /* XCRemoteSwiftPackageReference "lottie-spm" */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3A3190A68B5B86C150898E8B /* MenoCheck */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		F4A1C28F9B92BCCE184160FE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1269DD6D97C03E94CEBF7815 /* Assets.xcassets in Resources */,
+				702C86F3867FA6F45C4B1733 /* calendar - woman.json in Resources */,
+				085AF6CB3DC40D42181281E0 /* check.json in Resources */,
+				7137B7B14948C452EC20238A /* welcome.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		AE3CFD5C6166ACFA2631D31E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				6437DAEB74E3C6A558803C7A /* HealthDataService.swift in Sources */,
+				40910062FE699C59CC293D8C /* InsightsView.swift in Sources */,
+				EF4921B3ACD4E4BD55D535BA /* MenoAIAnalysisService.swift in Sources */,
+				72403AADC57433D217781E21 /* MenoAssistantService.swift in Sources */,
+				70F7B314AB5508281E272EEE /* MenoCameraCapture.swift in Sources */,
+				7C47BBCF711DE9DEA27BDAD0 /* MenoCareSummaryView.swift in Sources */,
+				44045CFCD1904FD6972BF52E /* MenoCheckApp.swift in Sources */,
+				99CB6E8EAE144E9958C78A34 /* MenoComponents.swift in Sources */,
+				DECE9B3F1F6E813B48E27EB0 /* MenoHRTReviewView.swift in Sources */,
+				6EF6AF8FFB0A236749EA4CF8 /* MenoHealthConnectionsView.swift in Sources */,
+				E3313CEF4B33A66E4098EB96 /* MenoLottieView.swift in Sources */,
+				7FB2BA21FD73EC76226193B1 /* MenoModels.swift in Sources */,
+				E071A808A3467D8AAD41575C /* MenoOnboardingView.swift in Sources */,
+				F41901CED9CE4C654A891D08 /* MenoPlanView.swift in Sources */,
+				D2D255902EED0A7C4DD9C3B9 /* MenoTheme.swift in Sources */,
+				13BB9379E816B6C612A0E8FF /* MenoVectors.swift in Sources */,
+				DA3EE13666410787EA83909B /* ProfileView.swift in Sources */,
+				A65FB45D9BC39B6669A6ACC9 /* ScanFlowView.swift in Sources */,
+				5972F4DFD3A26700726D8985 /* SymptomLogView.swift in Sources */,
+				530E84C0AC93588EB0487F65 /* TodayView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		4480F0978B1A9FDFBC93A0CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MenoCheck/Resources/Menoplan.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5976U4WSJN;
+				INFOPLIST_FILE = MenoCheck/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.menocheck.app;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		4B78DAE5FB10691AE8A79819 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		74BC42C1EA5F55BA2AF4A9F8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = MenoCheck/Resources/Menoplan.entitlements;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 5976U4WSJN;
+				INFOPLIST_FILE = MenoCheck/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1;
+				PRODUCT_BUNDLE_IDENTIFIER = com.menocheck.app;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		FFC5D45ABDB7CCBAAC0225C9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1CDA745854937A3087675A20 /* Build configuration list for PBXProject "MenoCheck" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4B78DAE5FB10691AE8A79819 /* Debug */,
+				FFC5D45ABDB7CCBAAC0225C9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		4B72A70AEC0E207C366B2A30 /* Build configuration list for PBXNativeTarget "MenoCheck" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				74BC42C1EA5F55BA2AF4A9F8 /* Debug */,
+				4480F0978B1A9FDFBC93A0CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		46EA09874C48B04F98104A9D /* XCRemoteSwiftPackageReference "lottie-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/airbnb/lottie-spm";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		BF6B21745576C1AE2C4D8D62 /* Lottie */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 46EA09874C48B04F98104A9D /* XCRemoteSwiftPackageReference "lottie-spm" */;
+			productName = Lottie;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = 3671F0330A03743DBCDEE16F /* Project object */;
+}

@@ -1,0 +1,31 @@
+name: MenoCheck
+options:
+  bundleIdPrefix: com.menocheck
+  deploymentTarget:
+    iOS: "18.0"
+  xcodeVersion: "26.3"
+packages:
+  Lottie:
+    url: https://github.com/airbnb/lottie-spm
+    from: "4.5.0"
+targets:
+  MenoCheck:
+    type: application
+    platform: iOS
+    sources:
+      - MenoCheck
+    resources:
+      - MenoCheck/Resources
+    dependencies:
+      - package: Lottie
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.menocheck.app
+        INFOPLIST_FILE: MenoCheck/Resources/Info.plist
+        CODE_SIGN_ENTITLEMENTS: MenoCheck/Resources/Menoplan.entitlements
+        MARKETING_VERSION: 0.1
+        CURRENT_PROJECT_VERSION: 1
+        SWIFT_VERSION: 6.0
+        TARGETED_DEVICE_FAMILY: 1
+        CODE_SIGN_STYLE: Automatic
+        DEVELOPMENT_TEAM: 5976U4WSJN

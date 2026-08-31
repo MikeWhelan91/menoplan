@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "api/analyse-fsh.js": {
+      "maxDuration": 60
+    },
+    "api/assistant.js": {
+      "maxDuration": 60
+    }
+  }
+}
