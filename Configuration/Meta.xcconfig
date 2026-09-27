@@ -1,0 +1,7 @@
+// TODO: MenoPlan Meta app. Empty keeps Meta app events inactive.
+// Meta app identifiers are public client configuration for the iOS SDK.
+META_APP_ID = 
+META_CLIENT_TOKEN = 
+
+// Local overrides are ignored by git. CI can supply these build settings directly.
+#include? "Meta.local.xcconfig"

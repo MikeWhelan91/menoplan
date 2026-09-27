@@ -1,0 +1,30 @@
+{
+  "identifier" : "LineCheck",
+  "nonRenewingSubscriptions" : [
+    {
+      "displayPrice" : "6.99",
+      "familyShareable" : false,
+      "internalID" : "menoplan_pro_monthly",
+      "localizations" : [ { "description" : "Unlimited Luna Checks for one month.", "displayName" : "LineCheck Pro Monthly", "locale" : "en_US" } ],
+      "productID" : "menoplan_pro_monthly",
+      "referenceName" : "LineCheck Pro Monthly"
+    },
+    {
+      "displayPrice" : "39.99",
+      "familyShareable" : false,
+      "internalID" : "menoplan_pro_yearly",
+      "localizations" : [ { "description" : "Unlimited Luna Checks for one year.", "displayName" : "LineCheck Pro Yearly", "locale" : "en_US" } ],
+      "productID" : "menoplan_pro_yearly",
+      "referenceName" : "LineCheck Pro Yearly"
+    },
+    {
+      "displayPrice" : "89.99",
+      "familyShareable" : false,
+      "internalID" : "menoplan_pro_lifetime",
+      "localizations" : [ { "description" : "Lifetime LineCheck Pro access.", "displayName" : "LineCheck Pro Lifetime", "locale" : "en_US" } ],
+      "productID" : "menoplan_pro_lifetime",
+      "referenceName" : "LineCheck Pro Lifetime"
+    }
+  ],
+  "version" : { "major" : 4, "minor" : 0 }
+}

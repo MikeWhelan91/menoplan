@@ -1,31 +1,158 @@
-name: MenoCheck
+name: MenoPlan
 options:
   bundleIdPrefix: com.menocheck
   deploymentTarget:
     iOS: "18.0"
-  xcodeVersion: "26.3"
+  xcodeVersion: "26.5"
 packages:
+  PopupView:
+    url: https://github.com/exyte/PopupView
+    from: 4.0.0
+  GoogleMobileAds:
+    url: https://github.com/googleads/swift-package-manager-google-mobile-ads.git
+    from: 12.0.0
   Lottie:
     url: https://github.com/airbnb/lottie-spm
-    from: "4.5.0"
+    from: 4.5.0
+  Firebase:
+    url: https://github.com/firebase/firebase-ios-sdk
+    from: 12.0.0
+  RevenueCat:
+    url: https://github.com/RevenueCat/purchases-ios-spm.git
+    from: 5.0.0
+  RevenueCatAdMob:
+    url: https://github.com/RevenueCat/purchases-ios-admob.git
+    from: 5.0.0
+  Facebook:
+    url: https://github.com/facebook/facebook-ios-sdk.git
+    exactVersion: 18.1.1
+  DGCharts:
+    url: https://github.com/danielgindi/Charts
+    from: 5.1.0
 targets:
-  MenoCheck:
+  MenoPlan:
     type: application
     platform: iOS
     sources:
-      - MenoCheck
+      - MenoPlan
+      - path: images/ovulate.png
+        buildPhase: resources
+      - path: images/luna.png
+        buildPhase: resources
+      - path: images/captureov.png
+        buildPhase: resources
+      - path: images/calendar - woman.json
+        buildPhase: resources
+      - path: images/welcome.json
+        buildPhase: resources
+      - path: images/check.json
+        buildPhase: resources
+      - path: images/ovulate2.json
+        buildPhase: resources
+      - path: Models/LineCheckOvulationPairComparator-v12-direct-guide-box.mlpackage
+        buildPhase: resources
     resources:
-      - MenoCheck/Resources
+      - MenoPlan/Resources
     dependencies:
+      - package: PopupView
+      - package: GoogleMobileAds
+        product: GoogleMobileAds
+      - package: GoogleMobileAds
+        product: GoogleUserMessagingPlatform
       - package: Lottie
+        product: Lottie
+      - package: Firebase
+        product: FirebaseAnalytics
+      - package: RevenueCat
+        product: RevenueCat
+      - package: RevenueCatAdMob
+        product: RevenueCatAdMob
+      - package: Facebook
+        product: FacebookCore
+      - package: DGCharts
+        product: DGCharts
+      - target: MenoPlanWidgets
+    configFiles:
+      Debug: Configuration/Meta.xcconfig
+      Release: Configuration/Meta.xcconfig
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.menocheck.app
-        INFOPLIST_FILE: MenoCheck/Resources/Info.plist
-        CODE_SIGN_ENTITLEMENTS: MenoCheck/Resources/Menoplan.entitlements
-        MARKETING_VERSION: 0.1
+        INFOPLIST_FILE: MenoPlan/Resources/Info.plist
         CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "1.0"
         SWIFT_VERSION: 6.0
-        TARGETED_DEVICE_FAMILY: 1
+        TARGETED_DEVICE_FAMILY: "1,2"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: MenoPlan/MenoPlan.entitlements
         DEVELOPMENT_TEAM: 5976U4WSJN
+        REVENUECAT_API_KEY: ""  # TODO: MenoPlan RevenueCat project key
+      configs:
+        Debug:
+          APS_ENVIRONMENT: development
+          GAD_APPLICATION_IDENTIFIER: ca-app-pub-3940256099942544~1458002511
+        Release:
+          APS_ENVIRONMENT: production
+          GAD_APPLICATION_IDENTIFIER: ca-app-pub-1257499604453174~6070339424
+  MenoPlanWidgets:
+    type: app-extension
+    platform: iOS
+    sources:
+      - MenoPlanWidgets
+      - MenoPlan/Shared
+      - path: MenoPlan/Resources/Fonts
+        buildPhase: resources
+        excludes:
+          - OFL.txt
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.menocheck.app.widgets
+        INFOPLIST_FILE: MenoPlanWidgets/Info.plist
+        CURRENT_PROJECT_VERSION: 1
+        MARKETING_VERSION: "1.0"
+        SWIFT_VERSION: 6.0
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_ENTITLEMENTS: MenoPlanWidgets/MenoPlanWidgets.entitlements
+        DEVELOPMENT_TEAM: 5976U4WSJN
+        SKIP_INSTALL: YES
+  MenoPlanTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: MenoPlanTests
+        excludes:
+          - Fixtures/**
+      - path: MenoPlanTests/Fixtures
+        buildPhase: resources
+        type: folder
+    dependencies:
+      - target: MenoPlan
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.menocheck.app.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 6.0
+schemes:
+  # Explicit so XcodeGen always generates a shared app scheme. Run this one:
+  # it builds and embeds the widget extension. No separate widget scheme,
+  # so it can't be picked by mistake.
+  MenoPlan:
+    build:
+      targets:
+        MenoPlan: all
+        MenoPlanTests: [test]
+    run:
+      config: Debug
+    test:
+      config: Debug
+      targets:
+        - MenoPlanTests
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
