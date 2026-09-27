@@ -130,7 +130,8 @@ struct HomeCountdownHero<Chart: View>: View {
     /// Today's colour in the week strip, so the number reads as the same day.
     var numberColor: Color = .lineNavy
     var uncertaintyNote: String?
-    var onWhy: () -> Void
+    /// nil hides "How is this worked out?" (the symptom week needs no explaining).
+    var onWhy: (() -> Void)?
     @ViewBuilder var chart: () -> Chart
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -146,9 +147,69 @@ struct HomeCountdownHero<Chart: View>: View {
     private var glowTint: Color { numberColor == .lineNavy ? tint : numberColor }
 
     var body: some View {
-        // Top-aligned and offset so the glow centres on the number rather
-        // than the whole hero, which would push it down onto the graph.
-        ZStack(alignment: .top) {
+        VStack(spacing: 6) {
+            Text(countdown.caption)
+                .font(.app(size: LineType.size(16), weight: .bold))
+                .foregroundStyle(Color.lineNavy.opacity(0.78))
+                .multilineTextAlignment(.center)
+                .contentTransition(.opacity)
+
+            Group {
+                if let value = countdown.value, let unit = countdown.unit {
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("\(value)")
+                            .font(.app(size: LineType.size(64), weight: .heavy))
+                            .contentTransition(.numericText(value: Double(value)))
+                        Text(unit)
+                            .font(.app(size: LineType.size(30), weight: .heavy))
+                    }
+                } else {
+                    Text(countdown.headline)
+                        .font(.app(size: LineType.size(58), weight: .heavy))
+                        .contentTransition(.interpolate)
+                }
+            }
+            .foregroundStyle(numberColor)
+            .lineLimit(1)
+            .minimumScaleFactor(0.6)
+
+            Text(countdown.footnote)
+                .font(.app(size: LineType.size(14), weight: .semibold))
+                .foregroundStyle(Color.lineNavy.opacity(0.66))
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+                .contentTransition(.opacity)
+
+            chart()
+                .padding(.horizontal, -12)
+                .padding(.top, 4)
+
+            if let uncertaintyNote {
+                Label(uncertaintyNote, systemImage: "info.circle")
+                    .font(.app(.caption, weight: .semibold))
+                    .foregroundStyle(tint)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(tint.opacity(0.1), in: Capsule())
+                    .padding(.top, 2)
+            }
+
+            if let onWhy {
+                Button(action: onWhy) {
+                    Text("How is this worked out?")
+                        .font(.app(.caption, weight: .semibold))
+                        .foregroundStyle(Color.lineBlue)
+                        .underline()
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 2)
+            }
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 12)
+        // In the background so the glow never sets the hero's height; top
+        // aligned and offset so it centres on the number, not the whole hero.
+        .background(alignment: .top) {
             Circle()
                 .fill(
                     RadialGradient(
@@ -163,69 +224,10 @@ struct HomeCountdownHero<Chart: View>: View {
                 // the whole card, the repeat-forever transaction also caught
                 // the number's first layout, sliding it left and right forever.
                 .animation(reduceMotion ? nil : .easeInOut(duration: 3.2).repeatForever(autoreverses: true), value: breathe)
-                .offset(y: LineType.size(62) - 140)
+                .offset(y: LineType.size(74) - 140)
                 .allowsHitTesting(false)
-
-            VStack(spacing: 6) {
-                Text(countdown.caption)
-                    .font(.app(size: LineType.size(16), weight: .bold))
-                    .foregroundStyle(Color.lineNavy.opacity(0.78))
-                    .multilineTextAlignment(.center)
-                    .contentTransition(.opacity)
-
-                Group {
-                    if let value = countdown.value, let unit = countdown.unit {
-                        HStack(alignment: .firstTextBaseline, spacing: 8) {
-                            Text("\(value)")
-                                .font(.app(size: LineType.size(64), weight: .heavy))
-                                .contentTransition(.numericText(value: Double(value)))
-                            Text(unit)
-                                .font(.app(size: LineType.size(30), weight: .heavy))
-                        }
-                    } else {
-                        Text(countdown.headline)
-                            .font(.app(size: LineType.size(58), weight: .heavy))
-                            .contentTransition(.interpolate)
-                    }
-                }
-                .foregroundStyle(numberColor)
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
-
-                Text(countdown.footnote)
-                    .font(.app(size: LineType.size(14), weight: .semibold))
-                    .foregroundStyle(Color.lineNavy.opacity(0.66))
-                    .multilineTextAlignment(.center)
-                    .fixedSize(horizontal: false, vertical: true)
-                    .contentTransition(.opacity)
-
-                chart()
-                    .padding(.horizontal, -12)
-                    .padding(.top, 4)
-
-                if let uncertaintyNote {
-                    Label(uncertaintyNote, systemImage: "info.circle")
-                        .font(.app(.caption, weight: .semibold))
-                        .foregroundStyle(tint)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(tint.opacity(0.1), in: Capsule())
-                        .padding(.top, 2)
-                }
-
-                Button(action: onWhy) {
-                    Text("How is this worked out?")
-                        .font(.app(.caption, weight: .semibold))
-                        .foregroundStyle(Color.lineBlue)
-                        .underline()
-                }
-                .buttonStyle(.plain)
-                .padding(.top, 2)
-            }
-            .padding(.horizontal, 24)
         }
         .frame(maxWidth: .infinity)
-        .frame(minHeight: 250)
         .animation(.spring(response: 0.5, dampingFraction: 0.85), value: countdown)
         .onAppear {
             guard !reduceMotion else { return }
@@ -295,7 +297,7 @@ struct PressScaleButtonStyle: ButtonStyle {
 // MARK: - Nudge cards
 
 /// A soft card used for the one-off prompts on Home (personalise, doctor
-/// suggestion, confirm pregnancy). Consistent chrome so each reads as a
+/// suggestion, bleeding after menopause). Consistent chrome so each reads as a
 /// gentle suggestion rather than an alert.
 struct HomeNudgeCard<Actions: View>: View {
     let symbol: String
@@ -346,8 +348,6 @@ struct HomeNudgeCard<Actions: View>: View {
         .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(tint.opacity(0.18)))
     }
 }
-
-// MARK: - Pregnancy mode
 
 /// A centred modal that dims everything behind it - used for confirmations
 /// that deserve more weight than an action sheet.

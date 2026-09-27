@@ -10,6 +10,8 @@ struct HomeCountdown: Equatable {
         case periodUpcoming
         case periodDue
         case periodLate
+        /// A long wait: counted from the last period instead of as "late".
+        case sinceLastPeriod
     }
 
     var stage: Stage
@@ -25,6 +27,10 @@ struct HomeCountdown: Equatable {
 }
 
 enum CycleJourneyCalculator {
+    /// How long past the estimate a period counts as "late" before Home
+    /// switches to counting days since the last one.
+    static let lateWindowDays = 14
+
     static func countdown(
         on date: Date = .now,
         window: FertilityWindow,
@@ -53,6 +59,18 @@ enum CycleJourneyCalculator {
             )
         }
         let late = -toPeriod
+        // Weeks past the estimate, "N days late" stops meaning much: in
+        // perimenopause a long gap is expected, so count from the last period.
+        if late > lateWindowDays {
+            let since = calendar.dateComponents([.day], from: calendar.startOfDay(for: window.cycleStart), to: today).day ?? 0
+            return HomeCountdown(
+                stage: .sinceLastPeriod,
+                caption: "Since your last period",
+                value: since, unit: since == 1 ? "Day" : "Days",
+                headline: "\(since) \(since == 1 ? "Day" : "Days")",
+                footnote: "Longer gaps between periods are common in perimenopause"
+            )
+        }
         return HomeCountdown(
             stage: .periodLate,
             caption: "Your period is",

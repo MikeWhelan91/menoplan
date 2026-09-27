@@ -61,3 +61,78 @@ final class MenopauseDailyLogTests: XCTestCase {
         }
     }
 }
+
+final class MenopauseSummaryCalculatorTests: XCTestCase {
+    private var calendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
+        return calendar
+    }()
+
+    private func day(_ offset: Int) -> Date {
+        calendar.date(byAdding: .day, value: offset, to: calendar.date(from: DateComponents(year: 2026, month: 9, day: 27))!)!
+    }
+
+    func testSteadyCycles() {
+        let summary = CycleChangeCalculator.summary(periodStarts: [day(-84), day(-56), day(-28), day(0)], on: day(3), calendar: calendar)
+        XCTAssertEqual(summary.recentCycleLengths, [28, 28, 28])
+        XCTAssertFalse(summary.hasNoticeableChange)
+        XCTAssertFalse(summary.hasLongGap)
+        XCTAssertEqual(summary.daysSinceLastPeriod, 3)
+        XCTAssertNil(summary.twelveMonthProgress)
+        XCTAssertTrue(summary.headline.contains("steady"))
+    }
+
+    func testSevenDayChangeBetweenConsecutiveCycles() {
+        let summary = CycleChangeCalculator.summary(periodStarts: [day(-63), day(-35), day(0)], on: day(1), calendar: calendar)
+        XCTAssertEqual(summary.recentCycleLengths, [28, 35])
+        XCTAssertTrue(summary.hasNoticeableChange)
+    }
+
+    func testDuplicateStartsAreOneBleed() {
+        let summary = CycleChangeCalculator.summary(periodStarts: [day(-28), day(-26), day(0)], on: day(0), calendar: calendar)
+        XCTAssertEqual(summary.recentCycleLengths, [28])
+    }
+
+    func testLongWaitCountsTowardsTwelveMonths() {
+        let summary = CycleChangeCalculator.summary(periodStarts: [day(-150)], on: day(0), calendar: calendar)
+        XCTAssertTrue(summary.hasLongGap)
+        XCTAssertEqual(summary.twelveMonthProgress ?? 0, 150.0 / 365.0, accuracy: 0.001)
+        XCTAssertFalse(summary.reachedTwelveMonths)
+
+        let year = CycleChangeCalculator.summary(periodStarts: [day(-400)], on: day(0), calendar: calendar)
+        XCTAssertTrue(year.reachedTwelveMonths)
+        XCTAssertEqual(year.twelveMonthProgress, 1)
+    }
+
+    private func log(_ offset: Int, flushes: Int? = nil, sleep: SleepQuality? = nil, symptoms: [String] = []) -> DailyFertilityLog {
+        let log = DailyFertilityLog(date: day(offset), symptoms: symptoms)
+        log.hotFlushCount = flushes
+        log.sleepQuality = sleep
+        return log
+    }
+
+    func testSymptomWeekComparesWithTheWeekBefore() {
+        let logs = [
+            log(0, flushes: 2, sleep: .poor, symptoms: ["Brain Fog"]),
+            log(-3, flushes: 1, symptoms: ["Brain Fog", "Joint Pain"]),
+            log(-8, flushes: 6)
+        ]
+        logs[0].nightSweatCount = 1
+        let week = SymptomWeekCalculator.summary(logs: logs, on: day(0), calendar: calendar)
+        XCTAssertEqual(week.hotFlushes, 3)
+        XCTAssertEqual(week.previousHotFlushes, 6)
+        XCTAssertEqual(week.nightSweats, 1)
+        XCTAssertEqual(week.previousNightSweats, 0)
+        XCTAssertEqual(week.badSleepNights, 1)
+        XCTAssertEqual(week.loggedDays, 2)
+        XCTAssertEqual(week.topSymptoms, ["Brain Fog", "Joint Pain"])
+    }
+
+    func testEmptyWeekAsksForALog() {
+        let week = SymptomWeekCalculator.summary(logs: [], on: day(0), calendar: calendar)
+        XCTAssertTrue(week.isEmpty)
+        XCTAssertNil(week.previousHotFlushes)
+        XCTAssertNil(week.previousNightSweats)
+    }
+}

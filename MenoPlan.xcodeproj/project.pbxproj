@@ -17,6 +17,7 @@
 		1261C52FBCF3E6DC241C82AF /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855B2E8350957428CF6668FB /* CalendarView.swift */; };
 		155F075C09EB13E048A470C0 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = C98F38125EAAB972A231805C /* FirebaseAnalytics */; };
 		15835DB368D0FE9223A1DFFB /* CalendarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07BBCCFD9F533766838CA76E /* CalendarViewModel.swift */; };
+		1DB745A04EC59B9B9281EAF8 /* HomeMenopauseViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = C30E4CB78FC44703148521EF /* HomeMenopauseViews.swift */; };
 		2070EBF2DA517404CD333953 /* MenoPlanWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB34D4B89E2B12CA9C28C13 /* MenoPlanWidgetsBundle.swift */; };
 		20865BE37C564820F1254C61 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7A494249A4C659635D909C89 /* Assets.xcassets */; };
 		21D1065985A885223E181DE7 /* WidgetCycleSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B96F1C2ABC11FD23AB3100 /* WidgetCycleSummary.swift */; };
@@ -43,6 +44,7 @@
 		4501EF2E85FC9FA9A604C725 /* Scan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7199AED3A1C2DD0FCC0CC905 /* Scan.swift */; };
 		47698FEC25EBCEFE4254AC3E /* WidgetSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC21C2851E8294B1AF054A8 /* WidgetSnapshotTests.swift */; };
 		47DBC33C512290020FBE36DB /* PlusJakartaSans-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7BE0608F049B48EA99B6222D /* PlusJakartaSans-ExtraBold.ttf */; };
+		4ACFD4F5895DCDA66F4E19E4 /* MenopauseSummaryCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = B808AFA3C6DC5827C4C3F484 /* MenopauseSummaryCalculator.swift */; };
 		4C874E830383E0147FAC042A /* AssistantViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809420E20F2D3A4893205EF4 /* AssistantViewModel.swift */; };
 		509BA2E282503FD8C2ABF20E /* ImageQualityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9FA9E22CE1BA36A5A3A90A4 /* ImageQualityService.swift */; };
 		510140B4689F44E7F0208A4B /* LineCheckApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758726AA38FCB35650B5D711 /* LineCheckApp.swift */; };
@@ -274,12 +276,14 @@
 		B200461807E3E9306E463FB3 /* PredictionAndProgressionNarrativeTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredictionAndProgressionNarrativeTests.swift; sourceTree = "<group>"; };
 		B2BA196A4D7712CF11C9DC3C /* MenoPlanWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MenoPlanWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B50A7A69E6FCADCA9240899A /* LineCheckOvulationPairComparator-v12-direct-guide-box.mlpackage */ = {isa = PBXFileReference; path = "LineCheckOvulationPairComparator-v12-direct-guide-box.mlpackage"; sourceTree = "<group>"; };
+		B808AFA3C6DC5827C4C3F484 /* MenopauseSummaryCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenopauseSummaryCalculator.swift; sourceTree = "<group>"; };
 		B9ABB176AD6D34629D3BC38A /* PersonalizationQuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationQuizView.swift; sourceTree = "<group>"; };
 		C001AB9703DD2A86840B0ECE /* AdaptiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveLayout.swift; sourceTree = "<group>"; };
 		C00A1108498F058A24F4B2E4 /* WidgetTodayPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetTodayPlan.swift; sourceTree = "<group>"; };
 		C16C3F5D23479760918ECF90 /* AssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantService.swift; sourceTree = "<group>"; };
 		C2C075326518E86A23A196E8 /* Reminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminder.swift; sourceTree = "<group>"; };
 		C308200E4F6B4674C14B850F /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OFL.txt; sourceTree = "<group>"; };
+		C30E4CB78FC44703148521EF /* HomeMenopauseViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeMenopauseViews.swift; sourceTree = "<group>"; };
 		C33A69CE58CCE817B6D18B7C /* ScanImageSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanImageSyncService.swift; sourceTree = "<group>"; };
 		C552F8B1C1A27A76264FFE27 /* ovulate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ovulate.png; sourceTree = "<group>"; };
 		CADF1C2A5AC7BFEBBD4FF97A /* Enums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Enums.swift; sourceTree = "<group>"; };
@@ -418,6 +422,7 @@
 				E9FA9E22CE1BA36A5A3A90A4 /* ImageQualityService.swift */,
 				825AC9A2D5DC9608B0CDBA4B /* ImageStorageService.swift */,
 				053CCEDB73952EE9D385C9C8 /* LineAnalysisEngine.swift */,
+				B808AFA3C6DC5827C4C3F484 /* MenopauseSummaryCalculator.swift */,
 				363A011441C33E89E7805400 /* MetaAppEventsService.swift */,
 				8916CB27AC827600DC19D7B4 /* NotificationService.swift */,
 				B0459BCD0233DC157A111F19 /* OnDeviceOvulationAnalysisService.swift */,
@@ -485,6 +490,7 @@
 			isa = PBXGroup;
 			children = (
 				B0A4B4C21A5EB29209EC0E0E /* HomeJourneyViews.swift */,
+				C30E4CB78FC44703148521EF /* HomeMenopauseViews.swift */,
 				24F690209B990CE64406B0AA /* HomeView.swift */,
 			);
 			path = Home;
@@ -909,6 +915,7 @@
 				B140F168B6690D9E0299FA02 /* HistoryView.swift in Sources */,
 				6C33D3E83FFCDA98D6E32E04 /* HistoryViewModel.swift in Sources */,
 				3C42CF480FF73426FDFC4732 /* HomeJourneyViews.swift in Sources */,
+				1DB745A04EC59B9B9281EAF8 /* HomeMenopauseViews.swift in Sources */,
 				5F992D680A8C11D32E6CEB73 /* HomeView.swift in Sources */,
 				68097ACEE4B2FB354F3C2125 /* HomeViewModel.swift in Sources */,
 				ECD29AB5395EC7550ECBD1C6 /* ImageEnhancementService.swift in Sources */,
@@ -919,6 +926,7 @@
 				510140B4689F44E7F0208A4B /* LineCheckApp.swift in Sources */,
 				9340B070D8C69B0AB935E304 /* LottieView.swift in Sources */,
 				31D6AF7433FFA54E9FD89A1F /* ManualEnhanceView.swift in Sources */,
+				4ACFD4F5895DCDA66F4E19E4 /* MenopauseSummaryCalculator.swift in Sources */,
 				B196CA956037038EF3C793F7 /* MetaAppEventsService.swift in Sources */,
 				511EA6C02BB8CFABDEDB7E51 /* NotificationService.swift in Sources */,
 				8EA1F5E5B7CE91C275A359D2 /* OnDeviceOvulationAnalysisService.swift in Sources */,

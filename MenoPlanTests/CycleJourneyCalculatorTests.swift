@@ -38,6 +38,11 @@ final class CycleJourneyCalculatorTests: XCTestCase {
         XCTAssertEqual(late.stage, .periodLate)
         XCTAssertEqual(late.value, 3)
         XCTAssertEqual(late.footnote, "Cycles often vary more in perimenopause")
+
+        let longGap = try countdown(11, 1)
+        XCTAssertEqual(longGap.stage, .sinceLastPeriod)
+        XCTAssertEqual(longGap.caption, "Since your last period")
+        XCTAssertEqual(longGap.value, 61)
     }
 
     func testContraceptionAddsACaveat() throws {

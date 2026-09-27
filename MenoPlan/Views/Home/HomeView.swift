@@ -30,6 +30,10 @@ struct HomeView: View {
     @State private var showPersonalization = false
     @State private var showBodySignals = false
     @State private var showHealthPrompt = false
+    /// Brief confirmation under the quick actions after a one-tap +1.
+    @State private var quickLogToast: String?
+    /// Day of the latest postmenopausal bleed whose nudge was dismissed.
+    @AppStorage("homeBleedingNudgeDismissedDay") private var bleedingNudgeDismissedDay = 0.0
 
     var body: some View {
         NavigationStack {
@@ -37,10 +41,15 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     journeyOverview
                     homeNudges
-                    scanTiles
+                    stageCards
+                    FSHTestTile(lastTested: latestScan?.createdAt) {
+                        appState.startScan(testType: .ovulation)
+                    }
                     todayPanel
                     quickLinks
-                    recentScansPanel
+                    if !scans.isEmpty {
+                        recentScansPanel
+                    }
                 }
                 // On compact these resolve to the 16/24 this screen has always
                 // used, so the iPhone layout is unchanged.
@@ -151,8 +160,80 @@ struct HomeView: View {
 
     private var activeCycle: CycleRecord? { CycleTrackingService.activeCycle(records: cycleRecords) }
 
+    private var stage: MenopauseStage { settings?.menopauseStage ?? .perimenopause }
+    private var tracksCycle: Bool { stage.tracksCycle }
+
+    private var symptomWeek: SymptomWeekSummary {
+        SymptomWeekCalculator.summary(logs: dailyLogs.filter { !$0.notes.contains("[LineCheck Screenshot Sample]") })
+    }
+
+    private var cycleChange: CycleChangeSummary {
+        let sample = "[LineCheck Screenshot Sample]"
+        let starts = periodEvents.filter { !$0.notes.contains(sample) }.map(\.startDate)
+            + cycleRecords.filter { !$0.notes.contains(sample) }.map(\.startDate)
+        return CycleChangeCalculator.summary(periodStarts: starts)
+    }
+
+    /// The cards under the hero: how the cycle is changing (while periods are
+    /// tracked) and the symptom week.
+    @ViewBuilder
+    private var stageCards: some View {
+        if tracksCycle, fertilityWindow != nil {
+            CycleChangeCard(
+                summary: cycleChange,
+                onOpenCalendar: { appState.selectedTab = .calendar },
+                onSwitchStage: {
+                    withAnimation(.snappy) { settings?.menopauseStage = .postmenopause }
+                    try? modelContext.save()
+                }
+            )
+        }
+        SymptomWeekCard(
+            week: symptomWeek,
+            showsFlushesAndSweats: tracksCycle && fertilityWindow != nil,
+            tracksHRT: !(settings?.hrtRegimen.isEmpty ?? true) || symptomWeek.hrtDays > 0,
+            onLog: { logRequest = HomeLogRequest(date: .now, section: nil) },
+            onOpenTrends: {
+                appState.showTrendsRequested = true
+                appState.selectedTab = .calendar
+            }
+        )
+    }
+
+    /// Most recent bleeding logged in the last 30 days, for the
+    /// postmenopause nudge.
+    private var recentPostmenopausalBleed: Date? {
+        guard stage == .postmenopause else { return nil }
+        let calendar = Calendar.current
+        guard let cutoff = calendar.date(byAdding: .day, value: -30, to: calendar.startOfDay(for: .now)) else { return nil }
+        return dailyLogs.first { $0.flowIntensity != nil && $0.date >= cutoff }.map { calendar.startOfDay(for: $0.date) }
+    }
+
+    /// Adds one hot flush or night sweat to today's log without opening it.
+    private func addOneToToday(_ keyPath: ReferenceWritableKeyPath<DailyFertilityLog, Int?>, noun: (one: String, many: String)) {
+        let today = Calendar.current.startOfDay(for: .now)
+        let entry: DailyFertilityLog
+        if let existing = log(for: today) {
+            entry = existing
+        } else {
+            entry = DailyFertilityLog(date: today)
+            modelContext.insert(entry)
+        }
+        let count = min((entry[keyPath: keyPath] ?? 0) + 1, 50)
+        entry[keyPath: keyPath] = count
+        entry.updatedAt = .now
+        try? modelContext.save()
+        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
+        let message = "\(noun.one.capitalized) added · \(count) \(count == 1 ? noun.one : noun.many) today"
+        withAnimation(.snappy) { quickLogToast = message }
+        Task {
+            try? await Task.sleep(for: .seconds(2.2))
+            if quickLogToast == message { withAnimation(.snappy) { quickLogToast = nil } }
+        }
+    }
+
     private var shouldShowPeriodCheckIn: Bool {
-        guard settings != nil else { return false }
+        guard settings != nil, tracksCycle else { return false }
         return HomePeriodCheckInPolicy.shouldShow(
             on: .now, window: fertilityWindow, cycle: activeCycle, periods: periodEvents,
             snoozedCycleID: checkInSnoozedCycleID, snoozedUntil: checkInSnoozedUntil
@@ -218,17 +299,17 @@ struct HomeView: View {
                 periodCheckInCard
             }
 
-            if let window = fertilityWindow {
-                HomeWeekStrip(
-                    window: window,
-                    cycleRecords: cycleRecords,
-                    periodEvents: periodEvents,
-                    loggedDays: loggedDays
-                ) { day in
-                    logRequest = HomeLogRequest(date: day, section: nil)
-                }
-                .padding(.top, 2)
+            HomeWeekStrip(
+                window: tracksCycle ? fertilityWindow : nil,
+                cycleRecords: cycleRecords,
+                periodEvents: periodEvents,
+                loggedDays: loggedDays
+            ) { day in
+                logRequest = HomeLogRequest(date: day, section: nil)
+            }
+            .padding(.top, 2)
 
+            if tracksCycle, let window = fertilityWindow {
                 let countdown = CycleJourneyCalculator.reacting(
                     CycleJourneyCalculator.countdown(window: window),
                     to: settings.map { CycleSignalsEngine.signals(signalInputs(settings: $0)) } ?? []
@@ -242,11 +323,26 @@ struct HomeView: View {
                     EmptyView()
                 }
                 .overlay(alignment: .topTrailing) { bodySignalsButton }
-
-                HomeQuickActionsRow(actions: quickActions(for: countdown))
-                    .padding(.bottom, 4)
-
             } else {
+                VasomotorWeekHero(week: symptomWeek)
+                    .overlay(alignment: .topTrailing) { bodySignalsButton }
+            }
+
+            HomeQuickActionsRow(actions: quickActions)
+                .padding(.bottom, quickLogToast == nil ? 4 : 0)
+            if let quickLogToast {
+                Text(quickLogToast)
+                    .font(.app(.caption, weight: .bold))
+                    .foregroundStyle(Color.lineNavy.opacity(0.7))
+                    .padding(.horizontal, 12)
+                    .padding(.vertical, 6)
+                    .background(Color.white.opacity(0.9), in: Capsule())
+                    .frame(maxWidth: .infinity)
+                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
+                    .id(quickLogToast)
+            }
+
+            if tracksCycle, fertilityWindow == nil {
                     Button {
                         appState.calendarSetupRequest = .ovulation
                         appState.selectedTab = .calendar
@@ -289,18 +385,24 @@ struct HomeView: View {
         return nil
     }
 
-    private func quickActions(for countdown: HomeCountdown) -> [HomeQuickAction] {
+    private var quickActions: [HomeQuickAction] {
         let today = Calendar.current.startOfDay(for: .now)
+        let flush = HomeQuickAction(id: "flush", title: "Hot flush +1", symbol: "flame.fill", tint: .orange, filled: !tracksCycle) {
+            addOneToToday(\.hotFlushCount, noun: ("hot flush", "hot flushes"))
+        }
+        let sweat = HomeQuickAction(id: "sweat", title: "Night sweat +1", symbol: "moon.stars.fill", tint: .linePurple, filled: !tracksCycle) {
+            addOneToToday(\.nightSweatCount, noun: ("night sweat", "night sweats"))
+        }
+        let logToday = HomeQuickAction(id: "log", title: "Log today", symbol: "plus", tint: .linePurple) {
+            logRequest = HomeLogRequest(date: today, section: nil)
+        }
+        guard tracksCycle, fertilityWindow != nil else { return [flush, sweat, logToday] }
         return [
             HomeQuickAction(id: "period", title: "Log period", symbol: "drop.fill", tint: .linePink, filled: true) {
                 showPeriodStartCheckIn = true
             },
-            HomeQuickAction(id: "symptoms", title: "Symptoms", symbol: "plus", tint: .linePurple) {
-                logRequest = HomeLogRequest(date: today, section: .symptoms)
-            },
-            HomeQuickAction(id: "test", title: "Test", symbol: "camera.viewfinder", tint: TestType.ovulation.tint) {
-                appState.startScan(testType: .ovulation)
-            }
+            flush,
+            logToday
         ]
     }
 
@@ -319,14 +421,14 @@ struct HomeView: View {
             && settings.dismissedSetupChecklistValue != true
             // Apple Health is optional (plenty of people have no Health
             // data), so it never keeps the checklist open on its own.
-            && !(cycleIsSetUp(settings) && settings.hasCompletedPersonalization)
+            && !((cycleIsSetUp(settings) || !settings.menopauseStage.tracksCycle) && settings.hasCompletedPersonalization)
     }
 
     /// Everything onboarding would have asked, one tap each, ticking off as
     /// it's done - so skipping setup to scan never costs anything later.
     private func setupChecklist(_ settings: UserSettings) -> some View {
         let items: [(done: Bool, optional: Bool, title: String, detail: String, symbol: String, action: () -> Void)] = [
-            (cycleIsSetUp(settings), false, "Your cycle", "Last period and cycle length, for predictions", "calendar", {
+            (cycleIsSetUp(settings), false, "Your cycle", "Last period and cycle length, to see how it's changing", "calendar", {
                 appState.calendarSetupRequest = .ovulation
                 appState.selectedTab = .calendar
             }),
@@ -336,7 +438,7 @@ struct HomeView: View {
             (healthIsSetUp(settings), true, "Apple Health", "If you use it, fill in hot flushes, sleep, periods and more automatically", "heart.text.square", {
                 connectAppleHealth(source: "setup_checklist")
             })
-        ]
+        ].filter { $0.title != "Your cycle" || settings.menopauseStage.tracksCycle }
         let remaining = items.filter { !$0.done && !$0.optional }.count
         return VStack(alignment: .leading, spacing: 12) {
             HStack(alignment: .firstTextBaseline) {
@@ -497,6 +599,20 @@ struct HomeView: View {
     @ViewBuilder
     private var homeNudges: some View {
         if let settings {
+            if let bleed = recentPostmenopausalBleed, bleed.timeIntervalSince1970 > bleedingNudgeDismissedDay {
+                HomeNudgeCard(
+                    symbol: "stethoscope",
+                    tint: .linePink,
+                    title: "Please get this bleeding checked",
+                    message: "You logged bleeding on \(DateFormatting.shortDate.string(from: bleed)). Bleeding after menopause should always be looked at by a GP or clinician. It's often nothing serious, but it needs checking.",
+                    onDismiss: {
+                        withAnimation(.snappy) { bleedingNudgeDismissedDay = bleed.timeIntervalSince1970 }
+                    }
+                ) {
+                    EmptyView()
+                }
+                .transition(.opacity.combined(with: .scale(scale: 0.97)))
+            }
             if settings.healthProfile.shouldSuggestDoctor(), !settings.dismissedDoctorSuggestion {
                 HomeNudgeCard(
                     symbol: "stethoscope",
@@ -544,22 +660,6 @@ struct HomeView: View {
 
     private var homeTimelineDetail: String {
         "Add your last period to see how your cycle is changing."
-    }
-
-    private func timelineMetric(_ title: String, _ value: String, tint: Color) -> some View {
-        VStack(alignment: .leading, spacing: 3) {
-            Text(title)
-                .font(.app(.caption2, weight: .bold))
-                .foregroundStyle(Color.lineNavy.opacity(0.46))
-            Text(value)
-                .font(.app(.caption, weight: .bold))
-                .foregroundStyle(Color.lineNavy)
-                .lineLimit(2)
-        }
-        .frame(maxWidth: .infinity, minHeight: 48, alignment: .leading)
-        .padding(.horizontal, 11)
-        .padding(.vertical, 8)
-        .background(tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 
     private var quickLinks: some View {
@@ -614,19 +714,6 @@ struct HomeView: View {
             }
         }
         .buttonStyle(.plain)
-    }
-
-    private var scanTiles: some View {
-        VStack(spacing: 12) {
-            ScanHeroTile(
-                testType: .ovulation,
-                title: "Ovulation Test Check",
-                subtitle: "Check an ovulation test",
-                result: .high
-            ) {
-                appState.startScan(testType: .ovulation)
-            }
-        }
     }
 
     /// A "Next step" nudge used to sit here too, alongside the reminder
@@ -726,7 +813,7 @@ struct HomeView: View {
     private var recentScansPanel: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                Text("Recent Scans")
+                Text("Recent Tests")
                     .font(.app(.headline, weight: .bold))
                     .foregroundStyle(Color.lineNavy)
 
@@ -827,256 +914,6 @@ private struct HomeReminderDraft: Identifiable {
     let date: Date
     let title: String
     var id: String { "\(type.rawValue)-\(title)-\(date.timeIntervalSince1970)" }
-}
-
-private struct ScanHeroTile: View {
-    @Environment(\.lineLayout) private var layout
-    var testType: TestType
-    var title: String
-    var subtitle: String
-    var result: ScanResultType
-    var action: () -> Void
-
-    /// The tile's own width: the content column, minus the page gutters it
-    /// sits inside. Everything in `wideContent` is sized from this so the
-    /// layout keeps its proportions on any regular-width screen instead of
-    /// holding constants picked for one particular iPad.
-    private var tileWidth: CGFloat {
-        min(layout.width, layout.contentMaxWidth) - layout.horizontalPadding * 2
-    }
-
-    /// 372/672 and 248/672 - the ratios the tile was originally drawn at.
-    private var textMaxWidth: CGFloat { min(max(372, tileWidth * 0.554), 520) }
-    private var imageWidth: CGFloat { min(max(248, tileWidth * 0.369), 340) }
-    private var imageHeight: CGFloat { imageWidth * (150.0 / 248.0) }
-
-    /// iPad: no width arithmetic at all. The text block states what it needs
-    /// and the image takes a bounded share of what's left, so the subtitle can
-    /// never end up underneath the artwork the way computed widths allowed.
-    private var wideContent: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(title)
-                    .font(.app(size: LineType.size(22), weight: .heavy))
-                    .foregroundStyle(testType.tint)
-                    .fixedSize(horizontal: false, vertical: true)
-
-                Text(subtitle)
-                    .font(.app(size: LineType.size(17), weight: .semibold))
-                    .foregroundStyle(Color.lineNavy.opacity(0.82))
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-            // An explicit bound rather than "whatever is left": the strip
-            // artwork is drawn wider than its slot and rotated, so relying on
-            // the remaining space let its translucent end cap sit over the last
-            // word of the subtitle. Text wraps inside this instead.
-            //
-            // Proportional to the tile rather than a flat 372, which was tuned
-            // against the 11" iPad's 672pt tile and left the 13" with its text
-            // and artwork clustered at either end of a much wider card.
-            .frame(maxWidth: textMaxWidth, alignment: .leading)
-            .layoutPriority(1)
-
-            // 18 + text + 14 + image + 4 keeps the same proportions the 672pt
-            // tile was designed at, so nothing has to shrink and neither line
-            // has to wrap. `body` still falls back to the compact tile below
-            // 700pt rather than letting these squeeze.
-            Spacer(minLength: 14)
-
-            ScanTileTestImage(testType: testType, viewportWidth: imageWidth)
-                .frame(width: imageWidth, height: imageHeight, alignment: .trailing)
-                .allowsHitTesting(false)
-                .padding(.trailing, 4)
-        }
-        .padding(.leading, 18)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
-    }
-
-    /// The long-standing iPhone tile, unchanged.
-    private var compactContent: some View {
-        GeometryReader { proxy in
-            let contentWidth = max(proxy.size.width - 30, 0)
-            let textWidth = min(max(contentWidth * 0.58, 188), 224)
-            let imageViewportWidth = max(contentWidth - textWidth - 10, 96)
-
-            HStack(spacing: 10) {
-                VStack(alignment: .leading, spacing: 8) {
-                    Text(title)
-                        .font(.app(size: LineType.size(22), weight: .heavy))
-                        .foregroundStyle(testType.tint)
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Text(subtitle)
-                        .font(.app(size: LineType.size(17), weight: .semibold))
-                        .foregroundStyle(Color.lineNavy.opacity(0.82))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-                .frame(width: textWidth, alignment: .leading)
-                .layoutPriority(1)
-
-                ScanTileTestImage(testType: testType)
-                    .frame(width: imageViewportWidth, height: 90, alignment: .trailing)
-                    .allowsHitTesting(false)
-            }
-            .padding(.leading, 18)
-            .padding(.trailing, 12)
-            .frame(width: proxy.size.width, height: proxy.size.height, alignment: .center)
-        }
-    }
-
-    private var gradient: LinearGradient {
-        LinearGradient(
-            colors: [
-                testType.tint.opacity(0.17),
-                testType.tint.opacity(0.07),
-                Color.white.opacity(0.82)
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-    }
-
-    var body: some View {
-        Button(action: action) {
-            Group {
-                if layout.isRegular && layout.width >= 700 {
-                    wideContent
-                } else {
-                    compactContent
-                }
-            }
-            .frame(maxWidth: .infinity)
-            // A minimum, not a fixed height. This was `height:` with a
-            // `clipShape` below it, so any width that made the title or
-            // subtitle wrap an extra line had that line cut off - very visible
-            // in a resized iPad window, where the tile is far narrower than
-            // either the phone or full-screen iPad case these numbers were
-            // picked for.
-            .frame(minHeight: layout.isRegular ? 184 : 124)
-            .background(gradient, in: RoundedRectangle(cornerRadius: 12))
-            .overlay(alignment: .trailing) {
-                LinearGradient(
-                    colors: [
-                        Color.white.opacity(0),
-                        Color.white.opacity(0.34),
-                        Color.white.opacity(0.72)
-                    ],
-                    startPoint: .leading,
-                    endPoint: .trailing
-                )
-                .frame(width: 58)
-                .allowsHitTesting(false)
-            }
-            .overlay(RoundedRectangle(cornerRadius: 12).stroke(testType.tint.opacity(0.10)))
-            .clipShape(RoundedRectangle(cornerRadius: 12))
-        }
-        .buttonStyle(.plain)
-        .accessibilityLabel(title)
-    }
-}
-
-private struct ScanTileTestImage: View {
-    @Environment(\.lineLayout) private var layout
-    var testType: TestType
-    /// The width of the window the artwork is cropped into. Only needed on
-    /// iPad, where the crop is computed from it rather than hard-coded.
-    var viewportWidth: CGFloat? = nil
-
-    private var assetName: String {
-        "HomeOvulationTest"
-    }
-
-    private var artScale: CGFloat { layout.isRegular ? 1.45 : 1 }
-
-    private var imageWidth: CGFloat { 334 * artScale }
-    private var viewportHeight: CGFloat { 82 * artScale }
-
-    /// Shifts the artwork right inside its window, so the test enters from the
-    /// left with its cap intact and only its far end is cropped — the phone's
-    /// framing. On iPad the shift is derived from the window rather than
-    /// hard-coded: landing the artwork's left edge exactly on the window's left
-    /// edge is what guarantees nothing is cut off that end, at any art scale.
-    private var cropOffset: CGFloat {
-        guard layout.isRegular, let viewportWidth else {
-            return 124
-        }
-        return max(0, imageWidth - viewportWidth)
-    }
-
-    private var rotation: Double {
-        -4
-    }
-
-    var body: some View {
-        Image(assetName)
-            .resizable()
-            .scaledToFit()
-            .frame(width: imageWidth)
-            .rotationEffect(.degrees(rotation))
-            .offset(x: cropOffset)
-            .frame(maxWidth: .infinity, maxHeight: viewportHeight, alignment: .trailing)
-            .clipped()
-            .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
-            .allowsHitTesting(false)
-    }
-}
-
-private struct MiniTrendView: View {
-    var values: [Double]
-    var tint: Color
-
-    private var normalizedValues: [Double] {
-        let source = values.count > 1 ? values : [0.18, 0.30, 0.26, 0.52, 0.76, 0.70]
-        guard let minValue = source.min(), let maxValue = source.max(), maxValue > minValue else {
-            return source.map { _ in 0.5 }
-        }
-        return source.map { ($0 - minValue) / (maxValue - minValue) }
-    }
-
-    var body: some View {
-        GeometryReader { proxy in
-            let points = makePoints(in: proxy.size)
-
-            ZStack {
-                VStack(spacing: 0) {
-                    Spacer()
-                    Divider().opacity(0.5)
-                    Spacer()
-                    Divider().opacity(0.5)
-                    Spacer()
-                }
-
-                Path { path in
-                    guard let first = points.first else { return }
-                    path.move(to: first)
-                    for point in points.dropFirst() {
-                        path.addLine(to: point)
-                    }
-                }
-                .stroke(tint, style: StrokeStyle(lineWidth: 2.2, lineCap: .round, lineJoin: .round))
-
-                ForEach(Array(points.enumerated()), id: \.offset) { index, point in
-                    Circle()
-                        .fill(index == points.count - 1 ? tint : Color.lineCard)
-                        .overlay(Circle().stroke(tint, lineWidth: 1.5))
-                        .frame(width: index == points.count - 1 ? 10 : 7, height: index == points.count - 1 ? 10 : 7)
-                        .position(point)
-                }
-            }
-        }
-    }
-
-    private func makePoints(in size: CGSize) -> [CGPoint] {
-        let values = normalizedValues
-        guard values.count > 1 else { return [] }
-
-        let horizontalStep = size.width / CGFloat(values.count - 1)
-        return values.enumerated().map { index, value in
-            let x = CGFloat(index) * horizontalStep
-            let y = size.height - 12 - (CGFloat(value) * (size.height - 24))
-            return CGPoint(x: x, y: y)
-        }
-    }
 }
 
 struct ScanRow: View {

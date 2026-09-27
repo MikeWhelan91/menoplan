@@ -28,6 +28,10 @@ Fertility and pregnancy tracking are removed. The period estimate still comes fr
 
 `MenopauseStage` (perimenopause / postmenopause / unsure) is chosen in onboarding and Settings; only perimenopause asks for cycle dates.
 
+## Home
+
+Stage-aware. Perimenopause with a cycle set up: LineCheck's countdown hero (switching to "days since your last period" 14+ days past the estimate) plus `CycleChangeCard` (cycle lengths, 7+ day changes, 60+ day gaps, 12-month progress from `CycleChangeCalculator`). Otherwise `VasomotorWeekHero` shows hot flushes and night sweats side by side, equally weighted. Both get one-tap +1 quick actions, `SymptomWeekCard` (`SymptomWeekCalculator`), and the FSH scan as a compact `FSHTestTile`, never the hero. Postmenopause bleeding in the last 30 days shows a see-your-clinician nudge.
+
 ## Daily log
 
 `DailyFertilityLog` (name kept from LineCheck) holds hot flush / night sweat counts (nil = not logged), a flush severity, sleep quality, HRT taken (names from `UserSettings.hrtRegimen`, never doses), bleeding, symptoms, moods and supplements. Section order comes from `DailyLogSection.ordered(for:)`: bleeding leads only in perimenopause, and outside perimenopause logging flow never starts a period and shows a see-your-clinician notice. Apple Health hot flashes / night sweats fill the counts only on days the person hasn't counted.
