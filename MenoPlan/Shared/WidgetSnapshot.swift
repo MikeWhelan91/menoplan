@@ -5,10 +5,10 @@ import Foundation
 /// Group, so it never opens the SwiftData/CloudKit store itself.
 enum WidgetShared {
     static let appGroupID = "group.com.menocheck.app"
-    static let snapshotKey = "widgetSnapshot.v1"
+    static let snapshotKey = "widgetSnapshot.v2"
     static let cycleWidgetKind = "LineCheckCycleWidget"
     static let todayPlanWidgetKind = "LineCheckTodayPlanWidget"
-    static let urlScheme = "linecheck"
+    static let urlScheme = "menoplan"
 }
 
 /// Deep links the widgets open. Kept here so the widget and RootView's
@@ -31,40 +31,21 @@ struct WidgetSnapshot: Codable, Hashable {
 
     /// Mirrors CycleCalendarPhase without depending on app-only types.
     enum DayPhase: String, Codable {
-        case period, predictedPeriod, opkWindow, fertile, ovulation, luteal
+        case period, predictedPeriod
     }
 
     struct Cycle: Codable, Hashable {
         var cycleStart: Date
-        var opkStart: Date
-        var fertileStart: Date
-        var fertileEnd: Date
-        var ovulation: Date
         var nextPeriod: Date
         var isIrregular: Bool
-        /// True when a saved test (not just the calendar) placed ovulation,
-        /// so the widget can drop "estimated" wording.
-        var ovulationConfirmed: Bool
-    }
-
-    struct LatestTest: Codable, Hashable {
-        var date: Date
-        var resultRaw: String
     }
 
     var cycleState: CycleState
     var cycle: Cycle?
     /// Keyed by `WidgetSnapshot.dayKey` - only non-regular days are stored.
     var dayPhases: [String: DayPhase]
-    /// `dayKey`s of days with a saved (readable) test over the last ~60 days,
-    /// so the widget can tell whether today's test is done.
-    var ovulationTestDays: Set<String>
-    var latestOvulationTest: LatestTest?
 
-    static let empty = WidgetSnapshot(
-        cycleState: .notSetUp, cycle: nil,
-        dayPhases: [:], ovulationTestDays: [], latestOvulationTest: nil
-    )
+    static let empty = WidgetSnapshot(cycleState: .notSetUp, cycle: nil, dayPhases: [:])
 
     static func dayKey(_ date: Date, calendar: Calendar = .current) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)

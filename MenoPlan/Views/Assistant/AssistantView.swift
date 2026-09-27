@@ -252,8 +252,8 @@ struct AssistantView: View {
 
                 VStack(alignment: .leading, spacing: 9) {
                     lockedFeatureRow(symbol: "clock.badge.checkmark", title: "Answers based on recent results", detail: "AI can use your recent tests and reminders.", tint: .linePink)
-                    lockedFeatureRow(symbol: "bell.badge", imageName: "CalendarReminderIcon", title: "Reminder suggestions", detail: "Get retest and ovulation timing ideas when they fit.", tint: .linePurple)
-                    lockedFeatureRow(symbol: "heart.text.square", title: "Natural support", detail: "Useful guidance for worries, uncertainty, and fertility questions in plain language.", tint: .linePink)
+                    lockedFeatureRow(symbol: "bell.badge", imageName: "CalendarReminderIcon", title: "Reminder suggestions", detail: "Get check-in and test timing ideas when they fit.", tint: .linePurple)
+                    lockedFeatureRow(symbol: "heart.text.square", title: "Natural support", detail: "Useful guidance for worries, symptoms, and menopause questions in plain language.", tint: .linePink)
                 }
 
                 Button("Unlock Pro") {
@@ -767,14 +767,10 @@ private struct AssistantChatScreen: View {
             switch (key, value) {
             case (.expectedPeriodDate, .date(let date)):
                 return settings.expectedPeriodDate.map { Calendar.current.isDate($0, inSameDayAs: date) } ?? false
-            case (.knownOvulationDate, .date(let date)):
-                return settings.knownOvulationDate.map { Calendar.current.isDate($0, inSameDayAs: date) } ?? false
             case (.lastPeriodStartDate, .date(let date)):
                 return settings.lastPeriodStartDate.map { Calendar.current.isDate($0, inSameDayAs: date) } ?? false
             case (.averageCycleLength, .integer(let number)):
                 return settings.averageCycleLength == number
-            case (.lutealPhaseLength, .integer(let number)):
-                return settings.lutealPhaseLength == number
             default:
                 return false
             }
@@ -794,10 +790,7 @@ private struct AssistantChatScreen: View {
         case .averageCycleLength:
             guard let value = Int(rawValue), FertilityWindowCalculator.plausibleCycleLengthRange.contains(value) else { return nil }
             return .integer(value)
-        case .lutealPhaseLength:
-            guard let value = Int(rawValue), (10...18).contains(value) else { return nil }
-            return .integer(value)
-        case .expectedPeriodDate, .knownOvulationDate, .lastPeriodStartDate:
+        case .expectedPeriodDate, .lastPeriodStartDate:
             guard let date = Self.settingDateFormatter.date(from: rawValue) else { return nil }
             let day = Calendar.current.startOfDay(for: date)
             let today = Calendar.current.startOfDay(for: .now)
@@ -806,9 +799,6 @@ private struct AssistantChatScreen: View {
                 guard let earliest = Calendar.current.date(byAdding: .day, value: -90, to: today),
                       let latest = Calendar.current.date(byAdding: .day, value: 365, to: today),
                       (earliest...latest).contains(day) else { return nil }
-            case .knownOvulationDate:
-                guard let earliest = Calendar.current.date(byAdding: .day, value: -90, to: today),
-                      (earliest...today).contains(day) else { return nil }
             case .lastPeriodStartDate:
                 guard let earliest = Calendar.current.date(byAdding: .day, value: -365, to: today),
                       (earliest...today).contains(day) else { return nil }
@@ -847,11 +837,6 @@ private struct AssistantChatScreen: View {
         // Cycle facts go through the same paths as the Calendar: once a cycle
         // exists, predictions read it rather than these settings, so writing
         // only the setting used to make Luna's "updated" change nothing.
-        case (.knownOvulationDate, .date(let date)):
-            settings.knownOvulationDate = date
-            if let cycle = CycleTrackingService.cycle(containing: date, records: realCycles) {
-                CycleTrackingService.confirmOvulation(date, on: cycle)
-            }
         case (.lastPeriodStartDate, .date(let date)):
             _ = CycleTrackingService.recordPeriodStart(date, settings: settings, records: realCycles, periods: periodEvents, context: modelContext)
         case (.averageCycleLength, .integer(let number)):
@@ -859,12 +844,6 @@ private struct AssistantChatScreen: View {
             if let cycle = CycleTrackingService.activeCycle(records: realCycles) {
                 cycle.averageCycleLengthAtStart = number
                 cycle.userSetCycleLength = number
-                refreshBaseline(for: cycle)
-            }
-        case (.lutealPhaseLength, .integer(let number)):
-            settings.lutealPhaseLength = number
-            if let cycle = CycleTrackingService.activeCycle(records: realCycles) {
-                cycle.lutealPhaseLengthAtStart = number
                 refreshBaseline(for: cycle)
             }
         default:
@@ -882,13 +861,9 @@ private struct AssistantChatScreen: View {
         cycles.filter { !$0.notes.contains("[LineCheck Screenshot Sample]") }
     }
 
-    /// Re-derives a cycle's cached ovulation/period dates after a length
-    /// change, keeping any Peak-supported or confirmed ovulation as evidence.
+    /// Re-derives a cycle's cached next-period date after a length change.
     private func refreshBaseline(for cycle: CycleRecord) {
-        if let confirmed = cycle.confirmedOvulationDate {
-            cycle.expectedPeriodDate = FertilityWindowCalculator.nextPeriod(afterOvulation: confirmed, lutealPhaseLength: cycle.lutealPhaseLengthAtStart)
-        } else if cycle.ovulationSource == nil,
-                  let baseline = FertilityWindowCalculator.window(for: cycle.startDate, lastPeriodStart: cycle.startDate, averageCycleLength: cycle.userSetCycleLength ?? cycle.averageCycleLengthAtStart, lutealPhaseLength: cycle.lutealPhaseLengthAtStart) {
+        if let baseline = FertilityWindowCalculator.window(for: cycle.startDate, lastPeriodStart: cycle.startDate, averageCycleLength: cycle.userSetCycleLength ?? cycle.averageCycleLengthAtStart, lutealPhaseLength: cycle.lutealPhaseLengthAtStart) {
             cycle.predictedOvulationDate = baseline.predictedOvulationDate
             cycle.expectedPeriodDate = baseline.nextPeriodDate
         }
@@ -898,10 +873,8 @@ private struct AssistantChatScreen: View {
     private func settingName(_ key: AssistantSuggestion.SettingKey) -> String {
         switch key {
         case .expectedPeriodDate: "expected period"
-        case .knownOvulationDate: "ovulation date"
         case .lastPeriodStartDate: "last period start"
         case .averageCycleLength: "average cycle"
-        case .lutealPhaseLength: "days from ovulation to the next period"
         }
     }
 
@@ -921,7 +894,7 @@ private struct AssistantChatScreen: View {
 
     private func defaultOffset(for type: ReminderType) -> Int {
         switch type {
-        case .ovulationTest, .ovulationFollowUp, .fertileWindow, .fertilePeak, .periodExpected, .periodCheckIn, .periodLate, .logTestResult, .bodyCheckIn, .cycleSetup: 12
+        case .ovulationTest, .periodExpected, .periodCheckIn, .periodLate, .logTestResult, .bodyCheckIn, .cycleSetup: 12
         case .medication, .custom: 24
         }
     }

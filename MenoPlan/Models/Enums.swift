@@ -59,20 +59,17 @@ enum ScanResultSource: String, Codable {
 }
 
 enum ReminderType: String, CaseIterable, Codable, Identifiable {
-    case ovulationTest, fertileWindow, fertilePeak
-    case periodExpected, periodCheckIn, periodLate, logTestResult, ovulationFollowUp
+    case ovulationTest
+    case periodExpected, periodCheckIn, periodLate, logTestResult
     case medication, bodyCheckIn, cycleSetup, custom
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .ovulationTest: "Ovulation test"
-        case .fertileWindow: "Fertile window"
-        case .fertilePeak: "Fertile peak check-in"
+        case .ovulationTest: "Test reminder"
         case .periodExpected: "Period expected"
         case .periodCheckIn: "Period check-in"
         case .periodLate: "Period late check-in"
         case .logTestResult: "Log a test result"
-        case .ovulationFollowUp: "Ovulation test follow-up"
         case .medication: "Medication or supplement"
         case .bodyCheckIn: "Body-sign check-in"
         case .cycleSetup: "Finish cycle setup"
@@ -121,15 +118,49 @@ enum DarkModePreference: String, CaseIterable, Codable, Identifiable {
     var title: String { rawValue.capitalized }
 }
 
-enum OvulationTrackingGoal: String, CaseIterable, Codable, Identifiable {
-    case tryingToConceive, trackingCycle
+/// Where someone is in the menopause transition, as they describe it. It
+/// shapes what Home leads with - it is never a diagnosis.
+enum MenopauseStage: String, CaseIterable, Codable, Identifiable {
+    /// Still having periods, but they're changing.
+    case perimenopause
+    /// No period for 12 months or more.
+    case postmenopause
+    /// Bleeding can't be used as a guide (hysterectomy, hormonal coil,
+    /// continuous HRT) or they're not sure.
+    case unsure
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .tryingToConceive: "Trying for a pregnancy"
-        case .trackingCycle: "Understanding my cycle"
+        case .perimenopause: "I still have periods, but they're changing"
+        case .postmenopause: "No period for 12 months or more"
+        case .unsure: "I can't tell or I'm not sure"
         }
     }
+    /// Fits a Settings tile.
+    var shortTitle: String {
+        switch self {
+        case .perimenopause: "Still having periods"
+        case .postmenopause: "No period for 12+ months"
+        case .unsure: "Can't tell"
+        }
+    }
+    var detail: String {
+        switch self {
+        case .perimenopause: "We'll track how your cycle is changing alongside your symptoms."
+        case .postmenopause: "We'll focus on your symptoms and any treatment you use."
+        case .unsure: "For example after a hysterectomy, with a hormonal coil or on continuous HRT. We'll focus on your symptoms."
+        }
+    }
+    var symbol: String {
+        switch self {
+        case .perimenopause: "calendar"
+        case .postmenopause: "leaf"
+        case .unsure: "questionmark.circle"
+        }
+    }
+    /// Whether bleeding is a useful guide for this person, so cycle timing
+    /// is worth showing.
+    var tracksCycle: Bool { self == .perimenopause }
 }
 
 enum TrackingFocus: String, CaseIterable, Codable, Identifiable {

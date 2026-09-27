@@ -203,10 +203,6 @@ final class DailyFertilityLog {
     var symptomsRaw: String = ""
     var moodsRaw: String = ""
     var supplementsRaw: String = ""
-    var cervicalMucusRaw: String?
-    var cervicalPositionRaw: String?
-    var inseminationRaw: String?
-    var sexRaw: String?
     var flowIntensityRaw: String?
     var basalBodyTemperatureCelsius: Double?
     /// Where basalBodyTemperatureCelsius came from - a manual edit always sets this back to
@@ -230,16 +226,12 @@ final class DailyFertilityLog {
     var notes: String = ""
     var updatedAt: Date = Date.now
 
-    init(id: UUID = UUID(), date: Date, symptoms: [String] = [], moods: [String] = [], supplements: [String] = [], cervicalMucus: String? = nil, cervicalPosition: String? = nil, insemination: String? = nil, sex: String? = nil, flowIntensity: FlowIntensity? = nil, basalBodyTemperatureCelsius: Double? = nil, basalBodyTemperatureSource: TrackingDataSource = .userConfirmed, notes: String = "") {
+    init(id: UUID = UUID(), date: Date, symptoms: [String] = [], moods: [String] = [], supplements: [String] = [], flowIntensity: FlowIntensity? = nil, basalBodyTemperatureCelsius: Double? = nil, basalBodyTemperatureSource: TrackingDataSource = .userConfirmed, notes: String = "") {
         self.id = id
         self.date = Calendar.current.startOfDay(for: date)
         self.symptomsRaw = symptoms.joined(separator: "|")
         self.moodsRaw = moods.joined(separator: "|")
         self.supplementsRaw = supplements.joined(separator: "|")
-        self.cervicalMucusRaw = cervicalMucus
-        self.cervicalPositionRaw = cervicalPosition
-        self.inseminationRaw = insemination
-        self.sexRaw = sex
         self.flowIntensityRaw = flowIntensity?.rawValue
         self.basalBodyTemperatureCelsius = basalBodyTemperatureCelsius
         self.basalBodyTemperatureSourceRaw = basalBodyTemperatureSource.rawValue
@@ -267,7 +259,7 @@ final class DailyFertilityLog {
         get { flowIntensityRaw.flatMap(FlowIntensity.init(rawValue:)) }
         set { flowIntensityRaw = newValue?.rawValue; updatedAt = .now }
     }
-    var hasContent: Bool { !symptoms.isEmpty || !moods.isEmpty || !supplements.isEmpty || cervicalMucusRaw != nil || cervicalPositionRaw != nil || inseminationRaw != nil || sexRaw != nil || flowIntensityRaw != nil || basalBodyTemperatureCelsius != nil || wristTemperatureCelsius != nil || weightKg != nil || waterMl != nil || !healthKitObservations.isEmpty || !notes.isEmpty }
+    var hasContent: Bool { !symptoms.isEmpty || !moods.isEmpty || !supplements.isEmpty || flowIntensityRaw != nil || basalBodyTemperatureCelsius != nil || wristTemperatureCelsius != nil || weightKg != nil || waterMl != nil || !healthKitObservations.isEmpty || !notes.isEmpty }
     private func split(_ value: String) -> [String] { value.split(separator: "|").map(String.init) }
 }
 

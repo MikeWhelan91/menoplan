@@ -33,8 +33,6 @@ struct OnboardingView: View {
 
     @State private var currentPage: Page = .welcome
     @State private var previousPage: Page = .welcome
-    @State private var includeKnownOvulationDate = false
-    @State private var knownOvulationDate = Calendar.current.date(byAdding: .day, value: -7, to: .now) ?? .now
     @State private var includeCycleDetails = false
     @State private var lastPeriodStartDate = Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .now
     @State private var averageCycleLength = 28
@@ -45,12 +43,11 @@ struct OnboardingView: View {
     @State private var isAddingPeriodHistory = false
     @State private var previousPeriodStarts: [Date] = []
     @State private var historyDate = Calendar.current.date(byAdding: .day, value: -42, to: .now) ?? .now
-    @State private var activeTerminologyTopic: OnboardingTerminologyTopic?
     @State private var showPaywall = false
     @State private var contentVisible = false
     @State private var revealedWelcomeHighlights = 0
     @State private var userName = ""
-    @State private var trackingGoal: OvulationTrackingGoal = .tryingToConceive
+    @State private var stage: MenopauseStage = .perimenopause
     @State private var quizAnswers = PersonalizationAnswers()
     @State private var quizIndex = 0
     @State private var quizMovingForward = true
@@ -59,13 +56,13 @@ struct OnboardingView: View {
     private var settings: UserSettings? { appState.settings }
     /// Apple Health only appears where Health exists (not on every iPad).
     private var setupPages: [Page] {
-        [.name, .goal, .aboutYou, .cycleDetails, .reminders]
+        [.name, .goal, .aboutYou] + (stage.tracksCycle ? [.cycleDetails] : []) + [.reminders]
             + (HealthKitService.shared.isAvailable ? [.appleHealth] : [])
             + [.finish]
     }
 
     private var quizQuestions: [PersonalizationQuestion] {
-        PersonalizationQuestion.sequence(tryingToConceive: trackingGoal == .tryingToConceive)
+        PersonalizationQuestion.sequence
     }
 
     private var progressIndex: Int? {
@@ -115,9 +112,6 @@ struct OnboardingView: View {
         }
         .animation(.interactiveSpring(response: 0.38, dampingFraction: 0.88, blendDuration: 0.14), value: currentPage)
         .animation(.easeOut(duration: 0.42), value: contentVisible)
-        .sheet(item: $activeTerminologyTopic) { topic in
-            OnboardingTerminologyView(topic: topic)
-        }
         .fullScreenCover(isPresented: $showPaywall) {
             PremiumView(onRequestDismiss: { complete(.finish) })
         }
@@ -376,13 +370,14 @@ struct OnboardingView: View {
 
             pageIntro(
                 eyebrow: userName.isEmpty ? "Nice to meet you" : "Nice to meet you, \(userName)",
-                title: "What brings you to MenoPlan?",
-                subtitle: "This just tailors the guidance and reminders you'll see - you can change it anytime from Calendar."
+                title: "Where are you now?",
+                subtitle: "This tailors what MenoPlan shows first. It isn't a diagnosis, and you can change it anytime in Settings."
             )
 
             VStack(spacing: 12) {
-                goalChoice(.tryingToConceive, title: "Trying for a pregnancy", symbol: "heart.fill")
-                goalChoice(.trackingCycle, title: "Understanding my cycle", symbol: "calendar")
+                ForEach(MenopauseStage.allCases) { option in
+                    goalChoice(option, title: option.title, symbol: option.symbol)
+                }
             }
 
             Spacer(minLength: 12)
@@ -390,16 +385,18 @@ struct OnboardingView: View {
         .frame(maxWidth: 640)
     }
 
-    private func goalChoice(_ choice: OvulationTrackingGoal, title: String, symbol: String) -> some View {
+    private func goalChoice(_ choice: MenopauseStage, title: String, symbol: String) -> some View {
         Button {
-            withAnimation(.easeOut(duration: 0.18)) { trackingGoal = choice }
+            withAnimation(.easeOut(duration: 0.18)) { stage = choice }
+            // Cycle dates are only asked for (and used) while periods continue.
+            if !choice.tracksCycle { includeCycleDetails = false }
         } label: {
             HStack(spacing: 14) {
                 Image(systemName: symbol)
                     .font(.system(size: LineType.size(17), weight: .bold))
-                    .foregroundStyle(trackingGoal == choice ? .white : Color.linePurple)
+                    .foregroundStyle(stage == choice ? .white : Color.linePurple)
                     .frame(width: 44, height: 44)
-                    .background(trackingGoal == choice ? Color.linePurple : Color.linePurple.opacity(0.12), in: Circle())
+                    .background(stage == choice ? Color.linePurple : Color.linePurple.opacity(0.12), in: Circle())
 
                 Text(title)
                     .font(.app(size: LineType.size(16), weight: .bold))
@@ -407,18 +404,18 @@ struct OnboardingView: View {
 
                 Spacer()
 
-                Image(systemName: trackingGoal == choice ? "checkmark.circle.fill" : "circle")
+                Image(systemName: stage == choice ? "checkmark.circle.fill" : "circle")
                     .font(.system(size: LineType.size(20)))
-                    .foregroundStyle(trackingGoal == choice ? Color.linePurple : Color.lineNavy.opacity(0.22))
+                    .foregroundStyle(stage == choice ? Color.linePurple : Color.lineNavy.opacity(0.22))
             }
             .padding(16)
             .background(
-                trackingGoal == choice ? Color.linePurpleSoft.opacity(0.7) : Color.white.opacity(0.82),
+                stage == choice ? Color.linePurpleSoft.opacity(0.7) : Color.white.opacity(0.82),
                 in: RoundedRectangle(cornerRadius: 20, style: .continuous)
             )
             .overlay {
                 RoundedRectangle(cornerRadius: 20, style: .continuous)
-                    .stroke(trackingGoal == choice ? Color.linePurple.opacity(0.4) : Color.linePurple.opacity(0.12), lineWidth: 1.5)
+                    .stroke(stage == choice ? Color.linePurple.opacity(0.4) : Color.linePurple.opacity(0.12), lineWidth: 1.5)
             }
         }
         .buttonStyle(.plain)
@@ -454,7 +451,6 @@ struct OnboardingView: View {
             }
             .frame(maxHeight: .infinity, alignment: .top)
         }
-        .onChange(of: trackingGoal) { _, _ in quizIndex = 0 }
     }
 
     private func stepQuiz(_ delta: Int) {
@@ -475,8 +471,8 @@ struct OnboardingView: View {
 
                 stageIntro(
                     step: "CYCLE BASICS",
-                    title: "Where are you in your cycle?",
-                    subtitle: "Add your last period date to estimate when to start testing."
+                    title: "When did your last period start?",
+                    subtitle: "Add it so MenoPlan can track how your cycle is changing."
                 )
 
                 VStack(alignment: .leading, spacing: 16) {
@@ -495,7 +491,7 @@ struct OnboardingView: View {
                         DatePicker("Last period started", selection: $lastPeriodStartDate, in: earliestReasonableOnboardingCycleDate...Date.now, displayedComponents: .date)
                             .tint(Color.linePurple)
                         cycleLengthSteppers
-                        Text("Estimates can change as you save Peak tests and more cycles.")
+                        Text("Estimates get better as you log more periods.")
                             .font(.app(size: LineType.size(12)))
                             .foregroundStyle(Color.lineNavy.opacity(0.62))
                             .fixedSize(horizontal: false, vertical: true)
@@ -509,10 +505,6 @@ struct OnboardingView: View {
                 .background(.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                 .overlay { RoundedRectangle(cornerRadius: 24).stroke(Color.linePurple.opacity(0.16), lineWidth: 1) }
 
-                terminologyButton(title: "LH timing & luteal phase, explained") {
-                    activeTerminologyTopic = .ovulation
-                }
-                .padding(.leading, 4)
             }
             .frame(maxWidth: 640)
             .padding(.top, 18)
@@ -605,7 +597,7 @@ struct OnboardingView: View {
                             .font(.app(size: LineType.size(16), weight: .bold))
                             .foregroundStyle(Color.lineNavy)
                         Text(includeCycleDetails
-                             ? "Testing, fertile-window and period check-ins. Change these any time in Settings."
+                             ? "A heads-up before your next period and a check-in if it's late. Change these any time in Settings."
                              : "Add cycle dates on the previous step to schedule these.")
                             .font(.app(size: LineType.size(12)))
                             .foregroundStyle(Color.lineNavy.opacity(0.6))
@@ -651,10 +643,10 @@ struct OnboardingView: View {
                 )
 
                 VStack(alignment: .leading, spacing: 14) {
-                    healthBenefit("calendar", "Periods, temperatures, symptoms and test results appear in your calendar")
-                    healthBenefit("thermometer.sun", "A temperature rise can confirm ovulation and sharpen your predictions")
-                    healthBenefit("bed.double", "Sleep, weight and heart data help explain changes in your cycle")
-                    healthBenefit("arrow.triangle.2.circlepath", "Temperature, weight and water you log here are saved back to Health")
+                    healthBenefit("calendar", "Periods and symptoms appear in your calendar")
+                    healthBenefit("thermometer.sun", "Overnight wrist temperature and heart rate can show night sweats and hot flushes")
+                    healthBenefit("bed.double", "Sleep, weight and heart data help explain how you're feeling")
+                    healthBenefit("arrow.triangle.2.circlepath", "Weight and water you log here are saved back to Health")
                 }
                 .padding(18)
                 .background(.white, in: RoundedRectangle(cornerRadius: 22, style: .continuous))
@@ -735,10 +727,6 @@ struct OnboardingView: View {
                         summaryRow("Usual cycle", value: "\(averageCycleLength) days")
                         Divider().opacity(0.35)
                         summaryRow("Usual period", value: "\(periodLength) days")
-                    }
-                    if includeKnownOvulationDate && includeCycleDetails {
-                        Divider().opacity(0.35)
-                        summaryRow("Ovulation date", value: DateFormatting.shortDate.string(from: knownOvulationDate))
                     }
                     Divider().opacity(0.35)
                     summaryRow("Previous periods", value: !includeCycleDetails || previousPeriodStarts.isEmpty ? "None added" : "\(previousPeriodStarts.count) added")
@@ -883,7 +871,12 @@ struct OnboardingView: View {
             quizIndex = max(0, quizQuestions.count - 1)
             move(to: .aboutYou, forward: false)
         case .reminders:
-            move(to: .cycleDetails, forward: false)
+            if stage.tracksCycle {
+                move(to: .cycleDetails, forward: false)
+            } else {
+                quizIndex = max(0, quizQuestions.count - 1)
+                move(to: .aboutYou, forward: false)
+            }
         case .appleHealth:
             move(to: .reminders, forward: false)
         case .finish:
@@ -904,7 +897,7 @@ struct OnboardingView: View {
             if quizIndex < quizQuestions.count - 1 {
                 stepQuiz(1)
             } else {
-                move(to: .cycleDetails)
+                move(to: stage.tracksCycle ? .cycleDetails : .reminders)
             }
         case .cycleDetails:
             move(to: .reminders)
@@ -1001,18 +994,6 @@ struct OnboardingView: View {
         .padding(.vertical, 13)
     }
 
-    private func terminologyButton(title: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            HStack(spacing: 8) {
-                Image(systemName: "questionmark.circle")
-                Text(title)
-            }
-            .font(.app(.subheadline, weight: .semibold))
-            .foregroundStyle(Color.lineBlue)
-        }
-        .buttonStyle(.plain)
-    }
-
     private func animateContentIn() {
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(70))
@@ -1032,11 +1013,11 @@ struct OnboardingView: View {
     private func persistSettings() {
         guard let settings else { return }
         settings.userName = userName
-        settings.ovulationTrackingGoal = trackingGoal
+        settings.menopauseStage = stage
         quizAnswers.apply(to: settings, context: modelContext)
 
         settings.expectedPeriodDate = nil
-        settings.knownOvulationDate = includeCycleDetails && includeKnownOvulationDate ? knownOvulationDate : nil
+        settings.knownOvulationDate = nil
 
         if includeCycleDetails {
             settings.averageCycleLength = averageCycleLength
@@ -1066,13 +1047,8 @@ struct OnboardingView: View {
 
             let cycle = currentCycle ?? CycleTrackingService.recordPeriodStart(lastPeriodStartDate, settings: settings, records: importedRecords, periods: importedPeriods, context: modelContext)
             cycle.lutealPhaseLengthAtStart = settings.lutealPhaseLength
-            if includeKnownOvulationDate {
-                // Moves the expected period with the known ovulation date.
-                CycleTrackingService.confirmOvulation(knownOvulationDate, on: cycle)
-            } else {
-                cycle.confirmedOvulationDate = nil
-                cycle.ovulationSource = nil
-            }
+            cycle.confirmedOvulationDate = nil
+            cycle.ovulationSource = nil
             settings.autoRemindersEnabled = autoReminders
             latestCycleForReminders = cycle
         } else {
@@ -1107,10 +1083,8 @@ struct OnboardingView: View {
     private func syncFromSettings() {
         guard let settings else { return }
         userName = settings.userName
-        trackingGoal = settings.ovulationTrackingGoal
+        stage = settings.menopauseStage
         quizAnswers = PersonalizationAnswers(settings: settings)
-        includeKnownOvulationDate = settings.knownOvulationDate != nil
-        knownOvulationDate = settings.knownOvulationDate ?? knownOvulationDate
         includeCycleDetails = settings.lastPeriodStartDate != nil
         lastPeriodStartDate = settings.lastPeriodStartDate ?? lastPeriodStartDate
         averageCycleLength = settings.averageCycleLength
@@ -1183,50 +1157,3 @@ private struct WelcomeLayoutMetrics {
     }
 }
 
-private enum OnboardingTerminologyTopic: Identifiable {
-    case ovulation
-
-    var id: String { "ovulation" }
-}
-
-private struct OnboardingTerminologyView: View {
-    @Environment(\.dismiss) private var dismiss
-    let topic: OnboardingTerminologyTopic
-
-    var body: some View {
-        NavigationStack {
-            List {
-                switch topic {
-                case .ovulation:
-                    Section("Cycle Timing") {
-                        term("LH", "Luteinizing hormone. A rise in LH often happens before ovulation.")
-                        term("Average cycle length", "How many days usually pass from the start of one period to the start of the next.")
-                        term("Luteal phase", "The number of days between ovulation and your next period. A common estimate is around 14 days.")
-                    }
-                }
-            }
-            .scrollContentBackground(.hidden)
-            .background { LineCheckBrandBackdrop() }
-            .navigationTitle("Terminology")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-        }
-        .tint(Color.lineBlue)
-    }
-
-    private func term(_ title: String, _ detail: String) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(title)
-                .font(.app(.subheadline, weight: .semibold))
-                .foregroundStyle(Color.lineNavy)
-            Text(detail)
-                .font(.app(.subheadline))
-                .foregroundStyle(Color.lineNavy.opacity(0.68))
-        }
-        .padding(.vertical, 2)
-    }
-}

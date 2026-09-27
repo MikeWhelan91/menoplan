@@ -23,12 +23,10 @@ struct AssistantReminderContext: Encodable, Sendable {
 struct AssistantUserContext: Encodable, Sendable {
     var userName: String?
     var trackingFocus: String
-    var ovulationTrackingGoal: String
+    var menopauseStage: String
     var expectedPeriodDate: String?
-    var knownOvulationDate: String?
     var lastPeriodStartDate: String?
     var averageCycleLength: Int?
-    var lutealPhaseLength: Int?
     var cycleSummaries: [String] = []
     var dailyTrackingSummaries: [String] = []
     var cycleLengthVariabilityDays: Int? = nil
@@ -87,10 +85,8 @@ struct AssistantSuggestion: Codable, Hashable, Identifiable, Sendable {
 
     enum SettingKey: String, Codable, Sendable {
         case expectedPeriodDate
-        case knownOvulationDate
         case lastPeriodStartDate
         case averageCycleLength
-        case lutealPhaseLength
     }
 
     var id: String {
@@ -133,13 +129,11 @@ enum AssistantServiceError: LocalizedError {
 enum AssistantContextBuilder {
     static func healthProfileSummary(_ profile: HealthProfile) -> [String] {
         var lines: [String] = []
-        if let duration = profile.ttcDuration { lines.append("tryingToConceiveFor=\(duration.title)") }
         if let age = profile.age() { lines.append("age=\(age)") }
         if let regularity = profile.regularity { lines.append("periodsRegular=\(regularity.rawValue)") }
         if !profile.conditions.isEmpty { lines.append("reproductiveConditions=\(profile.conditions.map(\.title).sorted().joined(separator: ", "))") }
         if let other = profile.otherCondition, !other.isEmpty { lines.append("otherConditionDescribedByUser=\(other)") }
-        if let birthControl = profile.birthControl { lines.append("birthControlLast6Months=\(birthControl.rawValue)") }
-        if let supplement = profile.supplement { lines.append("preconceptionSupplement=\(supplement.rawValue)") }
+        if let birthControl = profile.birthControl { lines.append("hormonalContraceptionLast6Months=\(birthControl.rawValue)") }
         if let heightCm = profile.heightCm { lines.append("heightCm=\(Int(heightCm.rounded()))") }
         if let weightKg = profile.weightKg { lines.append(String(format: "weightKg=%.1f", weightKg)) }
         if let bmi = profile.bmi, let category = profile.bmiCategory { lines.append(String(format: "bmi=%.1f (%@)", bmi, category.rawValue)) }
@@ -175,18 +169,15 @@ enum AssistantContextBuilder {
             logs: signalLogs,
             metrics: healthMetrics,
             scans: scans,
-            profile: settings.healthProfile,
-            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive
+            profile: settings.healthProfile
         ))
         return AssistantUserContext(
             userName: settings.userName.isEmpty ? nil : settings.userName,
             trackingFocus: settings.trackingFocus.rawValue,
-            ovulationTrackingGoal: settings.ovulationTrackingGoal.rawValue,
+            menopauseStage: settings.menopauseStage.rawValue,
             expectedPeriodDate: settings.expectedPeriodDate.map { formatter.string(from: $0) },
-            knownOvulationDate: settings.knownOvulationDate.map { formatter.string(from: $0) },
             lastPeriodStartDate: settings.lastPeriodStartDate.map { formatter.string(from: $0) },
             averageCycleLength: settings.averageCycleLengthValue,
-            lutealPhaseLength: settings.lutealPhaseLengthValue,
             cycleSummaries: cycles.filter { !$0.notes.contains("[LineCheck Screenshot Sample]") }.prefix(maximumCycleSummaries).map { cycle in
                 let end = cycle.endDate.map { formatter.string(from: $0) } ?? "active"
                 let ovulation = cycle.effectiveOvulationDate.map { formatter.string(from: $0) } ?? "unconfirmed"
@@ -204,10 +195,6 @@ enum AssistantContextBuilder {
                     if let water = log.waterMl { parts.append("waterMl=\(Int(water.rounded()))") }
                     if !log.healthKitObservations.isEmpty { parts.append("appleHealth=\(log.healthKitObservations.joined(separator: ","))") }
                     if !log.symptoms.isEmpty { parts.append("symptoms=\(log.symptoms.joined(separator: ","))") }
-                    if let mucus = log.cervicalMucusRaw { parts.append("cervicalMucus=\(mucus)") }
-                    if let position = log.cervicalPositionRaw { parts.append("cervicalPosition=\(position)") }
-                    if let sex = log.sexRaw { parts.append("sex=\(sex)") }
-                    if let insemination = log.inseminationRaw { parts.append("insemination=\(insemination)") }
                     if !log.moods.isEmpty { parts.append("moods=\(log.moods.joined(separator: ","))") }
                     if !log.supplements.isEmpty { parts.append("supplements=\(log.supplements.joined(separator: ","))") }
                     if !log.notes.isEmpty { parts.append("notes=\(String(log.notes.prefix(120)))") }

@@ -9,7 +9,6 @@ extension Color {
     static let wPink = adaptive(light: (1.0, 0.19, 0.47), dark: (1.0, 0.40, 0.60))
     static let wPurple = adaptive(light: (0.38, 0.20, 0.95), dark: (0.64, 0.55, 1.0))
     static let wTeal = adaptive(light: (0.02, 0.62, 0.70), dark: (0.25, 0.80, 0.86))
-    static let wLuteal = adaptive(light: (0.024, 0.486, 0.549), dark: (0.35, 0.82, 0.86))
     static let wPinkSoft = Color(red: 1.0, green: 0.91, blue: 0.94)
     static let wPurpleSoft = Color(red: 0.93, green: 0.90, blue: 1.0)
     /// Chips and secondary buttons sitting on the backdrop.
@@ -29,7 +28,6 @@ extension Color {
 extension WidgetCycleSummary.Tone {
     var color: Color {
         switch self {
-        case .fertile, .ovulation: .wPurple
         case .period: .wPink
         case .neutral: .wNavy
         }
@@ -40,9 +38,6 @@ extension WidgetSnapshot.DayPhase {
     var color: Color {
         switch self {
         case .period, .predictedPeriod: .wPink
-        case .fertile, .ovulation: .wPurple
-        case .luteal: .wLuteal
-        case .opkWindow: .wNavy.opacity(0.35)
         }
     }
 }

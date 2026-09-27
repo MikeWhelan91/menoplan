@@ -29,6 +29,7 @@ struct SettingsView: View {
     @State private var iCloudStatus: ICloudAvailability = .checking
     @State private var showPersonalization = false
     @State private var hasNewHealthPermissions = false
+    @Namespace private var stageSelection
     #if DEBUG
     @State private var sendNotificationPreviews = false
     @State private var generateWeeklyReportPreview = false
@@ -46,6 +47,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     if let settings {
                         proCard(settings: settings)
+                        stageCard(settings: settings)
                         preferencesCard(settings: settings)
                         privacyCard
                         aboutCard
@@ -241,6 +243,72 @@ struct SettingsView: View {
         return settings.userName.isEmpty ? detail : "\(settings.userName) · \(detail)"
     }
 
+    /// Where the person is in the transition. Changing it only changes what
+    /// MenoPlan leads with; nothing already logged is touched.
+    private func stageCard(settings: UserSettings) -> some View {
+        let current = settings.menopauseStage
+        return AppCard {
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Where are you now?")
+                    .font(.lineHeadline())
+                    .foregroundStyle(Color.lineNavy)
+
+                HStack(spacing: 10) {
+                    ForEach(MenopauseStage.allCases) { stage in
+                        Button {
+                            guard stage != current else { return }
+                            settings.menopauseStage = stage
+                            try? modelContext.save()
+                        } label: {
+                            VStack(spacing: 9) {
+                                Image(systemName: stage.symbol)
+                                    .font(.system(size: LineType.size(20), weight: .semibold))
+                                    .foregroundStyle(current == stage ? Color.white : Color.linePurple)
+                                    .frame(width: 46, height: 46)
+                                    .background(current == stage ? AnyShapeStyle(Color.linePurple.gradient) : AnyShapeStyle(Color.linePurple.opacity(0.12)), in: Circle())
+                                    .symbolEffect(.bounce, value: current == stage)
+                                Text(stage.shortTitle)
+                                    .font(.app(size: LineType.size(13), weight: .bold))
+                                    .foregroundStyle(Color.lineNavy)
+                                    .multilineTextAlignment(.center)
+                                    .lineLimit(2)
+                                    .minimumScaleFactor(0.85)
+                            }
+                            .padding(.horizontal, 4)
+                            .frame(maxWidth: .infinity, minHeight: 112)
+                            .background {
+                                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white)
+                                if current == stage {
+                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
+                                        .stroke(Color.linePurple, lineWidth: 2)
+                                        .matchedGeometryEffect(id: "selectedStage", in: stageSelection)
+                                }
+                            }
+                            .overlay(alignment: .topTrailing) {
+                                if current == stage {
+                                    Image(systemName: "checkmark.circle.fill")
+                                        .font(.system(size: 17, weight: .bold))
+                                        .foregroundStyle(Color.white, Color.linePurple)
+                                        .padding(7)
+                                        .transition(.scale.combined(with: .opacity))
+                                }
+                            }
+                        }
+                        .buttonStyle(PressScaleButtonStyle())
+                        .accessibilityLabel(stage.title)
+                        .accessibilityAddTraits(current == stage ? .isSelected : [])
+                    }
+                }
+                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: current)
+
+                Text(current.detail)
+                    .font(.app(.caption))
+                    .foregroundStyle(Color.lineNavy.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
     private func preferencesCard(settings: UserSettings) -> some View {
         AppCard {
             VStack(alignment: .leading, spacing: 14) {
@@ -334,7 +402,7 @@ struct SettingsView: View {
                         }
                     }
                     .tint(Color.lineBlue)
-                    Text("Bring in periods, temperature, fertility signs, symptoms, weight, sleep, activity and heart data from Apple Health, and save the temperature, weight and water you log here back to it.")
+                    Text("Bring in periods, symptoms, wrist temperature, weight, sleep, activity and heart data from Apple Health, and save the weight and water you log here back to it.")
                         .font(.lineCaption())
                         .foregroundStyle(Color.lineNavy.opacity(0.56))
 
@@ -744,9 +812,6 @@ struct SettingsView: View {
                 else if !isLuteal && dayNumber.isMultiple(of: 2) { log.moods = [isFertile ? "Happy" : "Calm"] }
             }
             if log.flowIntensity == nil, isPeriod { log.flowIntensity = flowByDay[min(dayIndex, flowByDay.count - 1)] }
-            if log.cervicalMucusRaw == nil, !isPeriod {
-                log.cervicalMucusRaw = isFertile ? (dayIndex >= ovulationIndex - 3 ? "Egg white" : "Creamy") : (isLuteal ? "Sticky" : "Dry")
-            }
             // Thermometer readings for the last two sample cycles and the
             // current one, so the BBT chart can find the temperature rise.
             if log.basalBodyTemperatureCelsius == nil, (cycleIndex ?? plan.count) >= plan.count - 2, date <= today {
@@ -771,14 +836,11 @@ struct SettingsView: View {
 
         // A few things LineCheck "noticed", spread across recent cycles.
         let noticed: [(id: String, tone: MenoPlan.CycleSignal.Tone, symbol: String, title: String, detail: String, first: Date, days: Int)] = [
-            ("temperatureShift", .positive, "thermometer.sun", "Temperature shift detected",
-             "Your temperature has stayed above your earlier readings for three days, which usually means ovulation has happened.",
-             addingDays((plan.last?.ovulationDay ?? 15) + 2, to: starts.last ?? anchor), 5),
-            ("fertileMucus", .positive, "drop.triangle", "Fertile-quality mucus",
-             "Egg-white mucus usually shows up in the days just before ovulation.",
-             addingDays((plan.last?.ovulationDay ?? 15) - 4, to: starts.last ?? anchor), 3),
+            ("longCycle", .info, "calendar.badge.clock", "A longer cycle than usual",
+             "Cycles often lengthen and vary in perimenopause.",
+             addingDays(40, to: starts[plan.count - 2]), 5),
             ("shortSleep", .info, "bed.double", "Short on sleep this week",
-             "You've averaged under 7 hours of sleep. Ongoing short sleep can nudge ovulation later.",
+             "You've averaged under 7 hours of sleep. Night sweats and hot flushes often break up sleep.",
              addingDays(20, to: starts[plan.count - 2]), 4),
             ("weightChange", .info, "scalemass", "Weight has come down",
              "Your weight is down a little over the last couple of months.",
@@ -964,7 +1026,7 @@ struct SettingsView: View {
             ] } ?? [:],
             "periods": periods.map { ["id": $0.id.uuidString, "start": date($0.startDate), "end": date($0.endDate), "source": $0.source.rawValue, "notes": $0.notes] },
             "cycles": cycles.map { ["id": $0.id.uuidString, "start": date($0.startDate), "end": date($0.endDate), "predictedOvulation": date($0.predictedOvulationDate), "confirmedOvulation": date($0.confirmedOvulationDate), "expectedPeriod": date($0.expectedPeriodDate), "cycleLength": $0.averageCycleLengthAtStart, "lutealLength": $0.lutealPhaseLengthAtStart] },
-            "bodySigns": dailyLogs.map { ["date": date($0.date), "symptoms": $0.symptoms, "moods": $0.moods, "supplements": $0.supplements, "cervicalMucus": $0.cervicalMucusRaw ?? NSNull(), "cervicalPosition": $0.cervicalPositionRaw ?? NSNull(), "sex": $0.sexRaw ?? NSNull(), "insemination": $0.inseminationRaw ?? NSNull(), "healthKitObservations": $0.healthKitObservations, "notes": $0.notes] },
+            "bodySigns": dailyLogs.map { ["date": date($0.date), "symptoms": $0.symptoms, "moods": $0.moods, "supplements": $0.supplements, "healthKitObservations": $0.healthKitObservations, "notes": $0.notes] },
             "tests": scans.map { ["id": $0.id.uuidString, "date": date($0.createdAt), "type": $0.testType.rawValue, "result": $0.resultType.rawValue, "certainty": $0.certaintyPercentage, "lineStrength": $0.lineStrength, "ratio": $0.testControlRatio, "notes": $0.notes] },
             "comparisons": comparisons.map { ["id": $0.id.uuidString, "date": date($0.createdAt), "type": $0.testType.rawValue, "earlierScanID": $0.earlierScanID.uuidString, "laterScanID": $0.laterScanID.uuidString, "summary": $0.localSummaryDetail] },
             "reminders": reminders.map { ["id": $0.id.uuidString, "title": $0.title, "type": $0.reminderType.rawValue, "date": date($0.scheduledDate), "completed": $0.isCompleted] },
@@ -1092,12 +1154,6 @@ private struct ReminderPreferencesSheet: View {
                     }
 
                     if settings.autoRemindersEnabled {
-                        preferenceGroup("Fertility tracking") {
-                            preferenceToggle("Ovulation test nudges", detail: "A heads-up when your testing window may start, a mid-window check-in for irregular cycles, and a next-day follow-up after a saved High or Rising result. Follow your kit's timing.", isOn: binding(\.autoOvulationTestRemindersEnabled))
-                            preferenceToggle("Fertile window", detail: "Shows when predicted fertile days begin; this is not confirmation of ovulation.", isOn: binding(\.autoFertileWindowRemindersEnabled))
-                            preferenceToggle("Fertile peak check-in", detail: "Optional predicted-ovulation nudge. It stops once an LH peak or ovulation date is saved.", isOn: binding(\.autoFertilePeakRemindersEnabled))
-                        }
-
                         preferenceGroup("Period") {
                             preferenceToggle("Period heads-up", detail: "The day before your predicted period, with the estimated date explained in Calendar.", isOn: binding(\.autoPeriodExpectedRemindersEnabled))
                             preferenceToggle("Period check-in", detail: "Asks whether your period started, right on your expected day.", isOn: binding(\.autoPeriodCheckInRemindersEnabled))
@@ -1287,188 +1343,6 @@ private struct LineCheckExportDocument: FileDocument {
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper { FileWrapper(regularFileWithContents: data) }
 }
 
-private struct CycleRecordEditor: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var modelContext
-    @Query(sort: \PeriodEvent.startDate) private var periods: [PeriodEvent]
-    @Query(sort: \CycleRecord.startDate) private var cycles: [CycleRecord]
-    @Query(sort: \Reminder.scheduledDate) private var reminders: [Reminder]
-    @Query private var settingsRows: [UserSettings]
-    let cycle: CycleRecord
-    @State private var startDate: Date
-    @State private var hasEndDate: Bool
-    @State private var endDate: Date
-    @State private var hasPeriodEnd: Bool
-    @State private var periodEndDate: Date
-    @State private var hasConfirmedOvulation: Bool
-    @State private var ovulationDate: Date
-    @State private var expectedPeriodDate: Date
-    @State private var averageCycleLength: Int
-    @State private var lutealPhaseLength: Int
-    @State private var notes: String
-
-    init(cycle: CycleRecord) {
-        self.cycle = cycle
-        _startDate = State(initialValue: cycle.startDate)
-        _hasEndDate = State(initialValue: cycle.endDate != nil)
-        _endDate = State(initialValue: cycle.endDate ?? .now)
-        _hasPeriodEnd = State(initialValue: false)
-        _periodEndDate = State(initialValue: Calendar.current.date(byAdding: .day, value: 4, to: cycle.startDate) ?? cycle.startDate)
-        _hasConfirmedOvulation = State(initialValue: cycle.confirmedOvulationDate != nil)
-        _ovulationDate = State(initialValue: cycle.confirmedOvulationDate ?? cycle.predictedOvulationDate ?? .now)
-        _expectedPeriodDate = State(initialValue: cycle.expectedPeriodDate ?? .now)
-        _averageCycleLength = State(initialValue: cycle.averageCycleLengthAtStart)
-        _lutealPhaseLength = State(initialValue: cycle.lutealPhaseLengthAtStart)
-        _notes = State(initialValue: cycle.notes)
-    }
-
-    // Moving this cycle's period onto another logged period's range would
-    // produce two overlapping periods with no clear "current" one - block it
-    // rather than silently corrupting the cycle history, mirroring the same
-    // guard on the calendar's PeriodEventEditor.
-    private var overlapError: String? {
-        let calendar = Calendar.current
-        let newStart = calendar.startOfDay(for: startDate)
-        let newEnd = calendar.startOfDay(for: hasPeriodEnd ? periodEndDate : (calendar.date(byAdding: .day, value: 4, to: newStart) ?? newStart))
-        let matchedPeriodID = periods.first(where: { $0.cycleRecordID == cycle.id || calendar.isDate($0.startDate, inSameDayAs: cycle.startDate) })?.id
-        for other in periods where other.id != matchedPeriodID && !other.notes.contains("[LineCheck Screenshot Sample]") {
-            let otherStart = calendar.startOfDay(for: other.startDate)
-            let otherEnd = calendar.startOfDay(for: other.endDate ?? calendar.date(byAdding: .day, value: 4, to: otherStart) ?? otherStart)
-            if newStart <= otherEnd && otherStart <= newEnd {
-                return "That overlaps with the period logged on \(DateFormatting.shortDate.string(from: otherStart))."
-            }
-        }
-        return nil
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Cycle Dates") {
-                    DatePicker("Period started", selection: $startDate, in: ...Date.now, displayedComponents: .date)
-                    Toggle("Period end is known", isOn: $hasPeriodEnd)
-                    if hasPeriodEnd {
-                        DatePicker("Period ended", selection: $periodEndDate, in: startDate..., displayedComponents: .date)
-                    }
-                    Toggle("Cycle has ended", isOn: $hasEndDate)
-                    if hasEndDate {
-                        DatePicker("Next cycle started", selection: $endDate, in: startDate..., displayedComponents: .date)
-                    }
-                    DatePicker("Expected next period", selection: $expectedPeriodDate, in: startDate..., displayedComponents: .date)
-                    if let overlapError {
-                        Text(overlapError)
-                            .font(.app(.caption))
-                            .foregroundStyle(.red)
-                    }
-                }
-                Section("Ovulation") {
-                    Toggle("Use a confirmed date", isOn: $hasConfirmedOvulation)
-                    if hasConfirmedOvulation {
-                        DatePicker("Ovulation date", selection: $ovulationDate, in: startDate..., displayedComponents: .date)
-                        Text("Use this for a known date or a date supported by your tests. You can change it again later.")
-                            .font(.app(.caption))
-                    }
-                }
-                Section {
-                    Stepper("Average cycle length: \(averageCycleLength) days", value: $averageCycleLength, in: FertilityWindowCalculator.plausibleCycleLengthRange)
-                    Stepper("Luteal phase length: \(lutealPhaseLength) days", value: $lutealPhaseLength, in: 10...18)
-                } header: {
-                    Text("This cycle's length")
-                } footer: {
-                    Text("Overrides the assumption this specific cycle started with. This only reshapes predictions while no confirmed ovulation date is set above - the confirmed date always wins.")
-                }
-                Section("Notes") {
-                    TextField("Cycle notes", text: $notes, axis: .vertical).lineLimit(2...6)
-                }
-                Button("Save Cycle") { save() }
-                    .buttonStyle(.primaryLine)
-                    .disabled(overlapError != nil)
-            }
-            .navigationTitle("Adjust Cycle")
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
-        }
-        .tint(Color.lineBlue)
-        .onAppear {
-            if let end = periods.first(where: { $0.cycleRecordID == cycle.id })?.endDate {
-                hasPeriodEnd = true
-                periodEndDate = end
-            }
-        }
-    }
-
-    private func save() {
-        guard overlapError == nil else { return }
-        let oldStart = cycle.startDate
-        let previousConfirmedOvulationDate = cycle.confirmedOvulationDate
-        let previousAverageCycleLength = cycle.averageCycleLengthAtStart
-        let previousLutealPhaseLength = cycle.lutealPhaseLengthAtStart
-        let previousExpectedPeriodDate = cycle.expectedPeriodDate.map { Calendar.current.startOfDay(for: $0) }
-        cycle.startDate = Calendar.current.startOfDay(for: startDate)
-        cycle.endDate = hasEndDate ? Calendar.current.startOfDay(for: endDate) : nil
-        cycle.status = hasEndDate ? .completed : .active
-        cycle.expectedPeriodDate = Calendar.current.startOfDay(for: expectedPeriodDate)
-        cycle.confirmedOvulationDate = hasConfirmedOvulation ? Calendar.current.startOfDay(for: ovulationDate) : nil
-        cycle.ovulationSource = hasConfirmedOvulation ? .userConfirmed : nil
-        cycle.averageCycleLengthAtStart = averageCycleLength
-        // An edited length is the person's call for this cycle - it has to
-        // beat the learned median in CycleTrackingService.window, or the
-        // edit would silently do nothing once two periods are logged.
-        if averageCycleLength != previousAverageCycleLength { cycle.userSetCycleLength = averageCycleLength }
-        cycle.lutealPhaseLengthAtStart = lutealPhaseLength
-        cycle.notes = notes
-        cycle.updatedAt = .now
-        if let period = periods.first(where: { $0.cycleRecordID == cycle.id || Calendar.current.isDate($0.startDate, inSameDayAs: oldStart) }) {
-            period.startDate = cycle.startDate
-            period.endDate = hasPeriodEnd ? Calendar.current.startOfDay(for: periodEndDate) : nil
-        }
-        // A changed length assumption only reshapes the calculated baseline
-        // when there's no confirmed date pinning ovulation directly - a
-        // confirmed date always stays authoritative, matching
-        // CycleTrackingService.window's own precedence.
-        let lengthsChanged = averageCycleLength != previousAverageCycleLength || lutealPhaseLength != previousLutealPhaseLength
-        let startDateChanged = !Calendar.current.isDate(oldStart, inSameDayAs: cycle.startDate)
-        // A confirmed ovulation date is an absolute date, not derived from
-        // cycle start - only the length-driven expectedPeriodDate shift needs
-        // recomputing for it. Without a confirmed date, moving the start date
-        // alone (with lengths unchanged) still needs a fresh baseline, since
-        // the baseline is anchored to cycle.startDate.
-        let expectedPeriodEdited = previousExpectedPeriodDate != cycle.expectedPeriodDate
-        let ovulationChanged = previousConfirmedOvulationDate.map { Calendar.current.startOfDay(for: $0) } != cycle.confirmedOvulationDate
-        if let confirmed = cycle.confirmedOvulationDate, !expectedPeriodEdited, ovulationChanged || lutealPhaseLength != previousLutealPhaseLength {
-            // A newly confirmed (or moved) ovulation carries the expected
-            // period with it unless the person set that date themselves.
-            cycle.expectedPeriodDate = FertilityWindowCalculator.nextPeriod(afterOvulation: confirmed, lutealPhaseLength: lutealPhaseLength)
-        } else if cycle.confirmedOvulationDate == nil, lengthsChanged || startDateChanged {
-            if let baseline = FertilityWindowCalculator.window(
-                for: cycle.startDate,
-                lastPeriodStart: cycle.startDate,
-                averageCycleLength: averageCycleLength,
-                lutealPhaseLength: lutealPhaseLength
-            ) {
-                cycle.predictedOvulationDate = baseline.predictedOvulationDate
-                if !expectedPeriodEdited { cycle.expectedPeriodDate = baseline.nextPeriodDate }
-            }
-        }
-        try? modelContext.save()
-        if previousAverageCycleLength != averageCycleLength || previousLutealPhaseLength != lutealPhaseLength {
-            AppAnalytics.log("linecheck_cycle_length_edited", [
-                "average_cycle_length": averageCycleLength,
-                "luteal_phase_length": lutealPhaseLength
-            ])
-        }
-        // Any of these changes can move fertile-peak/period-expected timing,
-        // so resync reminders whenever the confirmed ovulation date or the
-        // cycle's own length assumptions changed.
-        if previousConfirmedOvulationDate != cycle.confirmedOvulationDate || lengthsChanged || startDateChanged {
-            if let settings = UserSettings.canonical(from: settingsRows), let window = CycleTrackingService.window(records: cycles, settings: settings) {
-                Task { await ReminderAutomationService.syncPredictedReminders(cycle: cycle, window: window, settings: settings, existingReminders: reminders, context: modelContext) }
-            }
-        }
-        dismiss()
-    }
-
-}
-
 private struct AboutLineCheckSheet: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -1584,7 +1458,7 @@ private struct AboutLineCheckSheet: View {
             AboutFeatureRow(
                 icon: "calendar",
                 title: "Track timing",
-                detail: "See scans, reminders, fertile windows, and cycle context together.",
+                detail: "See symptoms, periods, tests and reminders together.",
                 tint: Color.lineBlue
             )
             AboutFeatureRow(

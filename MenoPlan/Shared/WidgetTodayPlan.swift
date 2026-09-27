@@ -1,13 +1,13 @@
 import Foundation
 
-/// The "Today's Plan" widget answers one question - "should I test
-/// today, and why?" - then lists the next few dates that matter. Testing guidance mirrors the app: ovulation tests start 7 days
-/// before estimated ovulation.
+/// The "Today's Plan" widget answers one question - "where am I in my
+/// cycle?" - then lists the next date that matters. Cycles often lengthen
+/// and vary in perimenopause, so a late period is framed as expected news.
 struct WidgetTodayPlan: Equatable {
-    enum Phase: Equatable { case idle, beforeTesting, ovulationTesting, twoWeekWait, periodDue }
-    enum Action: Equatable { case ovulationTest }
+    enum Phase: Equatable { case idle, upcoming, periodDue }
+    enum Action: Equatable { case logPeriod }
 
-    /// A date coming up, e.g. "Earliest Test" on Wed 1.
+    /// A date coming up, e.g. "Period Due" on Wed 1.
     struct Stop: Equatable {
         var title: String
         var date: Date
@@ -16,17 +16,17 @@ struct WidgetTodayPlan: Equatable {
     var phase: Phase
     /// Small-caps context, e.g. "Cycle day 24".
     var label: String
-    /// The answer, e.g. "Test from tomorrow".
+    /// The answer, e.g. "Period due Friday".
     var headline: String
-    /// The reason, e.g. "About 10 days past ovulation · period due Tuesday".
+    /// The reason, e.g. "Expected Fri 3 Oct".
     var detail: String
     /// Short version of `detail` for the small widget.
     var compactDetail: String
     /// One practical tip, shown when there's no action to take.
     var tip: String?
-    /// Only set when testing today is actually sensible.
+    /// Only set when there's something worth doing today.
     var action: Action?
-    /// Today's test is done - the headline gets a tick.
+    /// Today's job is done - the headline gets a tick.
     var isDone: Bool
     /// The next key dates after today, soonest first (at most 3).
     var stops: [Stop]
@@ -40,12 +40,8 @@ struct WidgetTodayPlan: Equatable {
         guard snapshot.cycleState == .tracking, let cycle = snapshot.cycle else { return .idle }
 
         let today = calendar.startOfDay(for: date)
-        func start(_ date: Date) -> Date { calendar.startOfDay(for: date) }
         func days(to other: Date) -> Int {
-            calendar.dateComponents([.day], from: today, to: start(other)).day ?? 0
-        }
-        func shift(_ date: Date, _ days: Int) -> Date {
-            calendar.date(byAdding: .day, value: days, to: start(date)) ?? date
+            calendar.dateComponents([.day], from: today, to: calendar.startOfDay(for: other)).day ?? 0
         }
         /// "today", "tomorrow", "Friday" within the week, otherwise "Fri 3 Oct".
         func friendly(_ date: Date) -> String {
@@ -56,114 +52,31 @@ struct WidgetTodayPlan: Equatable {
             default: return date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated))
             }
         }
-        func testedToday(_ result: WidgetSnapshot.LatestTest?) -> String? {
-            result.flatMap { calendar.isDate($0.date, inSameDayAs: today) ? $0.resultRaw : nil }
-        }
 
         let cycleDay = max(1, -days(to: cycle.cycleStart) + 1)
-        let toOPK = days(to: cycle.opkStart)
-        let toFertile = days(to: cycle.fertileStart)
-        let toOvulation = days(to: cycle.ovulation)
         let toPeriod = days(to: cycle.nextPeriod)
-        let ovulationTitle = cycle.ovulationConfirmed ? "Ovulation" : "Likely Ovulation"
-        // Future dates only, one per day (the earlier entry wins a tie).
-        var upcoming: [Stop] = []
-        for (title, date) in [
-            ("Ovulation Tests Start", cycle.opkStart), ("Fertile Days Begin", cycle.fertileStart),
-            (ovulationTitle, cycle.ovulation), ("Period Due", cycle.nextPeriod),
-        ] where days(to: date) > 0 && !upcoming.contains(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
-            upcoming.append(Stop(title: title, date: start(date)))
-        }
-        upcoming.sort { $0.date < $1.date }
-        let stops = Array(upcoming.prefix(3))
-        // An irregular cycle can widen the fertile days past the estimate;
-        // until they end (or a test confirms ovulation) keep testing, as Home does.
-        let widenedPastOvulation = !cycle.ovulationConfirmed
-            && calendar.dateComponents([.day], from: start(cycle.ovulation), to: start(cycle.fertileEnd)).day ?? 0 > 1
-            && days(to: cycle.fertileEnd) >= 0
+        let stops = toPeriod > 0 ? [Stop(title: "Period Due", date: calendar.startOfDay(for: cycle.nextPeriod))] : []
 
-        // MARK: Before ovulation testing
-
-        if toOPK > 0 {
+        if toPeriod > 0 {
             return WidgetTodayPlan(
-                phase: .beforeTesting,
+                phase: .upcoming,
                 label: "Cycle day \(cycleDay)",
-                headline: toOPK == 1 ? "Start Ovulation Tests Tomorrow" : "No Test Needed Today",
-                detail: toOPK == 1 ? "Test in the afternoon for the clearest line" : "Ovulation tests start \(friendly(cycle.opkStart))",
-                compactDetail: toOPK == 1 ? "Afternoon works best" : "Tests start \(friendly(cycle.opkStart))",
-                tip: nil, action: nil, isDone: false, stops: stops
+                headline: toPeriod == 1 ? "Period Due Tomorrow" : "Period Due \(friendly(cycle.nextPeriod).capitalized)",
+                detail: cycle.isIrregular ? "Your cycles vary, so this is an estimate" : "Expected \(friendly(cycle.nextPeriod))",
+                compactDetail: "Expected \(friendly(cycle.nextPeriod))",
+                tip: "Logging symptoms daily makes patterns easier to spot",
+                action: nil, isDone: false, stops: stops
             )
         }
-
-        // MARK: Ovulation testing window
-
-        if toOvulation >= 0 || widenedPastOvulation {
-            let windowSoFar = (0..<max(0, -toOPK)).map { WidgetSnapshot.dayKey(shift(cycle.opkStart, $0), calendar: calendar) }
-            let testedBefore = windowSoFar.filter { snapshot.ovulationTestDays.contains($0) }.count
-            let record = windowSoFar.isEmpty ? "First day of testing" : "Tested \(testedBefore) of the last \(windowSoFar.count) days"
-            let ovulationText: String = switch toOvulation {
-            case ..<0: "Ovulation may be a little later"
-            case 0: "Ovulation estimated today"
-            case 1: "Ovulation estimated tomorrow"
-            default: "Ovulation estimated in \(toOvulation) days"
-            }
-            let label = toOvulation < 0 ? "Possible fertile days" : (toFertile <= 0 ? "Fertile window" : "Ovulation testing")
-            let base = WidgetTodayPlan(
-                phase: .ovulationTesting, label: label, headline: "", detail: "", compactDetail: ovulationText,
-                tip: nil, action: nil, isDone: false, stops: stops
-            )
-
-            guard let result = testedToday(snapshot.latestOvulationTest) else {
-                var plan = base
-                plan.headline = toOvulation == 0 ? "Ovulation Likely Today" : "Take Today's Ovulation Test"
-                plan.detail = "\(ovulationText) · \(record)"
-                plan.action = .ovulationTest
-                return plan
-            }
-            switch result {
-            case "peak", "high":
-                var plan = base
-                plan.headline = "Ovulation Is Close"
-                plan.detail = "Your test shows a surge · likely within 1-2 days"
-                plan.compactDetail = "Ovulation likely soon"
-                plan.tip = "Today and tomorrow are your most fertile days"
-                plan.isDone = true
-                return plan
-            default:
-                var plan = base
-                plan.headline = "Today's Test Is Done"
-                plan.detail = "\(ovulationText) · next test tomorrow"
-                plan.tip = "Tip: test at the same time each day to compare lines"
-                plan.isDone = true
-                return plan
-            }
-        }
-
-        // MARK: After ovulation
-
-        let dpo = -toOvulation
-        let pastOvulation = cycle.ovulationConfirmed ? "\(dpo) DPO" : "About \(dpo) DPO"
-        let isLate = toPeriod <= 0
-        let label: String = switch toPeriod {
-        case 1...: "Cycle day \(cycleDay)"
-        case 0: "Period due today"
-        case -1: "Period 1 day late"
-        default: "Period \(-toPeriod) days late"
-        }
-        let base = WidgetTodayPlan(
-            phase: isLate ? .periodDue : .twoWeekWait, label: label, headline: "", detail: "", compactDetail: "",
-            tip: nil, action: nil, isDone: false, stops: stops
+        let late = -toPeriod
+        return WidgetTodayPlan(
+            phase: .periodDue,
+            label: late == 0 ? "Period due today" : (late == 1 ? "Period 1 day late" : "Period \(late) days late"),
+            headline: late == 0 ? "Period Due Today" : "Period Is Late",
+            detail: "Log it when it starts to keep your timeline accurate",
+            compactDetail: "Log it when it starts",
+            tip: "Cycles often vary more in perimenopause",
+            action: .logPeriod, isDone: false, stops: []
         )
-        var plan = base
-        if isLate {
-            plan.headline = "Period Is Late"
-            plan.detail = "Log it when it starts to keep your timeline accurate"
-            plan.compactDetail = "Log it when it starts"
-        } else {
-            plan.headline = toPeriod == 0 ? "Period Due Today" : "Period Due \(friendly(cycle.nextPeriod))"
-            plan.detail = "\(pastOvulation) · period due \(friendly(cycle.nextPeriod))"
-            plan.compactDetail = "Period due \(friendly(cycle.nextPeriod))"
-        }
-        return plan
     }
 }

@@ -8,7 +8,6 @@ enum CycleSignalSurface: Hashable {
     case luna
     case weekly
     case home
-    case pregnancyResult
     case ovulationResult
 }
 
@@ -31,70 +30,6 @@ struct CycleSignal: Identifiable, Equatable {
     var lunaFact: String { "\(id) [\(tone == .attention ? "attention" : tone == .positive ? "supportive" : "info")]: \(detail)" }
 }
 
-/// A sustained post-ovulation temperature rise, found with the standard
-/// "three over six" rule: three readings above the highest of the previous
-/// six, the third at least 0.2°C above it.
-struct ThermalShift: Equatable {
-    /// First day of the higher-temperature run.
-    let shiftDay: Date
-    /// Ovulation is estimated as the day before the rise.
-    let estimatedOvulation: Date
-    /// Highest of the six pre-shift readings - the "coverline".
-    let coverlineCelsius: Double
-    let usesWristTemperature: Bool
-}
-
-enum ThermalShiftDetector {
-    static let minimumRiseCelsius = 0.2
-    /// Readings more than this many days apart don't count as a run.
-    static let maximumGapDays = 3
-
-    static func detect(
-        in logs: [DailyFertilityLog],
-        from cycleStart: Date,
-        until cycleEnd: Date? = nil,
-        calendar: Calendar = .current
-    ) -> ThermalShift? {
-        let start = calendar.startOfDay(for: cycleStart)
-        let end = cycleEnd.map { calendar.startOfDay(for: $0) } ?? .distantFuture
-        let cycleLogs = logs
-            .filter { let day = calendar.startOfDay(for: $0.date); return day >= start && day < end }
-            .sorted { $0.date < $1.date }
-        let basal = cycleLogs.compactMap { log in log.basalBodyTemperatureCelsius.map { (calendar.startOfDay(for: log.date), $0) } }
-        if let shift = detect(series: basal, cycleStart: start, calendar: calendar) {
-            return ThermalShift(shiftDay: shift.day, estimatedOvulation: shift.ovulation, coverlineCelsius: shift.coverline, usesWristTemperature: false)
-        }
-        // Wrist temperature only when there aren't enough thermometer
-        // readings to judge - the two are never mixed in one series.
-        guard basal.count < 9 else { return nil }
-        let wrist = cycleLogs.compactMap { log in log.wristTemperatureCelsius.map { (calendar.startOfDay(for: log.date), $0) } }
-        guard let shift = detect(series: wrist, cycleStart: start, calendar: calendar) else { return nil }
-        return ThermalShift(shiftDay: shift.day, estimatedOvulation: shift.ovulation, coverlineCelsius: shift.coverline, usesWristTemperature: true)
-    }
-
-    static func detect(series: [(Date, Double)], cycleStart: Date, calendar: Calendar = .current) -> (day: Date, ovulation: Date, coverline: Double)? {
-        guard series.count >= 9 else { return nil }
-        for index in 6..<(series.count - 2) {
-            let lows = series[(index - 6)..<index]
-            let highs = series[index...(index + 2)]
-            guard let firstLow = lows.first?.0, let lastHigh = highs.last?.0,
-                  (calendar.dateComponents([.day], from: firstLow, to: lastHigh).day ?? 99) <= 9 + maximumGapDays * 2
-            else { continue }
-            let coverline = lows.map(\.1).max() ?? 0
-            let values = highs.map(\.1)
-            guard values.allSatisfy({ $0 > coverline }), (values.last ?? 0) >= coverline + minimumRiseCelsius else { continue }
-            let shiftDay = series[index].0
-            // Ovulation before cycle day 8 isn't plausible; that's noise
-            // from the period days, not a luteal rise.
-            let cycleDay = FertilityWindowCalculator.cycleDay(for: shiftDay, cycleStart: cycleStart, calendar: calendar)
-            guard cycleDay >= 9 else { continue }
-            let ovulation = calendar.date(byAdding: .day, value: -1, to: shiftDay) ?? shiftDay
-            return (shiftDay, ovulation, coverline)
-        }
-        return nil
-    }
-}
-
 /// Everything the engine reads. Built once per screen from the same queries
 /// the screen already has.
 struct CycleSignalInputs {
@@ -105,7 +40,6 @@ struct CycleSignalInputs {
     var metrics: [DailyHealthMetrics]
     var scans: [Scan]
     var profile: HealthProfile
-    var tryingToConceive: Bool
 }
 
 /// Turns the person's own data - cycle, daily log, Apple Health, profile and
@@ -123,115 +57,18 @@ enum CycleSignalsEngine {
             realLogs.filter { let age = days(from: $0.date, to: today); return age >= 0 && age < count }
         }
 
-        // MARK: Cycle timing evidence
+        // MARK: Cycle timing
 
-        if let cycle = input.activeCycle, let window = input.window {
-            let cycleLogs = realLogs
-                .filter { calendar.startOfDay(for: $0.date) >= calendar.startOfDay(for: cycle.startDate) }
-                .sorted { $0.date < $1.date }
-            let shift = ThermalShiftDetector.detect(in: realLogs, from: cycle.startDate, until: cycle.endDate, calendar: calendar)
-            // One answer to "has ovulation shown up yet?" for every rule below,
-            // including a rise detected before the cycle has been updated.
-            let hasOvulationEvidence = shift != nil
-                || cycle.confirmedOvulationDate != nil
-                || cycle.ovulationSource?.isOvulationEvidence == true
-            let source = shift?.usesWristTemperature == true ? "wrist temperature" : "temperatures"
-            if let shift {
-                let highFor = days(from: shift.shiftDay, to: today) + 1
-                let recentTemps = cycleLogs.compactMap { shift.usesWristTemperature ? $0.wristTemperatureCelsius : $0.basalBodyTemperatureCelsius }.suffix(3)
-                let stillHigh = recentTemps.count >= 3 && recentTemps.allSatisfy { $0 > shift.coverlineCelsius }
-                if highFor >= 18, stillHigh, input.tryingToConceive {
-                    signals.append(CycleSignal(
-                        id: "sustainedHighTemperature", tone: .attention, symbol: "thermometer.high",
-                        title: "Temperatures high for \(highFor) days",
-                        detail: "Your \(source) have stayed above your pre-ovulation level for \(highFor) days. A rise lasting 18 days or more is one of the earlier signs of pregnancy, and a pregnancy test will give you a clear answer.",
-                        surfaces: [.luna, .weekly, .home, .pregnancyResult]
-                    ))
-                } else {
-                    signals.append(CycleSignal(
-                        id: "temperatureShift", tone: .positive, symbol: "thermometer.sun",
-                        title: "Temperature shift detected",
-                        detail: "Your \(source) rose and stayed up from \(short(shift.shiftDay)), the pattern that follows ovulation, so ovulation most likely happened around \(short(shift.estimatedOvulation)).",
-                        surfaces: [.luna, .weekly, .home, .ovulationResult, .pregnancyResult]
-                    ))
-                }
-            } else {
-                let temps = cycleLogs.compactMap(\.basalBodyTemperatureCelsius)
-                // A Peak or confirmed date already places ovulation, and BBT
-                // often lags a Peak, so "may be later" would contradict it.
-                if temps.count >= 8, !hasOvulationEvidence, days(from: window.predictedOvulationDate, to: today) >= 4 {
-                    signals.append(CycleSignal(
-                        id: "noTemperatureShiftYet", tone: .info, symbol: "thermometer.medium",
-                        title: "No temperature rise yet",
-                        detail: "There's no sustained temperature rise yet, although ovulation was estimated for \(short(window.predictedOvulationDate)). Ovulation may be later than the calendar suggests this cycle, so keep ovulation testing.",
-                        surfaces: [.luna, .weekly, .ovulationResult]
-                    ))
-                }
-            }
-
-            // Fertile-quality mucus, and whether it's arriving earlier than the calendar expects.
-            if let mucusLog = logs(inLast: 3).first(where: { ["Egg White", "Egg white", "Watery"].contains($0.cervicalMucusRaw ?? "") }) {
-                let kind = (mucusLog.cervicalMucusRaw ?? "").lowercased()
-                let early = days(from: mucusLog.date, to: window.fertileStartDate) >= 2
-                let afterEstimate = days(from: window.predictedOvulationDate, to: mucusLog.date) >= 2
-                let detail: String
-                if early {
-                    detail = "You logged \(kind) mucus on \(short(mucusLog.date)), earlier than your estimated fertile window. Your body may be heading towards ovulation sooner than the calendar expects, so start ovulation tests now."
-                } else if afterEstimate && !hasOvulationEvidence {
-                    detail = "You logged \(kind) mucus on \(short(mucusLog.date)), after your estimated ovulation day, and there's no Peak test or temperature rise yet this cycle. Ovulation may be later than the calendar estimated, so keep ovulation testing."
-                } else if afterEstimate {
-                    detail = "You logged \(kind) mucus on \(short(mucusLog.date)). Your data suggests ovulation has already happened this cycle, and wetter days can also show up afterwards, so this doesn't change your estimate."
-                } else {
-                    detail = "You logged \(kind) mucus on \(short(mucusLog.date)), one of the clearest signs that ovulation is close."
-                }
-                signals.append(CycleSignal(
-                    id: "fertileMucus", tone: afterEstimate ? .info : .positive, symbol: "drop.triangle",
-                    title: afterEstimate && !hasOvulationEvidence ? "Fertile mucus later than expected" : "Fertile-quality mucus",
-                    detail: detail,
-                    surfaces: [.luna, .weekly, .home, .ovulationResult]
-                ))
-            }
-
-            if cycleLogs.contains(where: { $0.healthKitObservations.contains("Apple Health OPK: LH surge") }) {
-                signals.append(CycleSignal(
-                    id: "healthLHSurge", tone: .positive, symbol: "heart.text.square",
-                    title: "LH surge recorded in Apple Health",
-                    detail: "A positive ovulation test was recorded in Apple Health this cycle. Ovulation usually follows within 1-2 days of a surge.",
-                    surfaces: [.luna, .weekly, .ovulationResult]
-                ))
-            }
-
-            let ovulation = calendar.startOfDay(for: window.predictedOvulationDate)
-            if let painLog = cycleLogs.first(where: { $0.symptoms.contains("Pelvic Pain") && abs(days(from: ovulation, to: $0.date)) <= 2 }) {
-                signals.append(CycleSignal(
-                    id: "midCyclePain", tone: .info, symbol: "bolt.heart",
-                    title: "Mid-cycle pelvic pain",
-                    detail: "You logged pelvic pain on \(short(painLog.date)), close to your estimated ovulation. One-sided twinges around ovulation are common. Severe or lasting pain is worth checking with a doctor.",
-                    surfaces: [.luna, .weekly]
-                ))
-            }
-
-            if input.tryingToConceive,
-               let spotLog = cycleLogs.first(where: { log in
-                   let dpo = days(from: ovulation, to: log.date)
-                   return (6...12).contains(dpo) && (log.flowIntensity == .spotting || log.symptoms.contains("Spotting"))
-               }) {
-                signals.append(CycleSignal(
-                    id: "lutealSpotting", tone: .info, symbol: "circle.dotted",
-                    title: "Spotting after ovulation",
-                    detail: "You logged spotting on \(short(spotLog.date)), about \(days(from: ovulation, to: spotLog.date)) days after estimated ovulation. Some people spot around implantation, but it's also common in cycles without a pregnancy. A test from your expected period is the reliable check.",
-                    surfaces: [.luna, .weekly, .pregnancyResult]
-                ))
-            }
-
-            if window.cycleDay > 45 {
-                signals.append(CycleSignal(
-                    id: "longCycle", tone: .attention, symbol: "calendar.badge.clock",
-                    title: "A longer cycle than usual",
-                    detail: "You're on cycle day \(window.cycleDay). Stress, illness, weight change, PCOS or coming off birth control can all lengthen a cycle. If long cycles keep happening, it's worth mentioning to a doctor.",
-                    surfaces: [.luna, .weekly, .home]
-                ))
-            }
+        if let window = input.window, input.activeCycle != nil, window.cycleDay > 45 {
+            let longGap = window.cycleDay >= 60
+            signals.append(CycleSignal(
+                id: "longCycle", tone: .info, symbol: "calendar.badge.clock",
+                title: longGap ? "\(window.cycleDay) days since your last period" : "A longer cycle than usual",
+                detail: longGap
+                    ? "Gaps of 60 days or more between periods are common later in perimenopause. Keep logging, and talk to a doctor if bleeding comes back very heavy or you're unsure what's normal for you."
+                    : "You're on cycle day \(window.cycleDay). Cycles often lengthen and vary in perimenopause, and stress, illness or weight change can do it too.",
+                surfaces: [.luna, .weekly, .home]
+            ))
         }
 
         // MARK: Things that change how a test reads
@@ -241,7 +78,7 @@ enum CycleSignalsEngine {
                 id: "highFluidIntake", tone: .info, symbol: "drop.fill",
                 title: "Lots of water today",
                 detail: "You've logged about \(Int((water / 100).rounded()) * 100) ml of water today. Very diluted urine can make test lines look fainter than they are. A test after 2-4 hours without drinking much reads more reliably.",
-                surfaces: [.luna, .pregnancyResult, .ovulationResult]
+                surfaces: [.luna, .ovulationResult]
             ))
         }
 
@@ -251,42 +88,15 @@ enum CycleSignalsEngine {
             signals.append(CycleSignal(
                 id: "hormonalContraception", tone: .attention, symbol: "pills.circle",
                 title: "Contraception recorded in Apple Health",
-                detail: "Apple Health has contraception (\(method)) recorded from \(short(contraceptive.0)). Hormonal methods usually stop ovulation and keep LH low, so cycle predictions and ovulation tests may not reflect your natural cycle yet.",
+                detail: "Apple Health has contraception (\(method)) recorded from \(short(contraceptive.0)). Hormonal methods can change or stop bleeding, so cycle dates may not reflect your natural cycle.",
                 surfaces: [.luna, .weekly, .home, .ovulationResult]
             ))
         } else if input.profile.birthControl == .stillUsing {
             signals.append(CycleSignal(
                 id: "hormonalContraception", tone: .attention, symbol: "pills.circle",
-                title: "Using birth control",
-                detail: "You said you're still using birth control. Hormonal methods usually stop ovulation and keep LH low, so cycle predictions and ovulation tests may not reflect your natural cycle.",
+                title: "Using hormonal contraception",
+                detail: "You said you're still using hormonal contraception. It can change or stop bleeding, so cycle dates may not reflect your natural cycle. Your symptoms still tell the story.",
                 surfaces: [.luna, .weekly, .ovulationResult]
-            ))
-        }
-
-        if let lactation = recentObservations.filter({ $0.1 == "Apple Health: lactation recorded" }).max(by: { $0.0 < $1.0 }) {
-            signals.append(CycleSignal(
-                id: "breastfeeding", tone: .info, symbol: "figure.and.child.holdinghands",
-                title: "Breastfeeding recorded",
-                detail: "Apple Health has lactation recorded from \(short(lactation.0)). Breastfeeding can delay ovulation and make cycles irregular, and ovulation tests may read low or jump around until cycles settle.",
-                surfaces: [.luna, .weekly, .home, .ovulationResult]
-            ))
-        }
-
-        if input.profile.hasPCOS {
-            signals.append(CycleSignal(
-                id: "pcosLH", tone: .info, symbol: "waveform.path.ecg",
-                title: "PCOS and ovulation tests",
-                detail: "With PCOS, LH can stay raised for several days, so ovulation tests may read High more often. Your trend across several tests tells you more than any single one.",
-                surfaces: [.luna, .ovulationResult]
-            ))
-        }
-
-        if let fever = logs(inLast: 3).first(where: { ($0.basalBodyTemperatureCelsius ?? 0) >= 37.6 }) {
-            signals.append(CycleSignal(
-                id: "possibleFever", tone: .info, symbol: "thermometer.high",
-                title: "An unusually high temperature",
-                detail: "Your temperature on \(short(fever.date)) was high enough to be a fever. Illness can push BBT up for a few days, so those readings are less useful for spotting ovulation.",
-                surfaces: [.luna, .weekly]
             ))
         }
 
@@ -308,7 +118,7 @@ enum CycleSignalsEngine {
             signals.append(CycleSignal(
                 id: "shortSleep", tone: .info, symbol: "bed.double",
                 title: "Short on sleep this week",
-                detail: String(format: "You've averaged %.1f hours of sleep over the last week. Ongoing short sleep and stress can nudge ovulation later, and poor sleep makes BBT readings less reliable.", mean(sleep)),
+                detail: String(format: "You've averaged %.1f hours of sleep over the last week. Night sweats, hot flushes and a racing mind are common reasons in perimenopause, and it's worth mentioning to a doctor if it keeps happening.", mean(sleep)),
                 surfaces: [.luna, .weekly, .home]
             ))
         }
@@ -318,19 +128,9 @@ enum CycleSignalsEngine {
         if recentHR.count >= 3, baselineHR.count >= 10 {
             let rise = mean(recentHR) - median(baselineHR)
             if rise >= 3 {
-                let window = input.window
-                let luteal = window.map { today > calendar.startOfDay(for: $0.predictedOvulationDate) && today < calendar.startOfDay(for: $0.nextPeriodDate) } ?? false
-                let detail: String
-                let tone: CycleSignal.Tone
-                if luteal {
-                    tone = .info
-                    detail = "Your resting heart rate is about \(Int(rise.rounded())) bpm above your usual level. A small rise after ovulation is normal as progesterone increases."
-                } else {
-                    tone = .info
-                    detail = "Your resting heart rate is about \(Int(rise.rounded())) bpm above your usual level. Illness, stress, alcohol or poor sleep can all raise it, and the same things can shift cycle timing."
-                }
-                signals.append(CycleSignal(id: "restingHeartRateUp", tone: tone, symbol: "heart", title: "Resting heart rate is up", detail: detail,
-                                           surfaces: tone == .attention ? [.luna, .weekly, .home, .pregnancyResult] : [.luna, .weekly]))
+                let detail = "Your resting heart rate is about \(Int(rise.rounded())) bpm above your usual level. Hot flushes and night sweats, poor sleep, illness, stress or alcohol can all raise it."
+                signals.append(CycleSignal(id: "restingHeartRateUp", tone: .info, symbol: "heart", title: "Resting heart rate is up", detail: detail,
+                                           surfaces: [.luna, .weekly]))
             }
         }
 
@@ -340,7 +140,7 @@ enum CycleSignalsEngine {
             signals.append(CycleSignal(
                 id: "hrvDown", tone: .info, symbol: "waveform.path.ecg",
                 title: "Heart rate variability is lower",
-                detail: "Your heart rate variability has been lower than usual this week, often a sign of stress, illness or hard training. Stress can delay ovulation, so your fertile window may come later this cycle.",
+                detail: "Your heart rate variability has been lower than usual this week, often a sign of stress, poor sleep, illness or hard training.",
                 surfaces: [.luna, .weekly]
             ))
         }
@@ -350,7 +150,7 @@ enum CycleSignalsEngine {
             signals.append(CycleSignal(
                 id: "highTrainingLoad", tone: .info, symbol: "figure.run",
                 title: "A heavy training week",
-                detail: "You've averaged \(Int(mean(exercise).rounded())) minutes of exercise a day this week. Very high training loads, especially with low energy intake, can delay ovulation or lengthen cycles.",
+                detail: "You've averaged \(Int(mean(exercise).rounded())) minutes of exercise a day this week. Recovery and sleep matter more as hormones change.",
                 surfaces: [.luna, .weekly]
             ))
         }
@@ -364,14 +164,10 @@ enum CycleSignalsEngine {
                 signals.append(CycleSignal(
                     id: "weightChange", tone: .info, symbol: "scalemass",
                     title: change > 0 ? "Weight has gone up" : "Weight has come down",
-                    detail: String(format: "Your weight has changed by about %.1f kg (%.0f%%) since %@. Changes of 5%% or more can shift when you ovulate, so predictions may take a cycle or two to catch up.", abs(change), percent, short(earlier.0)),
+                    detail: String(format: "Your weight has changed by about %.1f kg (%.0f%%) since %@. Weight changes are common through menopause, and it can be worth mentioning to a doctor if it happened quickly.", abs(change), percent, short(earlier.0)),
                     surfaces: [.luna, .weekly, .home]
                 ))
             }
-        }
-
-        if let category = input.profile.bmiCategory, category.mayAffectOvulation, let note = category.fertilityNote {
-            signals.append(CycleSignal(id: "bmi", tone: .info, symbol: "figure.stand", title: category.title, detail: note, surfaces: [.luna, .ovulationResult]))
         }
 
         return caveatedForContraception(signals).sorted { $0.tone > $1.tone }
@@ -418,22 +214,16 @@ enum CycleSignalsEngine {
         if let water = logs.first(where: { age($0.date) == 0 })?.waterMl { lines.append("waterTodayMl=\(Int(water.rounded()))") }
         let wrist = logs.filter { age($0.date) <= 13 }.compactMap(\.wristTemperatureCelsius)
         if wrist.count >= 3 {
-            lines.append(String(format: "appleWatchWristTemperatureLast14Days=%.2f-%.2f°C (wrist reads lower than BBT; compare only with itself)", wrist.min() ?? 0, wrist.max() ?? 0))
+            lines.append(String(format: "appleWatchWristTemperatureLast14Days=%.2f-%.2f°C (overnight wrist temperature; compare only with itself)", wrist.min() ?? 0, wrist.max() ?? 0))
         }
         return lines
-    }
-
-    /// True when the data says ovulation hasn't shown up where the calendar
-    /// drew it - Home's countdown and the Calendar header both use this.
-    static func suggestsLaterOvulation(_ signals: [CycleSignal]) -> Bool {
-        signals.contains { $0.id == "noTemperatureShiftYet" || ($0.id == "fertileMucus" && $0.title == "Fertile mucus later than expected") }
     }
 
     /// Cycle-timing observations get a caveat instead of a push when
     /// contraception is recorded - they may not reflect a natural cycle, and
     /// Home's countdown already leads with that.
     private static let cycleTimingSignalIDs: Set<String> = [
-        "temperatureShift", "noTemperatureShiftYet", "fertileMucus", "healthLHSurge", "midCyclePain", "longCycle"
+        "longCycle"
     ]
 
     private static func caveatedForContraception(_ signals: [CycleSignal]) -> [CycleSignal] {
@@ -458,15 +248,14 @@ enum CycleSignalsEngine {
 
 /// Keeps NoticedSignal history in step with what Home shows. Only Home's
 /// signals are recorded, so a day's "What MenoPlan noticed" always matches
-/// what the info button showed that day - result-page-only notes (PCOS,
+/// what the info button showed that day - result-page-only notes (such as
 /// hydration) stay on the result page.
 @MainActor
 enum CycleSignalHistory {
     /// Signals that never appear on Home. Early builds recorded these too;
     /// they're removed from history so the calendar matches Home.
     static let resultOnlySignalIDs: Set<String> = [
-        "noTemperatureShiftYet", "healthLHSurge", "midCyclePain", "lutealSpotting", "periodLate",
-        "highFluidIntake", "pcosLH", "possibleFever", "hrvDown", "highTrainingLoad", "bmi"
+        "highFluidIntake", "hrvDown", "highTrainingLoad"
     ]
 
     static func record(_ signals: [CycleSignal], today: Date = .now, context: ModelContext, calendar: Calendar = .current) {

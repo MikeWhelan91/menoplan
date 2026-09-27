@@ -330,8 +330,7 @@ struct ResultView: View {
             logs: dailyLogs,
             metrics: healthMetrics,
             scans: Array(scans),
-            profile: settings.healthProfile,
-            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive
+            profile: settings.healthProfile
         )
         let surface: CycleSignalSurface = .ovulationResult
         return CycleSignalsEngine.signals(for: surface, input)
@@ -1257,28 +1256,20 @@ struct ResultView: View {
     private func ovulationGuidance(for result: ScanResultType) -> String {
         switch result {
         case .peak: pick([
-            "This looks like an LH surge. Ovulation often follows within about 1–2 days. If you’re trying to conceive, today and tomorrow are useful days to try — sex every 1–2 days across the fertile window gives good coverage.",
-            "The test line is as dark as or darker than control, a strong surge signal. Ovulation typically follows within 24–48 hours, so this is peak fertile-window timing if you’re trying to conceive.",
-            "A reading this strong usually means ovulation is close. Keep testing once a day over the next day or two and expect the line to start fading as the surge passes.",
-            "Strong surge detected. This is typically the best window to try to conceive — most people ovulate within a day or two of a result like this."
+            "The test line is as dark as, or darker than, the control line. One reading is one data point: levels can vary from day to day, so a few readings spaced out over time give a fuller picture.",
+            "This is a strong test line compared with the control. It's worth keeping alongside your symptoms and discussing with a doctor rather than reading it on its own."
         ])
         case .high: pick([
-            "The test line is close to the control, so the surge may be approaching. Test again later today or tomorrow at a similar time, following your test brand’s timing instructions.",
-            "This is a strong reading, just short of a full surge. Testing twice a day from here — morning and evening — can help you catch the moment it crosses over.",
-            "You’re likely close to your surge. If you’re trying to conceive, it’s worth starting to be intimate now in case the surge arrives before your next test.",
-            "The line is nearly as dark as control, a good sign a surge is coming soon. Keep testing at a consistent time each day so you don’t miss the peak."
+            "The test line is close to the control line. Readings can move around from day to day, so comparing a few spaced-out tests tells you more than one.",
+            "This is a fairly strong test line. Keep it alongside your symptoms and cycle changes - together they give a clearer picture than any single test."
         ])
         case .rising: pick([
-            "The line is becoming more visible but is not yet as dark as the control. Continue testing consistently; adding cervical-mucus observations can provide useful context.",
-            "LH is starting to climb. This isn’t a surge yet, but testing daily, or twice daily, from here helps you catch the peak when it arrives.",
-            "A rising line usually means your fertile window is getting closer. Keep to a consistent testing time each day so the trend stays easy to read.",
-            "The test line is gaining strength. No action needed yet beyond continuing to test — at this pace, a surge is often a few days out."
+            "The test line is visible but still lighter than the control. Readings can vary, so testing again in a few days at a similar time helps you compare.",
+            "A clear but lighter test line. Keep testing at a consistent time of day so your readings stay easy to compare."
         ])
         case .low: pick([
-            "No surge is visible in this photo. Continue testing on the calendar’s suggested days. A single low result does not mean you will not ovulate this cycle.",
-            "This is a typical baseline reading. LH usually stays low until shortly before ovulation, so keep testing as you move toward your fertile window.",
-            "Nothing unusual here — most days in a cycle read low. Check back on the suggested testing days as your predicted fertile window approaches.",
-            "A low reading like this is expected outside the fertile window. No change needed; just keep testing on schedule."
+            "The test line is much lighter than the control, or not visible. One low reading doesn't rule anything out - levels can change from day to day.",
+            "This is a light reading. It's one data point; your symptoms and cycle changes matter just as much."
         ])
         case .invalid: pick([
             "The control line is not readable, so this test cannot be interpreted. Repeat with a new test and follow that brand’s timing instructions.",
@@ -1291,7 +1282,7 @@ struct ResultView: View {
         ], offset: 2)
         default: pick([
             "Keep testing consistently and use the trend across several results rather than relying on one image.",
-            "Individual readings can vary — the clearest picture comes from comparing several results over the cycle, not just one."
+            "Individual readings can vary - the clearest picture comes from comparing several results over time, not just one."
         ])
         }
     }
@@ -1762,9 +1753,6 @@ struct ResultView: View {
                     scan.resultWasManuallyAdjusted = !flow.wasLocallyScanned
                 }
                 CycleTrackingService.attach(scan, to: cycleRecords)
-                if CycleTrackingService.applyPeakResult(from: scan, records: cycleRecords) != nil {
-                    appState.toast = "Peak saved — ovulation estimate updated"
-                }
                 modelContext.insert(scan)
                 AppAnalytics.log("linecheck_scan_completed", [
                     "test_type": flow.testType.rawValue,
@@ -1798,7 +1786,7 @@ struct ResultView: View {
     }
 
     private func completeMatchingReminder(for scan: Scan) {
-        let expectedTypes: Set<ReminderType> = [.ovulationTest, .ovulationFollowUp]
+        let expectedTypes: Set<ReminderType> = [.ovulationTest]
         let lowerBound = Calendar.current.date(byAdding: .day, value: -3, to: scan.createdAt) ?? .distantPast
         let upperBound = Calendar.current.date(byAdding: .hour, value: 12, to: scan.createdAt) ?? scan.createdAt
         guard let reminder = reminders.filter({
@@ -1984,8 +1972,6 @@ struct ResultView: View {
         scan.testControlRatio = updated.testControlRatio
         scan.lineStrength = updated.lineStrength
 
-        CycleTrackingService.reconcileOvulationEstimates(records: cycleRecords, scans: scans)
-        _ = CycleTrackingService.applyPeakResult(from: scan, records: cycleRecords)
         try? modelContext.save()
         if scan.testType == .ovulation,
            let cycle = cycleRecords.first(where: { $0.id == scan.cycleRecordID }) {
@@ -2488,12 +2474,12 @@ private extension ScanResultType {
     func referenceSubtitle(testType: TestType) -> String {
         switch self {
         case .invalid: "Result can’t be read"
-        case .low: "LH appears low"
-        case .rising: "LH may be rising"
-        case .high: "LH appears high"
-        case .peak: "LH surge likely"
+        case .low: "Test line much lighter than control"
+        case .rising: "Test line visible but lighter"
+        case .high: "Test line close to control"
+        case .peak: "Test line as dark as control"
         case .unclear: "Lines can’t be compared"
-        case .manualSaved: "Ovulation check saved"
+        case .manualSaved: "Test check saved"
         }
     }
 

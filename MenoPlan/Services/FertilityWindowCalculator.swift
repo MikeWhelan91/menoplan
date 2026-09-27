@@ -33,21 +33,8 @@ struct FertilityWindow {
     /// "fertile window"; it's where those 6 days are likely to fall.
     var isWidened: Bool { profileWidening != nil || isIrregular }
 
-    var fertileRangeTitle: String { isWidened ? "Possible fertile days" : "Fertile window" }
-
-    /// One line explaining a widened range, for wherever it's shown.
-    var widenedRangeNote: String? {
-        guard isWidened else { return nil }
-        return "Your most fertile 6 days fall somewhere in this range. It's wider \(profileWidening.map { _ in "while MenoPlan learns your cycle" } ?? "because your recent cycles have varied"). A Peak test or temperature rise will narrow it."
-    }
-
     func isPastExpectedPeriod(on date: Date, calendar: Calendar = .current) -> Bool {
         calendar.startOfDay(for: date) > calendar.startOfDay(for: nextPeriodDate)
-    }
-
-    func containsFertileDay(_ date: Date, calendar: Calendar = .current) -> Bool {
-        let day = calendar.startOfDay(for: date)
-        return day >= calendar.startOfDay(for: fertileStartDate) && day <= calendar.startOfDay(for: fertileEndDate)
     }
 
     func isPredictedOvulationDay(_ date: Date, calendar: Calendar = .current) -> Bool {
@@ -57,15 +44,12 @@ struct FertilityWindow {
 
 /// The semantic phase assigned to one calendar day. Keeping this decision out
 /// of SwiftUI makes the calendar's precedence rules testable and reusable.
+/// How a calendar day is drawn. MenoPlan only shows bleeding - logged or
+/// estimated - so every other day is a plain day.
 enum CycleCalendarPhase: Equatable {
     case regular
     case period
     case predictedPeriod
-    case opkWindow
-    case fertile
-    case ovulation
-    case confirmedOvulation
-    case luteal
 }
 
 enum CycleCalendarPhaseResolver {
@@ -83,30 +67,12 @@ enum CycleCalendarPhaseResolver {
             return .period
         }
 
-        if cycleRecords.contains(where: { $0.confirmedOvulationDate.map { calendar.isDate(day, inSameDayAs: $0) } ?? false }) {
-            return .confirmedOvulation
-        }
-        if calendar.isDate(day, inSameDayAs: window.predictedOvulationDate) {
-            return .ovulation
-        }
-        if window.containsFertileDay(day, calendar: calendar) {
-            return .fertile
-        }
-
-        // An expected period is only a forecast. Do not let it conceal an
-        // active fertile or ovulation estimate when the saved data overlaps.
+        // An expected period is only a forecast, retired once a period is
+        // logged around it.
         if day >= calendar.startOfDay(for: window.nextPeriodDate),
            day < (calendar.date(byAdding: .day, value: window.periodLength, to: calendar.startOfDay(for: window.nextPeriodDate)) ?? .distantPast),
            !hasConfirmedPeriodEnded(before: day, for: window, periodEvents: periodEvents, calendar: calendar) {
             return .predictedPeriod
-        }
-        if day > calendar.startOfDay(for: window.predictedOvulationDate)
-            && day < calendar.startOfDay(for: window.nextPeriodDate) {
-            return .luteal
-        }
-        if day >= calendar.startOfDay(for: window.opkStartDate)
-            && day < calendar.startOfDay(for: window.fertileStartDate) {
-            return .opkWindow
         }
         return .regular
     }
@@ -133,8 +99,8 @@ enum CycleCalendarPhaseResolver {
         }
     }
 
-    /// Rolls the open cycle forward so later months show estimated periods,
-    /// fertile windows and ovulation. Only used while the next period is
+    /// Rolls the open cycle forward so later months show estimated periods.
+    /// Only used while the next period is
     /// still ahead: once it's late, nothing after it is guessed at.
     static func projectedWindow(
         for date: Date,
@@ -173,25 +139,24 @@ enum CycleCalendarPhaseResolver {
     }
 }
 
-/// Widening driven by the personalisation answers rather than logged
-/// history. Each reason pads the fertile/testing window by a few days.
+/// Uncertainty driven by the personalisation answers rather than logged
+/// history. Each reason widens the internal estimate by a few days.
 enum ProfileWidening: String, Equatable {
-    case pcos, irregularPeriods, recentBirthControl, bodyWeight
+    case pcos, irregularPeriods, recentBirthControl
 
     var paddingDays: Int {
         switch self {
         case .pcos, .irregularPeriods: 4
-        case .recentBirthControl, .bodyWeight: 3
+        case .recentBirthControl: 3
         }
     }
 
     /// Short label for Home.
     var shortNote: String {
         switch self {
-        case .pcos: "Wider window to allow for PCOS"
-        case .irregularPeriods: "Wider window as your periods vary"
-        case .recentBirthControl: "Wider window while your cycle settles"
-        case .bodyWeight: "Wider window until your cycle history builds"
+        case .pcos: "A rough estimate, as PCOS can make cycles vary"
+        case .irregularPeriods: "A rough estimate, as your periods vary"
+        case .recentBirthControl: "A rough estimate while your cycle settles"
         }
     }
 
@@ -199,13 +164,11 @@ enum ProfileWidening: String, Equatable {
     var explanation: String {
         switch self {
         case .pcos:
-            "You told MenoPlan you have PCOS, so the fertile window and ovulation-test start are widened by \(paddingDays) days either side. Ovulation can be less predictable with PCOS."
+            "You told MenoPlan you have PCOS, which can make cycle length vary, so treat the next-period date as a rough estimate."
         case .irregularPeriods:
-            "You told MenoPlan your periods aren’t regular, so the fertile window is widened by \(paddingDays) days until you’ve logged enough periods for your own history to take over."
+            "You told MenoPlan your periods aren’t regular, so the next-period date is a rough estimate until you’ve logged enough periods for your own history to take over."
         case .recentBirthControl:
-            "You recently used hormonal birth control, which can take a few cycles to settle, so the fertile window is widened by \(paddingDays) days until you’ve logged a few more periods."
-        case .bodyWeight:
-            "Your height and weight put your BMI outside the range where ovulation is most regular, so the fertile window is widened by \(paddingDays) days until you’ve logged enough periods for your own history to take over."
+            "You recently used hormonal contraception, which can take a few cycles to settle, so the next-period date is a rough estimate until you’ve logged a few more periods."
         }
     }
 
@@ -220,7 +183,6 @@ enum ProfileWidening: String, Equatable {
         guard loggedPeriodCount < historyTakesOverAfterPeriods else { return nil }
         if profile.regularity == .irregular { return .irregularPeriods }
         if profile.birthControl?.mayAffectRecentCycles == true && profile.birthControl != .stillUsing { return .recentBirthControl }
-        if profile.bmiCategory?.mayAffectOvulation == true { return .bodyWeight }
         return nil
     }
 }
@@ -537,17 +499,6 @@ enum CycleTrackingService {
         return median(of: Array(lengths))
     }
 
-    /// Records a known ovulation date on a cycle and moves that cycle's
-    /// expected period with it, so confirming ovulation later than the
-    /// estimate also pushes the next-period forecast later.
-    static func confirmOvulation(_ date: Date, on cycle: CycleRecord, source: TrackingDataSource = .userConfirmed, calendar: Calendar = .current) {
-        let day = calendar.startOfDay(for: date)
-        cycle.confirmedOvulationDate = day
-        cycle.ovulationSource = source
-        cycle.expectedPeriodDate = FertilityWindowCalculator.nextPeriod(afterOvulation: day, lutealPhaseLength: cycle.lutealPhaseLengthAtStart, calendar: calendar)
-        cycle.updatedAt = .now
-    }
-
     /// A single value in an even-count window rounds to the nearer integer
     /// rather than always down, so a run like [27, 32] predicts 30, not 29.
     private static func median(of values: [Int]) -> Int {
@@ -645,90 +596,6 @@ enum CycleTrackingService {
     static func attach(_ scan: Scan, to records: [CycleRecord], calendar: Calendar = .current) {
         guard scan.cycleRecordID == nil, let cycle = cycle(containing: scan.createdAt, records: records, calendar: calendar) else { return }
         scan.cycleRecordID = cycle.id
-    }
-
-    static func applyPeakResult(from scan: Scan, records: [CycleRecord], calendar: Calendar = .current) -> CycleRecord? {
-        guard scan.testType == .ovulation, scan.resultType == .peak, !scan.excludedFromCalculations,
-              let cycle = cycle(containing: scan.createdAt, records: records, calendar: calendar)
-        else { return nil }
-        // An LH peak generally precedes ovulation; it supports an estimate but
-        // does not medically confirm that ovulation occurred. Keep an explicit
-        // user-confirmed date authoritative when one exists.
-        let estimatedOvulation = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: scan.createdAt)) ?? scan.createdAt
-        if cycle.confirmedOvulationDate == nil {
-            cycle.predictedOvulationDate = estimatedOvulation
-            cycle.ovulationSource = .testSupported
-        }
-        let authoritativeOvulation = cycle.confirmedOvulationDate ?? estimatedOvulation
-        cycle.expectedPeriodDate = FertilityWindowCalculator.nextPeriod(afterOvulation: authoritativeOvulation, lutealPhaseLength: cycle.lutealPhaseLengthAtStart, calendar: calendar)
-        cycle.updatedAt = .now
-        scan.cycleRecordID = cycle.id
-        return cycle
-    }
-
-    /// Rebuilds test-supported timing after a saved result is edited or removed.
-    /// User-confirmed ovulation dates always remain authoritative.
-    static func reconcileOvulationEstimates(records: [CycleRecord], scans: [Scan], calendar: Calendar = .current) {
-        for cycle in records where cycle.confirmedOvulationDate == nil {
-            let cycleEnd = cycle.endDate.map { calendar.startOfDay(for: $0) } ?? .distantFuture
-            let peaks = scans.filter { scan in
-                guard scan.testType == .ovulation, scan.resultType == .peak, !scan.excludedFromCalculations else { return false }
-                let day = calendar.startOfDay(for: scan.createdAt)
-                return day >= calendar.startOfDay(for: cycle.startDate) && day < cycleEnd
-            }
-            .sorted { $0.createdAt < $1.createdAt }
-
-            if let peak = peaks.last {
-                let ovulation = calendar.date(byAdding: .day, value: 1, to: calendar.startOfDay(for: peak.createdAt)) ?? peak.createdAt
-                cycle.predictedOvulationDate = ovulation
-                cycle.ovulationSource = .testSupported
-                cycle.expectedPeriodDate = FertilityWindowCalculator.nextPeriod(afterOvulation: ovulation, lutealPhaseLength: cycle.lutealPhaseLengthAtStart, calendar: calendar)
-            } else if cycle.ovulationSource == .testSupported {
-                let baseline = FertilityWindowCalculator.window(
-                    for: cycle.startDate,
-                    lastPeriodStart: cycle.startDate,
-                    averageCycleLength: cycle.averageCycleLengthAtStart,
-                    lutealPhaseLength: cycle.lutealPhaseLengthAtStart,
-                    calendar: calendar
-                )
-                cycle.predictedOvulationDate = baseline?.predictedOvulationDate
-                cycle.expectedPeriodDate = baseline?.nextPeriodDate
-                cycle.ovulationSource = nil
-            }
-        }
-    }
-
-    /// Places ovulation from a sustained temperature rise when nothing
-    /// stronger exists. A Peak test or confirmed date always wins; a cycle
-    /// whose shift disappears (a reading edited or removed) goes back to the
-    /// calendar estimate. Returns the cycles that changed.
-    @discardableResult
-    static func reconcileTemperatureOvulation(records: [CycleRecord], logs: [DailyFertilityLog], calendar: Calendar = .current) -> [CycleRecord] {
-        var changed: [CycleRecord] = []
-        for cycle in records where !cycle.notes.contains("[LineCheck Screenshot Sample]") && cycle.confirmedOvulationDate == nil {
-            guard cycle.ovulationSource == nil || cycle.ovulationSource == .temperatureSupported else { continue }
-            if let shift = ThermalShiftDetector.detect(in: logs, from: cycle.startDate, until: cycle.endDate, calendar: calendar) {
-                let ovulation = calendar.startOfDay(for: shift.estimatedOvulation)
-                guard cycle.ovulationSource != .temperatureSupported || cycle.predictedOvulationDate.map({ !calendar.isDate($0, inSameDayAs: ovulation) }) ?? true else { continue }
-                cycle.predictedOvulationDate = ovulation
-                cycle.ovulationSource = .temperatureSupported
-                cycle.expectedPeriodDate = FertilityWindowCalculator.nextPeriod(afterOvulation: ovulation, lutealPhaseLength: cycle.lutealPhaseLengthAtStart, calendar: calendar)
-                changed.append(cycle)
-            } else if cycle.ovulationSource == .temperatureSupported {
-                let baseline = FertilityWindowCalculator.window(
-                    for: cycle.startDate,
-                    lastPeriodStart: cycle.startDate,
-                    averageCycleLength: cycle.userSetCycleLength ?? cycle.averageCycleLengthAtStart,
-                    lutealPhaseLength: cycle.lutealPhaseLengthAtStart,
-                    calendar: calendar
-                )
-                cycle.predictedOvulationDate = baseline?.predictedOvulationDate
-                cycle.expectedPeriodDate = baseline?.nextPeriodDate
-                cycle.ovulationSource = nil
-                changed.append(cycle)
-            }
-        }
-        return changed
     }
 
 }

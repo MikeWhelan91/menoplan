@@ -28,34 +28,10 @@ struct ReminderNotification: Sendable {
         switch reminderType {
         case .ovulationTest:
             NotificationCopy(
-                title: OvulationReminderCopy.startTitle,
-                subtitle: "Cycle check-in",
-                body: "Your cycle suggests the testing window may be opening. If you're using a kit, follow its instructions and save a result whenever you like."
+                title: "Time for your test",
+                subtitle: "Test reminder",
+                body: "Follow your test kit's instructions, then scan it in MenoPlan to keep your readings together."
             )
-        case .fertileWindow:
-            NotificationCopy(
-                title: OvulationReminderCopy.fertileTitle,
-                subtitle: "Cycle check-in",
-                body: "Your calendar has a suggested range for you. It's an estimate, so take a look when you're ready."
-            )
-        case .fertilePeak:
-            NotificationCopy(
-                title: OvulationReminderCopy.peakTitle,
-                subtitle: "Cycle check-in",
-                body: "This is a best guess from your cycle, not a confirmed ovulation day. Your saved tests can help us adjust it."
-            )
-        case .ovulationFollowUp:
-            title == OvulationReminderCopy.highResultTitle
-                ? NotificationCopy(
-                    title: OvulationReminderCopy.highResultTitle,
-                    subtitle: "Your saved result",
-                    body: "You saved a High or Rising result yesterday. If you're still testing, another result may help you see what changes. Follow your kit's timing instructions."
-                )
-                : NotificationCopy(
-                    title: OvulationReminderCopy.followUpTitle,
-                    subtitle: "Cycle check-in",
-                    body: "Your recent cycles have varied, so the window may be wider. If you haven't spotted a peak, another test may help—follow your kit's instructions."
-                )
         case .periodExpected:
             NotificationCopy(
                 title: "Period estimated around tomorrow",
@@ -121,8 +97,7 @@ final class NotificationService {
     /// prevents preview alerts from appearing in a user's calendar.
     func scheduleDebugPreviews() async throws {
         let previews: [(UUID, String, ReminderType)] = [
-            (UUID(uuidString: "A82F4EE5-8142-46F3-8F79-ABC544921902")!, "Take an ovulation test", .ovulationTest),
-            (UUID(uuidString: "A82F4EE5-8142-46F3-8F79-ABC544921903")!, "Your fertile window", .fertileWindow),
+            (UUID(uuidString: "A82F4EE5-8142-46F3-8F79-ABC544921902")!, "Take your test", .ovulationTest),
             (UUID(uuidString: "A82F4EE5-8142-46F3-8F79-ABC544921904")!, "Take vitamins", .custom)
         ]
 
@@ -182,25 +157,6 @@ final class NotificationService {
         try await UNUserNotificationCenter.current().add(request)
     }
 
-    static let supplementReminderID = "linecheck.daily-supplement"
-
-    /// A single repeating morning nudge, opted into from the personalisation
-    /// quiz. It isn't a `Reminder` row: it has no date, never completes, and
-    /// shouldn't crowd the reminders list.
-    func scheduleDailySupplementReminder(hour: Int = 9, minute: Int = 0) async throws {
-        let content = UNMutableNotificationContent()
-        content.title = "Folic acid time"
-        content.body = "A quick reminder to take today’s folic acid or prenatal vitamin."
-        content.sound = .default
-        content.threadIdentifier = "linecheck.supplements"
-        let trigger = UNCalendarNotificationTrigger(dateMatching: DateComponents(hour: hour, minute: minute), repeats: true)
-        let request = UNNotificationRequest(identifier: Self.supplementReminderID, content: content, trigger: trigger)
-        try await UNUserNotificationCenter.current().add(request)
-    }
-
-    func cancelDailySupplementReminder() {
-        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.supplementReminderID])
-    }
 
     /// Fires right away rather than at a scheduled date - used once a weekly Luna update has
     /// actually finished generating, since there's no content to notify about ahead of time.

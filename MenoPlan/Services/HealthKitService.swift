@@ -30,10 +30,6 @@ final class HealthKitService: @unchecked Sendable {
     private let bbtType = HKQuantityType(.basalBodyTemperature)
     private let wristTemperatureType = HKQuantityType(.appleSleepingWristTemperature)
     private let flowType = HKCategoryType(.menstrualFlow)
-    private let cervicalMucusType = HKCategoryType(.cervicalMucusQuality)
-    private let sexualActivityType = HKCategoryType(.sexualActivity)
-    private let ovulationTestType = HKCategoryType(.ovulationTestResult)
-    private let progesteroneTestType = HKCategoryType(.progesteroneTestResult)
     private let spottingType = HKCategoryType(.intermenstrualBleeding)
     private let breastPainType = HKCategoryType(.breastPain)
     private let pelvicPainType = HKCategoryType(.pelvicPain)
@@ -57,10 +53,6 @@ final class HealthKitService: @unchecked Sendable {
             bbtType,
             wristTemperatureType,
             flowType,
-            cervicalMucusType,
-            sexualActivityType,
-            ovulationTestType,
-            progesteroneTestType,
             spottingType
         ]
     }
@@ -68,12 +60,11 @@ final class HealthKitService: @unchecked Sendable {
     /// What LineCheck writes back: the values a person can type into the
     /// daily log. Sleep is read-only on purpose - LineCheck only knows
     /// "hours", and inventing bedtimes would corrupt the person's sleep data.
-    private var shareTypes: Set<HKSampleType> { [bbtType, weightType, waterType] }
+    private var shareTypes: Set<HKSampleType> { [weightType, waterType] }
 
     private var readTypes: Set<HKObjectType> {
         [
-            bbtType, wristTemperatureType, flowType, cervicalMucusType, sexualActivityType,
-            ovulationTestType, progesteroneTestType,
+            bbtType, wristTemperatureType, flowType,
             spottingType, breastPainType, pelvicPainType, vaginalDrynessType,
             contraceptiveType, lactationType, sleepType,
             weightType, heightType, waterType,
@@ -92,7 +83,7 @@ final class HealthKitService: @unchecked Sendable {
     /// determined" is the only status we can reliably act on - anything else means
     /// the system prompt has already been resolved one way or another.
     var hasRequestedAccess: Bool {
-        store.authorizationStatus(for: bbtType) != .notDetermined
+        store.authorizationStatus(for: weightType) != .notDetermined
     }
 
     /// True when the permission sheet still has categories the person hasn't
@@ -179,16 +170,6 @@ final class HealthKitService: @unchecked Sendable {
         let intensity: FlowIntensity?
     }
 
-    struct CervicalMucusSample {
-        let date: Date
-        let quality: String
-    }
-
-    struct SexualActivitySample {
-        let date: Date
-        let protectionUsed: Bool?
-    }
-
     /// A Health entry is an observation recorded by another app or by the user,
     /// never a LineCheck image reading. Keep the label intact so its origin is clear.
     struct TestObservation {
@@ -229,78 +210,6 @@ final class HealthKitService: @unchecked Sendable {
         )
         let samples = try await descriptor.result(for: store)
         return samples.map { FlowSample(date: $0.startDate, intensity: Self.flowIntensity(for: $0.value)) }
-    }
-
-    func fetchCervicalMucus(since startDate: Date) async throws -> [CervicalMucusSample] {
-        guard isAvailable else { return [] }
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: .now)
-        let descriptor = HKSampleQueryDescriptor(
-            predicates: [.categorySample(type: cervicalMucusType, predicate: predicate)],
-            sortDescriptors: [SortDescriptor(\.startDate)]
-        )
-        let samples = try await descriptor.result(for: store)
-        return samples.compactMap { sample in
-            guard let value = HKCategoryValueCervicalMucusQuality(rawValue: sample.value) else { return nil }
-            let quality: String
-            switch value {
-            case .dry: quality = "Dry"
-            case .sticky: quality = "Sticky"
-            case .creamy: quality = "Creamy"
-            case .watery: quality = "Watery"
-            case .eggWhite: quality = "Egg white"
-            @unknown default: return nil
-            }
-            return CervicalMucusSample(date: sample.startDate, quality: quality)
-        }
-    }
-
-    func fetchSexualActivity(since startDate: Date) async throws -> [SexualActivitySample] {
-        guard isAvailable else { return [] }
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: .now)
-        let descriptor = HKSampleQueryDescriptor(
-            predicates: [.categorySample(type: sexualActivityType, predicate: predicate)],
-            sortDescriptors: [SortDescriptor(\.startDate)]
-        )
-        return try await descriptor.result(for: store).map {
-            let protection = ($0.metadata?[HKMetadataKeySexualActivityProtectionUsed] as? NSNumber)?.boolValue
-                ?? ($0.metadata?[HKMetadataKeySexualActivityProtectionUsed] as? Bool)
-            return SexualActivitySample(
-                date: $0.startDate,
-                protectionUsed: protection
-            )
-        }
-    }
-
-    func fetchTestObservations(since startDate: Date) async throws -> [TestObservation] {
-        guard isAvailable else { return [] }
-        let predicate = HKQuery.predicateForSamples(withStart: startDate, end: .now)
-
-        // Keep these sequential. NSPredicate is Objective-C reference data and Swift 6
-        // correctly refuses to send one shared instance into concurrent tasks.
-        let ovulation = try await categorySamples(type: ovulationTestType, predicate: predicate)
-        let progesterone = try await categorySamples(type: progesteroneTestType, predicate: predicate)
-        return ovulation.compactMap { sample in
-            guard let value = HKCategoryValueOvulationTestResult(rawValue: sample.value) else { return nil }
-            let result: String
-            switch value {
-            case .negative: result = "Negative"
-            case .luteinizingHormoneSurge: result = "LH surge"
-            case .indeterminate: result = "Not clear"
-            case .estrogenSurge: result = "Estrogen surge"
-            @unknown default: return nil
-            }
-            return TestObservation(date: sample.startDate, label: "Apple Health OPK: \(result)")
-        } + progesterone.compactMap { sample in
-            guard let value = HKCategoryValueProgesteroneTestResult(rawValue: sample.value) else { return nil }
-            let result: String
-            switch value {
-            case .positive: result = "Positive"
-            case .negative: result = "Negative"
-            case .indeterminate: result = "Not clear"
-            @unknown default: return nil
-            }
-            return TestObservation(date: sample.startDate, label: "Apple Health progesterone test: \(result)")
-        }
     }
 
     // MARK: Symptoms & other reproductive-health entries
@@ -479,13 +388,6 @@ final class HealthKitService: @unchecked Sendable {
     }
 
     // MARK: Writing back
-
-    /// Replaces whatever LineCheck previously wrote for this day with `value`
-    /// (or just removes it when nil). Only LineCheck's own samples are ever
-    /// deleted - HealthKit doesn't allow touching another app's data anyway.
-    func saveBasalBodyTemperature(celsius: Double?, on day: Date) async {
-        await replaceDailyValue(type: bbtType, quantity: celsius.map { HKQuantity(unit: .degreeCelsius(), doubleValue: $0) }, on: day)
-    }
 
     func saveWeight(kilograms: Double?, on day: Date) async {
         await replaceDailyValue(type: weightType, quantity: kilograms.map { HKQuantity(unit: .gramUnit(with: .kilo), doubleValue: $0) }, on: day)

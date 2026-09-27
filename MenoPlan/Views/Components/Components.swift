@@ -943,7 +943,7 @@ struct MedicalSourcesSheet: View {
                 } header: {
                     Text("Sources")
                 } footer: {
-                    Text("MenoPlan uses these public references for general home-test, LH, hCG, fertile-window, and repeat-testing guidance. Brand test instructions remain the final reference for a specific test.")
+                    Text("MenoPlan uses these public references for general menopause, home FSH test, and repeat-testing guidance. Brand test instructions remain the final reference for a specific test.")
                 }
             }
             .scrollContentBackground(.hidden)
@@ -1165,7 +1165,7 @@ struct PredictionWhySheet: View {
                         Text("Why this estimate?")
                             .font(.app(size: LineType.size(26), weight: .bold))
                             .foregroundStyle(Color.linePink)
-                        Text("Here's exactly what MenoPlan used to calculate your fertile window and ovulation date.")
+                        Text("Here's exactly what MenoPlan used to estimate your next period.")
                             .font(.app(.subheadline))
                             .foregroundStyle(Color.lineNavy.opacity(0.6))
                             .multilineTextAlignment(.center)

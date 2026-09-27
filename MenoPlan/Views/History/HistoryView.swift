@@ -111,7 +111,6 @@ private struct ScanTrackingEditor: View {
                 "excluded": isExcluded ? "true" : "false"
             ])
         }
-        CycleTrackingService.reconcileOvulationEstimates(records: cycles, scans: allScans)
         try? modelContext.save()
         resyncRemindersIfNeeded()
         dismiss()
@@ -585,12 +584,6 @@ struct HistoryView: View {
                             }
                             .padding(.horizontal, layout.isRegular ? 8 : 0)
 
-                        if filter == .ovulation, scan.resultType == .peak {
-                            peakMilestoneCard
-                                .padding(.horizontal, 12)
-                                .padding(.bottom, 12)
-                        }
-
                         if index < group.scans.count - 1, !layout.isRegular {
                             Divider()
                                 .padding(.leading, 78)
@@ -635,33 +628,6 @@ struct HistoryView: View {
             Spacer(minLength: 0)
         }
         .accessibilityElement(children: .combine)
-    }
-
-    private var peakMilestoneCard: some View {
-        VStack(alignment: .center, spacing: 4) {
-            HStack(spacing: 8) {
-                Image("HomeTrendsIcon")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: 18, height: 16)
-                    .frame(width: 22, height: 22)
-                    .background(Color.white.opacity(0.72), in: Circle())
-
-                Text("LH peak reached")
-                    .font(.lineSubheadline(.bold))
-                    .foregroundStyle(Color.linePurple)
-            }
-
-            Text("A Peak result can signal that your most fertile days are close. It supports timing, but does not confirm ovulation.")
-                .font(.lineCaption())
-                .foregroundStyle(Color.lineNavy.opacity(0.70))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(10)
-        .background(Color.linePurpleSoft.opacity(0.68), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).stroke(Color.linePurple.opacity(0.17)))
     }
 
     private func comparisonRow(_ comparison: ScanComparison) -> some View {
@@ -836,7 +802,6 @@ struct HistoryView: View {
             modelContext.delete(comparison)
         }
         let affectedCycleID = scan.cycleRecordID
-        CycleTrackingService.reconcileOvulationEstimates(records: cycles, scans: scans.filter { $0.id != scan.id })
         modelContext.delete(scan)
         try? modelContext.save()
         // Deleting a scan (e.g. a peak result) can shift the reconciled
@@ -1348,7 +1313,6 @@ struct ResultDetailView: View {
             modelContext.delete(comparison)
         }
         let affectedCycleID = scan.cycleRecordID
-        CycleTrackingService.reconcileOvulationEstimates(records: cycles, scans: scans.filter { $0.id != scan.id })
         modelContext.delete(scan)
         try? modelContext.save()
         // Deleting a scan (e.g. a peak result) can shift the reconciled

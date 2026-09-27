@@ -24,36 +24,30 @@ final class CycleJourneyCalculatorTests: XCTestCase {
         return CycleJourneyCalculator.countdown(on: today, window: try window(on: today), calendar: calendar)
     }
 
-    func testWidenedWindowKeepsTestingUntilPossibleFertileDaysEnd() throws {
-        // Lee's case: period 12 Sep, 28 days, ovulation 25 Sep, periods vary (±4).
-        let start = try day(9, 12)
-        func widened(_ today: Date) throws -> HomeCountdown {
-            let window = try XCTUnwrap(FertilityWindowCalculator.window(
-                for: today, lastPeriodStart: start, averageCycleLength: 28, lutealPhaseLength: 14,
-                profileWidening: .irregularPeriods, calendar: calendar
-            ))
-            XCTAssertTrue(calendar.isDate(window.fertileEndDate, inSameDayAs: try day(9, 29)))
-            return CycleJourneyCalculator.countdown(on: today, window: window, calendar: calendar)
-        }
-        let dayAfterOvulation = try widened(try day(9, 26))
-        XCTAssertEqual(dayAfterOvulation.stage, .fertile)
-        XCTAssertEqual(dayAfterOvulation.caption, "Possible fertile days end in")
-        XCTAssertEqual(dayAfterOvulation.value, 3)
-        XCTAssertEqual(dayAfterOvulation.suggestedTest, .ovulation)
-        XCTAssertEqual(try widened(try day(9, 29)).caption, "Last possible fertile day")
-        // The day after the range ends, it moves on to pregnancy testing.
-        XCTAssertEqual(try widened(try day(9, 30)).stage, .waitingToTest)
+    func testCountdownOnlyTalksAboutTheNextPeriod() throws {
+        let early = try countdown(9, 5)
+        XCTAssertEqual(early.stage, .periodUpcoming)
+        XCTAssertEqual(early.caption, "Next period in")
+        XCTAssertEqual(early.value, 24)
+
+        let due = try countdown(9, 29)
+        XCTAssertEqual(due.stage, .periodDue)
+        XCTAssertEqual(due.headline, "Today")
+
+        let late = try countdown(10, 2)
+        XCTAssertEqual(late.stage, .periodLate)
+        XCTAssertEqual(late.value, 3)
+        XCTAssertEqual(late.footnote, "Cycles often vary more in perimenopause")
     }
 
-    func testFertileStageCountsDownToOvulation() throws {
-        let w = try window(on: try day(9, 12))
-        XCTAssertTrue(w.containsFertileDay(try day(9, 12), calendar: calendar))
-        let fertile = try countdown(9, 12)
-        XCTAssertEqual(fertile.stage, .fertile)
-        XCTAssertEqual(fertile.value, 2)
-        XCTAssertEqual(fertile.unit, "Days")
+    func testContraceptionAddsACaveat() throws {
+        let base = try countdown(9, 5)
+        XCTAssertEqual(CycleJourneyCalculator.reacting(base, to: []), base)
+        let signal = CycleSignal(id: "hormonalContraception", tone: .attention, symbol: "pills.circle", title: "t", detail: "d", surfaces: [.home])
+        let reacted = CycleJourneyCalculator.reacting(base, to: [signal])
+        XCTAssertEqual(reacted.value, base.value)
+        XCTAssertTrue(reacted.footnote.contains("contraception"))
     }
-
 }
 
 final class CalendarProjectionTests: XCTestCase {
@@ -72,9 +66,8 @@ final class CalendarProjectionTests: XCTestCase {
 
         let projected = try XCTUnwrap(CycleCalendarPhaseResolver.projectedWindow(for: day(10, 13), from: window, today: day(9, 20), calendar: calendar))
         XCTAssertTrue(calendar.isDate(projected.cycleStart, inSameDayAs: day(9, 30)))
-        XCTAssertTrue(calendar.isDate(projected.predictedOvulationDate, inSameDayAs: day(10, 13)))
         XCTAssertEqual(CycleCalendarPhaseResolver.projectedPhase(for: day(10, 2), window: projected, calendar: calendar), .predictedPeriod)
-        XCTAssertEqual(CycleCalendarPhaseResolver.projectedPhase(for: day(10, 13), window: projected, calendar: calendar), .ovulation)
+        XCTAssertEqual(CycleCalendarPhaseResolver.projectedPhase(for: day(10, 13), window: projected, calendar: calendar), .regular)
 
         // Once the period is late, nothing beyond it is guessed.
         XCTAssertNil(CycleCalendarPhaseResolver.projectedWindow(for: day(10, 13), from: window, today: day(10, 2), calendar: calendar))
@@ -131,30 +124,25 @@ final class ProfileWideningTests: XCTestCase {
 }
 
 final class HealthProfileTests: XCTestCase {
-    func testDoctorSuggestionThresholds() {
-        let now = Calendar.current.date(from: DateComponents(year: 2026, month: 9, day: 1))!
-        var profile = HealthProfile(ttcDuration: .sixToTwelveMonths, birthYear: 1996, regularity: nil, conditions: [], birthControl: nil, supplement: nil)
-        XCTAssertFalse(profile.shouldSuggestDoctor(on: now), "30 and under a year")
-        profile.birthYear = 1990
-        XCTAssertTrue(profile.shouldSuggestDoctor(on: now), "36 and six months or more")
-        profile.birthYear = 1985
-        profile.ttcDuration = .threeToSixMonths
-        XCTAssertTrue(profile.shouldSuggestDoctor(on: now), "41 and three months or more")
-        profile.birthYear = nil
-        profile.ttcDuration = .overAYear
-        XCTAssertTrue(profile.shouldSuggestDoctor(on: now))
-        profile.ttcDuration = nil
-        XCTAssertFalse(profile.shouldSuggestDoctor(on: now))
+    func testDoctorSuggestionIsForUnder45s() {
+        let year = Calendar.current.component(.year, from: .now)
+        XCTAssertFalse(HealthProfile(conditions: []).shouldSuggestDoctor(), "No age, no suggestion")
+        XCTAssertTrue(HealthProfile(birthYear: year - 42, conditions: []).shouldSuggestDoctor())
+        XCTAssertFalse(HealthProfile(birthYear: year - 50, conditions: []).shouldSuggestDoctor())
     }
 
     func testPredictionsLessCertain() {
-        var profile = HealthProfile(ttcDuration: nil, birthYear: nil, regularity: .regular, conditions: [], birthControl: BirthControlRecency.none, supplement: nil)
-        XCTAssertFalse(profile.predictionsLessCertain)
-        profile.conditions = [.pcos]
-        XCTAssertTrue(profile.predictionsLessCertain)
-        profile.conditions = []
-        profile.birthControl = .pill
-        XCTAssertTrue(profile.predictionsLessCertain)
+        XCTAssertFalse(HealthProfile(regularity: .regular, conditions: []).predictionsLessCertain)
+        XCTAssertTrue(HealthProfile(regularity: .irregular, conditions: []).predictionsLessCertain)
+        XCTAssertTrue(HealthProfile(conditions: [.pcos]).predictionsLessCertain)
+        XCTAssertTrue(HealthProfile(conditions: [], birthControl: .stillUsing).predictionsLessCertain)
+    }
+
+    func testStageDecidesWhetherCycleTimingIsTracked() {
+        XCTAssertTrue(MenopauseStage.perimenopause.tracksCycle)
+        XCTAssertFalse(MenopauseStage.postmenopause.tracksCycle)
+        XCTAssertFalse(MenopauseStage.unsure.tracksCycle)
+        XCTAssertEqual(UserSettings().menopauseStage, .perimenopause)
     }
 }
 
@@ -235,36 +223,4 @@ final class PeriodBulkEditPlanTests: XCTestCase {
         XCTAssertEqual(CycleJourneyCalculator.reacting(base, to: []), base)
     }
 
-    func testSustainedHighTemperatureNotesTheLateCycle() throws {
-        let late = try reactionCountdown(10, 2)
-        let reacted = CycleJourneyCalculator.reacting(late, to: [signal("sustainedHighTemperature", tone: .attention, title: "Temperatures high for 19 days")])
-        XCTAssertEqual(reacted.headline, late.headline)
-        XCTAssertEqual(reacted.footnote, "Temperatures high for 19 days")
-    }
-
-    func testEarlyFertileMucusStartsTestingToday() throws {
-        let early = try reactionCountdown(9, 3)
-        XCTAssertEqual(early.stage, .beforeOvulationTesting)
-        let reacted = CycleJourneyCalculator.reacting(early, to: [signal("fertileMucus", tone: .positive)])
-        XCTAssertEqual(reacted.headline, "Test Today")
-        XCTAssertNil(reacted.value)
-        XCTAssertEqual(reacted.suggestedTest, TestType.ovulation)
-    }
-
-    func testLateMucusKeepsOvulationTestingGoing() throws {
-        let waiting = try reactionCountdown(9, 18)
-        XCTAssertEqual(waiting.stage, .waitingToTest)
-        let reacted = CycleJourneyCalculator.reacting(waiting, to: [signal("fertileMucus", title: "Fertile mucus later than expected")])
-        XCTAssertEqual(reacted.suggestedTest, TestType.ovulation)
-        XCTAssertEqual(reacted.headline, "Still Early")
-        XCTAssertNil(reacted.value)
-        XCTAssertEqual(CycleJourneyCalculator.reacting(waiting, to: [signal("noTemperatureShiftYet")]).headline, "Still Early")
-    }
-
-    func testContraceptionOverridesEverythingElse() throws {
-        let reacted = CycleJourneyCalculator.reacting(try reactionCountdown(10, 2), to: [
-            signal("sustainedHighTemperature", tone: .attention), signal("hormonalContraception", tone: .attention)
-        ])
-        XCTAssertTrue(reacted.footnote.hasPrefix("Contraception is recorded"))
-    }
 }

@@ -71,11 +71,6 @@ struct HomeWeekStrip: View {
                         if let ring = style.ring {
                             Circle().stroke(ring, style: StrokeStyle(lineWidth: 1.6, dash: style.dashed ? [3, 3] : []))
                         }
-                        if style.estimateRing {
-                            Circle()
-                                .inset(by: 3)
-                                .stroke(Color.white.opacity(0.85), style: StrokeStyle(lineWidth: 1.2, dash: [2.5, 2.5]))
-                        }
                         if isToday {
                             Circle().stroke(Color.lineNavy, lineWidth: 2).padding(-2)
                         }
@@ -95,16 +90,13 @@ struct HomeWeekStrip: View {
     }
 }
 
-/// Colours for a phase on Home, matching the Calendar's language: logged
-/// period is solid pink, fertile days soft purple, ovulation solid purple,
-/// luteal days soft teal, and predictions carry dashes.
+/// Colours for a phase on Home, matching the Calendar's language: a logged
+/// period is solid pink and an estimated one carries dashes.
 struct HomePhaseStyle {
     var text: Color = .lineNavy
     var fill: Color?
     var ring: Color?
     var dashed = false
-    /// Dashed white ring inside a solid fill - an estimated ovulation day.
-    var estimateRing = false
     /// The colour that identifies the phase on a plain background.
     var accent: Color = .lineNavy
 
@@ -114,22 +106,10 @@ struct HomePhaseStyle {
             text = .white; fill = .linePink; accent = .linePink
         case .predictedPeriod:
             text = .linePink; ring = Color.linePink.opacity(0.7); dashed = true; accent = .linePink
-        case .fertile:
-            text = HomePhaseStyle.fertile; fill = HomePhaseStyle.fertile.opacity(0.1); accent = HomePhaseStyle.fertile
-        case .ovulation:
-            text = .white; fill = .linePurple; estimateRing = true; accent = .linePurple
-        case .confirmedOvulation:
-            text = .white; fill = .linePurple; accent = .linePurple
-        case .luteal:
-            text = .lineLuteal; fill = Color.lineTeal.opacity(0.11); accent = .lineLuteal
-        case .opkWindow:
-            ring = .lineFertileSoft; dashed = true
         case .regular:
             break
         }
     }
-
-    static let fertile = Color.linePurple
 
     static func forDay(_ day: Date, window: FertilityWindow?, cycleRecords: [CycleRecord], periodEvents: [PeriodEvent]) -> HomePhaseStyle {
         let phase: CycleCalendarPhase = window.map { window in
@@ -157,11 +137,7 @@ struct HomeCountdownHero<Chart: View>: View {
     @State private var breathe = false
 
     private var tint: Color {
-        switch countdown.stage {
-        case .beforeOvulationTesting: .linePurple
-        case .ovulationTesting, .fertile, .ovulationDay: HomePhaseStyle.fertile
-        case .waitingToTest, .periodDue, .periodLate: .linePink
-        }
+        .linePink
     }
 
     /// The glow sits behind the number, so it takes the number's colour

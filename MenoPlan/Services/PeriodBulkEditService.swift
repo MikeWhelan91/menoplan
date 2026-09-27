@@ -114,8 +114,6 @@ enum PeriodBulkEditService {
         let records = ((try? context.fetch(FetchDescriptor<CycleRecord>())) ?? []).filter { !$0.notes.contains(marker) }
         let scans = (try? context.fetch(FetchDescriptor<Scan>())) ?? []
         for scan in scans where scan.cycleRecordID == nil { CycleTrackingService.attach(scan, to: records) }
-        CycleTrackingService.reconcileOvulationEstimates(records: records, scans: scans)
-        CycleTrackingService.reconcileTemperatureOvulation(records: records, logs: (try? context.fetch(FetchDescriptor<DailyFertilityLog>())) ?? [])
         settings.lastPeriodStartDate = remaining.map(\.startDate).max()
         settings.averageCycleLength = CycleTrackingService.learnedAverageCycleLength(from: remaining, fallback: settings.averageCycleLength)
         try? context.save()

@@ -35,7 +35,7 @@ struct TodayPlanWidget: Widget {
                 .containerBackground(for: .widget) { WidgetBackdrop() }
         }
         .configurationDisplayName("Today's Plan")
-        .description("A daily answer to \u{201C}should I test today?\u{201D} with the dates coming up.")
+        .description("Where you are in your cycle, with the dates coming up.")
         .supportedFamilies([.systemSmall, .systemMedium])
     }
 }
@@ -43,19 +43,17 @@ struct TodayPlanWidget: Widget {
 extension WidgetTodayPlan {
     var tint: Color {
         switch phase {
-        case .beforeTesting: .wTeal
-        case .ovulationTesting: .wPurple
-        case .twoWeekWait, .periodDue: .wPink
+        case .upcoming, .periodDue: .wPink
         case .idle: .wNavy
         }
     }
 
     var actionLink: WidgetDeepLink {
-        .scanOvulation
+        .calendar
     }
 
     var actionTitle: String {
-        "Check Ovulation Test"
+        "Log Period"
     }
 }
 
@@ -145,7 +143,7 @@ private struct TodayPlanMedium: View {
                     .minimumScaleFactor(0.85)
                 if plan.action != nil {
                     Link(destination: plan.actionLink.url) {
-                        Label(plan.actionTitle, systemImage: "camera.viewfinder")
+                        Label(plan.actionTitle, systemImage: "drop.fill")
                             .font(.widget(.caption, weight: .bold))
                             .foregroundStyle(.white)
                             .lineLimit(1)

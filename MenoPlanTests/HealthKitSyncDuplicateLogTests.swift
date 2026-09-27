@@ -51,14 +51,4 @@ final class HealthKitSyncDuplicateLogTests: XCTestCase {
         XCTAssertTrue(HealthKitSyncService.logsByDay([manual, imported], calendar: calendar)[day] === manual)
     }
 
-    func testRicherLogWinsWhenNeitherTemperatureIsManual() {
-        let calendar = Calendar.current
-        let day = calendar.startOfDay(for: .now)
-
-        let sparse = DailyFertilityLog(date: day)
-        let rich = DailyFertilityLog(date: day, symptoms: ["Cramps"], moods: ["Tired"], cervicalMucus: "Egg white")
-
-        XCTAssertTrue(HealthKitSyncService.logsByDay([sparse, rich], calendar: calendar)[day] === rich)
-        XCTAssertTrue(HealthKitSyncService.logsByDay([rich, sparse], calendar: calendar)[day] === rich)
-    }
 }

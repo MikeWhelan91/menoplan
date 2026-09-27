@@ -5,12 +5,11 @@ extension CycleSignal {
     /// small chip so a list mixing temperature, sleep and test factors scans.
     var category: String {
         switch id {
-        case "temperatureShift", "sustainedHighTemperature", "noTemperatureShiftYet", "possibleFever": "Temperature"
-        case "fertileMucus", "healthLHSurge", "midCyclePain", "lutealSpotting", "periodLate", "longCycle": "Cycle"
-        case "highFluidIntake", "pcosLH": "Test reading"
-        case "hormonalContraception", "breastfeeding": "Apple Health"
+        case "longCycle": "Cycle"
+        case "highFluidIntake": "Test reading"
+        case "hormonalContraception": "Apple Health"
         case "shortSleep", "restingHeartRateUp", "hrvDown", "highTrainingLoad": "Lifestyle"
-        case "weightChange", "bmi": "Body"
+        case "weightChange": "Body"
         default: "Insight"
         }
     }
@@ -176,7 +175,7 @@ struct BodySignalsPopup: View {
 
                 if let onConnectHealth {
                     VStack(spacing: 8) {
-                        Text("Connect Apple Health and MenoPlan can spot more, like a temperature rise that backs up ovulation or sleep that could delay it.")
+                        Text("Connect Apple Health and MenoPlan can spot more, like broken sleep or a raised heart rate on nights with sweats.")
                             .font(.app(.caption))
                             .foregroundStyle(Color.lineNavy.opacity(0.7))
                             .multilineTextAlignment(.center)
@@ -231,8 +230,8 @@ struct HealthConnectPromptPopup: View {
                 .fixedSize(horizontal: false, vertical: true)
 
                 VStack(alignment: .leading, spacing: 10) {
-                    benefit("Periods, temperatures and symptoms appear automatically")
-                    benefit("A temperature rise can confirm ovulation and sharpen predictions")
+                    benefit("Periods and symptoms appear automatically")
+                    benefit("Sleep and heart data help explain how you're feeling")
                     benefit("What you log here is saved back to Health")
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)

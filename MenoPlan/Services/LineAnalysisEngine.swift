@@ -1241,10 +1241,10 @@ final class LineAnalysisEngine {
 
     private func explanation(for result: ScanResultType, ratio: Double) -> String {
         switch result {
-        case .low: "The image appears to show a control line with no strong LH test line yet. Keep testing during your expected fertile window."
-        case .rising: "The test line appears to be getting darker, but is still lighter than the control line. Consider testing again later or tomorrow."
-        case .high: "The test line appears close to the control line. This can mean LH is rising, so keep testing consistently."
-        case .peak: "The test line appears similar to the control line. This image is consistent with an LH surge on a home ovulation test."
+        case .low: "The image appears to show a control line with a much lighter test line, or none."
+        case .rising: "The test line is visible but lighter than the control line."
+        case .high: "The test line appears close to the control line."
+        case .peak: "The test line appears similar to, or darker than, the control line."
         case .invalid: "The control line was not detected. This test may be invalid or the photo may be unclear."
         default: "The line reading is unclear from this image."
         }

@@ -1,18 +1,22 @@
 import Foundation
 
-/// The four stretches of a cycle the Trends charts group data by.
+/// The stretches of a cycle the Trends charts group data by. Hormones swing
+/// most around a period in perimenopause, so the week before one is kept
+/// apart from the rest of the cycle.
 enum CyclePhaseKind: String, CaseIterable, Identifiable {
-    case period, follicular, fertile, luteal
+    case period, between, beforePeriod
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .period: "Period"
-        case .follicular: "Follicular"
-        case .fertile: "Fertile"
-        case .luteal: "Luteal"
+        case .between: "Between periods"
+        case .beforePeriod: "Week before period"
         }
     }
+
+    /// Days before the next period that count as "the week before".
+    static let beforePeriodDays = 7
 }
 
 /// One cycle as the Trends page draws it. Offsets are zero-based days from
@@ -29,34 +33,20 @@ struct CycleHistoryEntry: Identifiable, Equatable {
     /// Days so far, for the current cycle.
     let elapsed: Int
     let periodDays: Int
-    let fertileStart: Int
-    let fertileEnd: Int
-    let ovulation: Int
-    /// How ovulation was placed, when there's real evidence (confirmed date,
-    /// Peak test or temperature rise); nil for a calendar estimate.
-    let ovulationEvidence: TrackingDataSource?
-    /// Days strictly between ovulation and the next period. Only for closed
-    /// cycles with ovulation evidence - an estimate says nothing about it.
-    let lutealLength: Int?
     /// Actual next period minus the forecast (positive = came later). Only
     /// for cycles LineCheck was tracking live, so backfilled history can't
     /// grade a "prediction" made after the fact.
     let predictionErrorDays: Int?
     let isCurrent: Bool
 
-    var ovulationConfirmed: Bool { ovulationEvidence != nil }
-
     /// A closed cycle far shorter or longer than any real cycle - usually
-    /// spotting logged as a period, or a missed period. It has no
-    /// meaningful fertile days, ovulation or luteal phase.
+    /// spotting logged as a period, or a missed period.
     var isPlausible: Bool { length.map { FertilityWindowCalculator.plausibleCycleLengthRange.contains($0) } ?? true }
 
     func phase(atOffset offset: Int) -> CyclePhaseKind {
         if offset < periodDays { return .period }
-        guard isPlausible else { return .follicular }
-        if offset >= fertileStart && offset <= ovulation { return .fertile }
-        if offset > ovulation { return .luteal }
-        return .follicular
+        guard isPlausible else { return .between }
+        return offset >= span - CyclePhaseKind.beforePeriodDays ? .beforePeriod : .between
     }
 }
 
@@ -70,20 +60,19 @@ struct SymptomTiming: Identifiable, Equatable {
     let total: Int
     /// The phase holding at least half the logs, if any.
     let dominant: CyclePhaseKind?
-    /// For a luteal pattern: the median number of days before the period.
+    /// For a week-before-period pattern: the median number of days before it.
     let typicalDaysBeforePeriod: Int?
     var id: String { "\(kind.rawValue)-\(name)" }
 
     var summary: String {
         switch dominant {
-        case .luteal:
+        case .beforePeriod:
             if let days = typicalDaysBeforePeriod {
                 return days <= 1 ? "Usually the day before your period" : "Usually about \(days) days before your period"
             }
-            return "Mostly after ovulation"
+            return "Mostly in the week before your period"
         case .period: return "Mostly during your period"
-        case .fertile: return "Mostly around ovulation"
-        case .follicular: return "Mostly in the days after your period"
+        case .between: return "Mostly between periods"
         case nil: return "Spread across your cycle"
         }
     }
@@ -91,11 +80,6 @@ struct SymptomTiming: Identifiable, Equatable {
 
 enum CycleTrendsCalculator {
     static let sampleMarker = "[LineCheck Screenshot Sample]"
-    /// Luteal lengths outside this range are almost certainly a misplaced
-    /// ovulation or period rather than a real luteal phase.
-    static let plausibleLutealRange = 5...20
-    /// Under this many days is worth mentioning to a doctor.
-    static let shortLutealThreshold = 10
 
     static func history(
         records: [CycleRecord],
@@ -133,21 +117,6 @@ enum CycleTrendsCalculator {
             }()
             let periodDays = min(max(1, drawnPeriod), span)
 
-            let lastDay = span - 1
-            let ovulation = min(max(0, days(start, window.predictedOvulationDate)), lastDay)
-            let fertileStart = min(max(0, days(start, window.fertileStartDate)), ovulation)
-
-            let hasEvidence = record.confirmedOvulationDate != nil
-                || record.ovulationSource == .testSupported
-                || record.ovulationSource == .temperatureSupported
-            let evidence: TrackingDataSource? = hasEvidence ? (record.ovulationSource ?? .userConfirmed) : nil
-
-            var luteal: Int?
-            if hasEvidence, let length, FertilityWindowCalculator.plausibleCycleLengthRange.contains(length) {
-                let value = length - ovulation - 1
-                luteal = plausibleLutealRange.contains(value) ? value : nil
-            }
-
             var predictionError: Int?
             // A cycle of implausible length is a logging gap or a stray entry,
             // not a forecast that missed.
@@ -164,11 +133,6 @@ enum CycleTrendsCalculator {
                 span: span,
                 elapsed: min(elapsed, span),
                 periodDays: periodDays,
-                fertileStart: fertileStart,
-                fertileEnd: ovulation,
-                ovulation: ovulation,
-                ovulationEvidence: evidence,
-                lutealLength: luteal,
                 predictionErrorDays: predictionError,
                 isCurrent: isCurrent
             )
@@ -184,25 +148,6 @@ enum CycleTrendsCalculator {
             return offset < limit ? (entry, offset) : nil
         }
         return nil
-    }
-
-    // MARK: Luteal phase
-
-    struct LutealSummary: Equatable {
-        let lengths: [Int]
-        let median: Int
-        let shortCount: Int
-    }
-
-    static func lutealSummary(_ entries: [CycleHistoryEntry]) -> LutealSummary? {
-        let lengths = entries.compactMap(\.lutealLength)
-        guard !lengths.isEmpty else { return nil }
-        let sorted = lengths.sorted()
-        return LutealSummary(
-            lengths: lengths,
-            median: sorted[sorted.count / 2],
-            shortCount: lengths.filter { $0 < shortLutealThreshold }.count
-        )
     }
 
     // MARK: Prediction accuracy
@@ -264,7 +209,7 @@ enum CycleTrendsCalculator {
                 var tally = tallies[key]?.tally ?? Tally()
                 tally.counts[phase, default: 0] += 1
                 tally.total += 1
-                if phase == .luteal, let daysBefore { tally.daysBefore.append(daysBefore) }
+                if phase == .beforePeriod, let daysBefore { tally.daysBefore.append(daysBefore) }
                 tallies[key] = (kind, tally)
             }
         }
@@ -275,7 +220,7 @@ enum CycleTrendsCalculator {
             let top = tally.counts.max { $0.value != $1.value ? $0.value < $1.value : $0.key.title > $1.key.title }
             let dominant = top.flatMap { Double($0.value) / Double(tally.total) >= 0.5 ? $0.key : nil }
             var typical: Int?
-            if dominant == .luteal, tally.daysBefore.count >= 2 {
+            if dominant == .beforePeriod, tally.daysBefore.count >= 2 {
                 let sorted = tally.daysBefore.sorted()
                 typical = sorted[sorted.count / 2]
             }

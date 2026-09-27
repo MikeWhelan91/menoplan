@@ -496,7 +496,7 @@ struct OnDeviceCheckView: View {
                     allDailyLogs: logs,
                     healthMetrics: metrics,
                     scans: scans,
-                    signalSurface: flow.testType == .ovulation ? .ovulationResult : .pregnancyResult
+                    signalSurface: .ovulationResult
                 ),
                 mode: "resultNarrative"
             )

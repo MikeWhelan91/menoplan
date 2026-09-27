@@ -35,7 +35,7 @@ struct CycleWidget: Widget {
                 .containerBackground(for: .widget) { WidgetBackdrop() }
         }
         .configurationDisplayName("Cycle Countdown")
-        .description("Days until your fertile window, ovulation or next period.")
+        .description("Days until your next period, and your cycle at a glance.")
         .supportedFamilies([.systemSmall, .systemMedium, .accessoryCircular, .accessoryRectangular, .accessoryInline])
     }
 }
@@ -159,8 +159,8 @@ struct CycleWidgetView: View {
     }
 }
 
-/// Flo-style month grid: coloured numbers for each phase, a solid purple
-/// dot behind ovulation and a filled navy dot for today.
+/// Month grid: pink numbers for period days, a dashed ring for an estimated
+/// period and a filled navy dot for today.
 struct MonthGrid: View {
     let snapshot: WidgetSnapshot
     let date: Date
@@ -202,8 +202,6 @@ struct MonthGrid: View {
                 .background {
                     if isToday {
                         Circle().fill(Color.wNavy)
-                    } else if phase == .ovulation {
-                        Circle().fill(Color.wPurple)
                     } else if phase == .predictedPeriod {
                         Circle().strokeBorder(Color.wPink.opacity(0.5), style: StrokeStyle(lineWidth: 1, dash: [2, 2]))
                     }
@@ -214,7 +212,7 @@ struct MonthGrid: View {
     }
 
     private func foreground(phase: WidgetSnapshot.DayPhase?, isToday: Bool) -> Color {
-        if isToday || phase == .ovulation { return .wOnInk }
+        if isToday { return .wOnInk }
         return phase?.color ?? Color.wNavy.opacity(0.85)
     }
 

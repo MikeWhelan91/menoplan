@@ -490,9 +490,6 @@ struct RootView: View {
             dates: window.map { [$0.cycleStart, $0.opkStartDate, $0.fertileStartDate, $0.fertileEndDate, $0.predictedOvulationDate, $0.nextPeriodDate] } ?? [],
             preferences: [
                 settings?.autoRemindersEnabled ?? false,
-                settings?.autoOvulationTestRemindersEnabled ?? false,
-                settings?.autoFertileWindowRemindersEnabled ?? false,
-                settings?.autoFertilePeakRemindersEnabled ?? false,
                 settings?.autoPeriodExpectedRemindersEnabled ?? false,
                 settings?.autoPeriodCheckInRemindersEnabled ?? false,
                 settings?.autoPeriodLateRemindersEnabled ?? false,
@@ -506,13 +503,12 @@ struct RootView: View {
     }
 
     /// Recomputed with the queries (and on scene-phase changes, which also
-    /// re-evaluate this view), so widgets follow scans, periods and Pro status.
+    /// re-evaluate this view), so widgets follow logged periods.
     private var widgetSnapshot: WidgetSnapshot {
         WidgetSnapshotService.snapshot(
             settings: currentSettings,
             cycleRecords: cycleRecords,
-            periodEvents: periodEvents,
-            scans: scans
+            periodEvents: periodEvents
         )
     }
 
@@ -584,7 +580,6 @@ struct RootView: View {
             for scan in scans {
                 CycleTrackingService.attach(scan, to: [cycle])
             }
-            CycleTrackingService.reconcileOvulationEstimates(records: [cycle], scans: scans)
             if periodEvents.isEmpty {
                 modelContext.insert(PeriodEvent(startDate: start, source: .migrated, cycleRecordID: cycle.id))
             }
@@ -598,10 +593,6 @@ struct RootView: View {
         for scan in scans {
             CycleTrackingService.attach(scan, to: cycleRecords)
         }
-        CycleTrackingService.reconcileOvulationEstimates(records: cycleRecords, scans: scans)
-        // Existing temperature logs can already show a post-ovulation rise;
-        // apply it on launch rather than waiting for the next edit or sync.
-        CycleTrackingService.reconcileTemperatureOvulation(records: cycleRecords, logs: dailyLogs)
         try? modelContext.save()
     }
 
@@ -629,7 +620,7 @@ struct RootView: View {
                 icon: "calendar.badge.plus",
                 imageName: "CalendarReminderIcon",
                 title: "Want predictions?",
-                message: "Add your last period and MenoPlan can show your fertile days, when to test and when your period is due. It takes about a minute.",
+                message: "Add your last period and MenoPlan can track how your cycle is changing and when your next period is due. It takes about a minute.",
                 primaryTitle: "Set up my cycle",
                 secondaryTitle: "Not now",
                 primaryAction: {

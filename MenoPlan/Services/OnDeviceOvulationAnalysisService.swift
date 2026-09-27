@@ -101,15 +101,15 @@ enum OnDeviceOvulationReconciler {
         let core: String
         switch type {
         case .low:
-            core = "The test line is lighter than the control line, which is usually a low ovulation-test reading."
+            core = "The test line is much lighter than the control line."
         case .rising:
             core = "The test line is becoming more noticeable, but it is not yet as strong as the control line."
         case .high:
-            core = "The test line is close to the control line. Consider testing again later today or tomorrow to watch for a surge."
+            core = "The test line is close to the control line."
         case .peak:
-            core = "The test line is at least as strong as the control line, which can indicate an LH surge."
+            core = "The test line is at least as strong as the control line."
         default:
-            core = "This ovulation test could not be read clearly."
+            core = "This test could not be read clearly."
         }
         return "\(core) \(trend)"
     }

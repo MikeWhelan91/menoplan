@@ -24,7 +24,7 @@ struct AssistantChatMessage: Identifiable, Hashable, Codable {
 
 private let assistantStarterMessage = AssistantChatMessage(
     role: .assistant,
-    text: "Ask me about saved tests, when to test again, ovulation-test timing, or cycle dates.",
+    text: "Ask me about your symptoms, cycle changes, test readings, or preparing for an appointment.",
     createdAt: .now
 )
 
@@ -33,7 +33,7 @@ private func assistantStarterMessage(for userName: String) -> AssistantChatMessa
     let greeting = name.isEmpty ? "Hi — I’m Luna." : "Hi \(name) — I’m Luna."
     return AssistantChatMessage(
         role: .assistant,
-        text: "\(greeting) Ask me about saved tests, when to test again, ovulation-test timing, or cycle dates.",
+        text: "\(greeting) Ask me about your symptoms, cycle changes, test readings, or preparing for an appointment.",
         createdAt: .now
     )
 }
@@ -92,7 +92,7 @@ final class AssistantViewModel {
     func starterPrompts(for focus: TrackingFocus) -> [String] {
         switch focus {
         case .ovulation:
-            ["When should I test again today?", "Does this look close to my strongest result?", "When should I take ovulation tests this week?"]
+            ["Is this perimenopause?", "What helps with night sweats?", "What should I ask my GP?"]
         }
     }
 

@@ -43,11 +43,6 @@ enum HealthKitSyncService {
 
         let bbtSamples = try await health.fetchBasalBodyTemperature(since: since)
         let flowSamples = try await health.fetchMenstrualFlow(since: since)
-        // The system permission screen lets the person approve each category. We
-        // always try to read all supported types; denied types simply return no data.
-        let mucusSamples = try await health.fetchCervicalMucus(since: since)
-        let sexualActivitySamples = try await health.fetchSexualActivity(since: since)
-        let testObservations = try await health.fetchTestObservations(since: since)
         // Categories added after someone first connected throw "not
         // determined" until they've seen the new permission sheet - that must
         // not stop the original, already-granted signals from syncing.
@@ -62,9 +57,7 @@ enum HealthKitSyncService {
         let bbtCount = try mergeBBT(bbtSamples, calendar: calendar, context: context)
         let periodCount = try mergePeriods(flowSamples, settings: settings, calendar: calendar, context: context)
         let flowLogCount = try mergeFlowLogs(flowSamples, calendar: calendar, context: context)
-        let mucusCount = try mergeCervicalMucus(mucusSamples, calendar: calendar, context: context)
-        let sexualActivityCount = try mergeSexualActivity(sexualActivitySamples, calendar: calendar, context: context)
-        let testObservationCount = try mergeTestObservations(testObservations + contextObservations, calendar: calendar, context: context)
+        let testObservationCount = try mergeTestObservations(contextObservations, calendar: calendar, context: context)
         let symptomCount = try mergeSymptoms(symptomSamples, calendar: calendar, context: context)
         let weightCount = try mergeWeights(weightSamples, settings: settings, calendar: calendar, context: context)
         let waterCount = try mergeWater(waterByDay, calendar: calendar, context: context)
@@ -73,14 +66,6 @@ enum HealthKitSyncService {
         if settings.heightCmValue == nil, let latestHeight { settings.heightCmValue = latestHeight }
         if settings.birthYearValue == nil, let healthBirthYear { settings.birthYearValue = healthBirthYear }
 
-        // New temperatures can reveal (or remove) a post-ovulation rise.
-        if bbtCount > 0 {
-            CycleTrackingService.reconcileTemperatureOvulation(
-                records: try context.fetch(FetchDescriptor<CycleRecord>()),
-                logs: try context.fetch(FetchDescriptor<DailyFertilityLog>()),
-                calendar: calendar
-            )
-        }
 
         settings.lastHealthKitSyncDate = .now
         // Only mark the backfill done once the new categories are readable,
@@ -89,9 +74,9 @@ enum HealthKitSyncService {
             settings.healthKitBackfillVersionValue = HealthKitService.permissionsVersion
         }
         try? context.save()
-        AppAnalytics.log("linecheck_healthkit_sync_completed", ["bbt_days": bbtCount, "periods_imported": periodCount, "flow_log_days": flowLogCount, "mucus_days": mucusCount, "sexual_activity_days": sexualActivityCount, "test_observations": testObservationCount, "symptom_days": symptomCount, "weight_days": weightCount, "water_days": waterCount, "metric_days": metricsCount])
-        let importedCount = bbtCount + periodCount + flowLogCount + mucusCount + sexualActivityCount + testObservationCount + symptomCount + weightCount + waterCount
-        let foundCount = bbtSamples.count + flowSamples.count + mucusSamples.count + sexualActivitySamples.count + testObservations.count
+        AppAnalytics.log("linecheck_healthkit_sync_completed", ["bbt_days": bbtCount, "periods_imported": periodCount, "flow_log_days": flowLogCount, "test_observations": testObservationCount, "symptom_days": symptomCount, "weight_days": weightCount, "water_days": waterCount, "metric_days": metricsCount])
+        let importedCount = bbtCount + periodCount + flowLogCount + testObservationCount + symptomCount + weightCount + waterCount
+        let foundCount = bbtSamples.count + flowSamples.count
             + contextObservations.count + symptomSamples.count + weightSamples.count + waterByDay.count + dailyMetrics.count
         return Summary(importedCount: importedCount + metricsCount, foundCount: foundCount)
     }
@@ -130,10 +115,6 @@ enum HealthKitSyncService {
             if !log.symptomsRaw.isEmpty { count += 1 }
             if !log.moodsRaw.isEmpty { count += 1 }
             if !log.supplementsRaw.isEmpty { count += 1 }
-            if log.cervicalMucusRaw != nil { count += 1 }
-            if log.cervicalPositionRaw != nil { count += 1 }
-            if log.inseminationRaw != nil { count += 1 }
-            if log.sexRaw != nil { count += 1 }
             if log.flowIntensityRaw != nil { count += 1 }
             if log.basalBodyTemperatureCelsius != nil { count += 1 }
             if log.wristTemperatureCelsius != nil { count += 1 }
@@ -272,39 +253,6 @@ enum HealthKitSyncService {
             if rows[day] == nil { context.insert(row); rows[day] = row }
         }
         return metricsByDay.count
-    }
-
-    private static func mergeCervicalMucus(_ samples: [HealthKitService.CervicalMucusSample], calendar: Calendar, context: ModelContext) throws -> Int {
-        guard !samples.isEmpty else { return 0 }
-        var logs = try logsByDay(calendar: calendar, context: context)
-        var count = 0
-        for sample in samples {
-            let day = calendar.startOfDay(for: sample.date)
-            guard logs[day]?.cervicalMucusRaw == nil else { continue }
-            let log = logs[day] ?? DailyFertilityLog(date: day)
-            log.cervicalMucusRaw = sample.quality
-            if logs[day] == nil { context.insert(log); logs[day] = log }
-            count += 1
-        }
-        return count
-    }
-
-    private static func mergeSexualActivity(_ samples: [HealthKitService.SexualActivitySample], calendar: Calendar, context: ModelContext) throws -> Int {
-        guard !samples.isEmpty else { return 0 }
-        var logs = try logsByDay(calendar: calendar, context: context)
-        var count = 0
-        for sample in samples {
-            let day = calendar.startOfDay(for: sample.date)
-            let log = logs[day] ?? DailyFertilityLog(date: day)
-            let healthValue = sample.protectionUsed.map { $0 ? "Protected" : "Unprotected" } ?? "Logged in Apple Health"
-            // A user-selected value always wins. The earlier generic Health label is
-            // safe to upgrade when a later fetch includes protection metadata.
-            guard log.sexRaw == nil || (log.sexRaw == "Logged in Apple Health" && healthValue != "Logged in Apple Health") else { continue }
-            log.sexRaw = healthValue
-            if logs[day] == nil { context.insert(log); logs[day] = log }
-            count += 1
-        }
-        return count
     }
 
     private static func mergeFlowLogs(_ samples: [HealthKitService.FlowSample], calendar: Calendar, context: ModelContext) throws -> Int {

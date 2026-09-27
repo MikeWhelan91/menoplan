@@ -5,14 +5,11 @@ import SwiftUI
 /// the standalone sheet can both edit freely and only write to `UserSettings`
 /// when the person finishes.
 struct PersonalizationAnswers: Equatable {
-    var ttcDuration: TTCDuration?
     var birthYear: Int?
     var regularity: CycleRegularity?
     var conditions: Set<ReproductiveCondition> = []
     var noConditions = false
     var birthControl: BirthControlRecency?
-    var supplement: PreconceptionSupplement?
-    var supplementReminder = false
     var otherCondition = ""
     var heightCm: Double?
     var weightKg: Double?
@@ -25,15 +22,12 @@ struct PersonalizationAnswers: Equatable {
     init() {}
 
     init(settings: UserSettings) {
-        ttcDuration = settings.ttcDuration
         birthYear = settings.birthYearValue
         regularity = settings.cycleRegularity
         conditions = settings.reproductiveConditions
         // "" (rather than nil) records an explicit "none of these".
         noConditions = settings.reproductiveConditionsRaw == ""
         birthControl = settings.birthControlRecency
-        supplement = settings.preconceptionSupplement
-        supplementReminder = settings.supplementReminderEnabled
         otherCondition = settings.otherConditionTextValue ?? ""
         heightCm = settings.heightCmValue
         weightKg = settings.weightKgValue
@@ -46,7 +40,6 @@ struct PersonalizationAnswers: Equatable {
     /// Health when connected), so the calendar starts with a first weigh-in.
     @MainActor
     func apply(to settings: UserSettings, context: ModelContext? = nil) {
-        settings.ttcDuration = ttcDuration
         settings.birthYearValue = birthYear
         settings.cycleRegularity = regularity
         settings.reproductiveConditions = conditions
@@ -54,7 +47,6 @@ struct PersonalizationAnswers: Equatable {
         let trimmedOther = otherCondition.trimmingCharacters(in: .whitespacesAndNewlines)
         settings.otherConditionTextValue = conditions.contains(.other) && !trimmedOther.isEmpty ? String(trimmedOther.prefix(80)) : nil
         settings.birthControlRecency = birthControl
-        settings.preconceptionSupplement = supplement
         settings.weightUnit = weightUnit
         settings.heightUnit = heightUnit
         if let heightCm, heightCm != settings.heightCmValue {
@@ -71,20 +63,7 @@ struct PersonalizationAnswers: Equatable {
         // A new answer can re-open the doctor note if the situation changed.
         if !settings.healthProfile.shouldSuggestDoctor() { settings.dismissedDoctorSuggestion = false }
 
-        let wantsReminder = supplementReminder && supplement == PreconceptionSupplement.none
-        let hadReminder = settings.supplementReminderEnabled
-        settings.supplementReminderEnabled = wantsReminder
-        if wantsReminder && !hadReminder {
-            Task {
-                let service = NotificationService()
-                guard await service.requestPermission() else { return }
-                try? await service.scheduleDailySupplementReminder()
-            }
-        } else if !wantsReminder && hadReminder {
-            NotificationService().cancelDailySupplementReminder()
-        }
         AppAnalytics.log("linecheck_personalization_saved", [
-            "ttc_duration": ttcDuration?.rawValue ?? "none",
             "regularity": regularity?.rawValue ?? "none",
             "has_conditions": conditions.isEmpty ? "false" : "true",
             "has_body_measurements": heightCm != nil && weightKg != nil ? "true" : "false"
@@ -93,64 +72,56 @@ struct PersonalizationAnswers: Equatable {
 }
 
 enum PersonalizationQuestion: Int, CaseIterable, Identifiable {
-    case tryingDuration, birthYear, bodyMeasurements, regularity, conditions, birthControl, supplements
+    case birthYear, bodyMeasurements, regularity, conditions, birthControl
     /// Standalone About you sheet only - onboarding has its own name page.
     case name
     var id: Int { rawValue }
 
-    static func sequence(tryingToConceive: Bool) -> [PersonalizationQuestion] {
-        allCases.filter { $0 != .name && (tryingToConceive || ($0 != .tryingDuration && $0 != .supplements)) }
+    static var sequence: [PersonalizationQuestion] {
+        allCases.filter { $0 != .name }
     }
 
     var title: String {
         switch self {
         case .name: "What should we call you?"
-        case .tryingDuration: "How long have you been trying to get pregnant?"
         case .birthYear: "What year were you born?"
         case .bodyMeasurements: "How tall are you, and what do you weigh?"
         case .regularity: "Are your periods regular?"
         case .conditions: "Do you have any of these conditions?"
-        case .birthControl: "Have you used birth control in the last 6 months?"
-        case .supplements: "Do you take folic acid or a prenatal vitamin?"
+        case .birthControl: "Have you used hormonal contraception in the last 6 months?"
         }
     }
 
     var subtitle: String? {
         switch self {
         case .name: "Luna and MenoPlan use your first name. It stays with your app data."
-        case .tryingDuration: nil
         case .birthYear: "Age changes when it’s worth checking in with a doctor, so we only use it for that."
-        case .bodyMeasurements: "Weight can affect how regularly you ovulate. You can update it any day in the calendar."
+        case .bodyMeasurements: "Weight changes are common through menopause. You can update it any day in the calendar."
         case .regularity: "Regular means the gap between your periods is about the same each month."
-        case .conditions: "Some conditions change how ovulation tests read. Choose any that apply."
-        case .birthControl: "Some birth control can affect your cycle for a while after stopping."
-        case .supplements: nil
+        case .conditions: "Some conditions cause similar symptoms or change bleeding. Choose any that apply."
+        case .birthControl: "This includes a hormonal coil, which can change or stop bleeding."
         }
     }
 
     func isAnswered(_ answers: PersonalizationAnswers) -> Bool {
         switch self {
         case .name: !answers.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        case .tryingDuration: answers.ttcDuration != nil
         case .birthYear: answers.birthYear != nil
         case .bodyMeasurements: answers.heightCm != nil && answers.weightKg != nil
         case .regularity: answers.regularity != nil
         case .conditions: !answers.conditions.isEmpty || answers.noConditions
         case .birthControl: answers.birthControl != nil
-        case .supplements: answers.supplement != nil
         }
     }
 
     func clear(_ answers: inout PersonalizationAnswers) {
         switch self {
         case .name: break
-        case .tryingDuration: answers.ttcDuration = nil
         case .birthYear: answers.birthYear = nil
         case .bodyMeasurements: answers.heightCm = nil; answers.weightKg = nil
         case .regularity: answers.regularity = nil
         case .conditions: answers.conditions = []; answers.noConditions = false; answers.otherCondition = ""
         case .birthControl: answers.birthControl = nil
-        case .supplements: answers.supplement = nil; answers.supplementReminder = false
         }
     }
 }
@@ -288,11 +259,6 @@ struct PersonalizationQuestionView: View {
 
     private var quizOptions: [QuizOption] {
         switch question {
-        case .tryingDuration:
-            let titles: [TTCDuration: String] = [.justStarted: "Just started", .underThreeMonths: "Up to 3 months", .threeToSixMonths: "3 to 6 months", .sixToTwelveMonths: "6 to 12 months", .overAYear: "Over a year"]
-            return TTCDuration.allCases.map { option in
-                QuizOption(id: option.rawValue, title: titles[option] ?? option.title, response: option.response, isSelected: answers.ttcDuration == option) { answers.ttcDuration = option }
-            }
         case .birthYear, .bodyMeasurements, .name:
             return []
         case .regularity:
@@ -329,11 +295,6 @@ struct PersonalizationQuestionView: View {
             let titles: [BirthControlRecency: String] = [.none: "No", .stillUsing: "Still using it", .pill: "The pill", .iud: "An IUD", .implantOrShot: "Implant or injection", .nonHormonal: "Non-hormonal", .preferNotToSay: "Prefer not to say"]
             return BirthControlRecency.allCases.map { option in
                 QuizOption(id: option.rawValue, title: titles[option] ?? option.title, response: option.response, isSelected: answers.birthControl == option) { answers.birthControl = option }
-            }
-        case .supplements:
-            let titles: [PreconceptionSupplement: String] = [.folicAcid: "Folic acid", .prenatal: "Prenatal vitamin", .none: "Not yet"]
-            return PreconceptionSupplement.allCases.map { option in
-                QuizOption(id: option.rawValue, title: titles[option] ?? option.title, response: option.response, isSelected: answers.supplement == option) { answers.supplement = option }
             }
         }
     }
@@ -386,18 +347,6 @@ struct PersonalizationQuestionView: View {
                         .foregroundStyle(Color.lineNavy.opacity(0.4))
                         .transition(.opacity)
                 }
-                if question == .supplements && answers.supplement == PreconceptionSupplement.none {
-                    Toggle(isOn: $answers.supplementReminder) {
-                        Text("Remind me every morning")
-                            .font(.app(size: LineType.size(15), weight: .bold))
-                            .foregroundStyle(Color.lineNavy)
-                    }
-                    .tint(Color.linePink)
-                    .padding(.horizontal, 18)
-                    .frame(height: 52)
-                    .background(Color.white.opacity(0.7), in: RoundedRectangle(cornerRadius: QuizStyle.cornerRadius, style: .continuous))
-                    .transition(.opacity.combined(with: .move(edge: .bottom)))
-                }
             }
             .frame(minHeight: 44)
         }
@@ -405,7 +354,6 @@ struct PersonalizationQuestionView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding(.bottom, 8)
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: note)
-        .animation(.spring(response: 0.4, dampingFraction: 0.85), value: answers.supplement)
         .animation(.spring(response: 0.4, dampingFraction: 0.85), value: answers.conditions)
         .alert("What’s the condition?", isPresented: $showOtherPrompt) {
             TextField("e.g. Hashimoto’s", text: $otherDraft)
@@ -565,7 +513,7 @@ struct PersonalizationQuizSheet: View {
     init(settings: UserSettings) {
         self.settings = settings
         _answers = State(initialValue: PersonalizationAnswers(settings: settings))
-        questions = [.name] + PersonalizationQuestion.sequence(tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive)
+        questions = [.name] + PersonalizationQuestion.sequence
     }
 
     var body: some View {
@@ -633,7 +581,7 @@ struct PersonalizationQuizSheet: View {
     }
 
     private var previewProfile: HealthProfile {
-        HealthProfile(ttcDuration: answers.ttcDuration, birthYear: answers.birthYear, regularity: answers.regularity, conditions: answers.conditions, birthControl: answers.birthControl, supplement: answers.supplement, heightCm: answers.heightCm, weightKg: answers.weightKg)
+        HealthProfile(birthYear: answers.birthYear, regularity: answers.regularity, conditions: answers.conditions, birthControl: answers.birthControl, heightCm: answers.heightCm, weightKg: answers.weightKg)
     }
 
     private func advance() {
@@ -673,20 +621,11 @@ struct QuizCompleteView: View {
 
     private var changes: [(String, String)] {
         var items: [(String, String)] = []
-        if profile.hasPCOS {
-            items.append(("waveform.path.ecg", "Ovulation results will note that LH can run high with PCOS"))
-        }
         if profile.predictionsLessCertain {
-            items.append(("calendar.badge.exclamationmark", "Predictions will be shown with a wider margin"))
-        }
-        if let note = profile.bmiCategory?.fertilityNote {
-            items.append(("scalemass.fill", note))
+            items.append(("calendar.badge.exclamationmark", "Cycle dates will be shown as a wider estimate"))
         }
         if profile.shouldSuggestDoctor() {
             items.append(("stethoscope", "We’ll suggest when it may help to talk to a doctor"))
-        }
-        if profile.supplement == PreconceptionSupplement.none {
-            items.append(("pills.fill", "Folic acid added to your to-do list"))
         }
         if items.isEmpty {
             items.append(("sparkles", "Your tips and timing are tailored to your answers"))
@@ -768,7 +707,7 @@ struct BodyMeasurementsQuestion: View {
 
             Group {
                 if let category = previewCategory, let bmi = previewBMI {
-                    QuizNote(text: "BMI \(String(format: "%.1f", bmi)) · \(category.title)" + (category.fertilityNote.map { "\n\($0)" } ?? ""))
+                    QuizNote(text: "BMI \(String(format: "%.1f", bmi)) · \(category.title)")
                 } else {
                     Text("Scroll to set each value")
                         .font(.app(size: LineType.size(14), weight: .semibold))

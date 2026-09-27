@@ -22,6 +22,12 @@ This app is a fork of LineCheck (`/Users/mike/Dev/Apps/preg`) and should keep th
 
 `xcodegen generate`, then build the `MenoPlan` scheme. The AI API lives in `api/` (Vercel: `analyse-fsh.js`, `assistant.js`).
 
+## Cycle engine (transitional)
+
+Fertility and pregnancy tracking are removed. The period estimate still comes from LineCheck's `FertilityWindowCalculator` / `CycleTrackingService` (it computes ovulation internally to place the next period), but nothing user-facing shows fertile days, ovulation, BBT or luteal data, and saved tests never move period dates. This engine is due to be replaced by a cycle-change calculator (cycle-length variability, 60+ day gaps, 12-month countdown). The test scan path still uses `TestType.ovulation` and LH-style result tiers until it's converted to FSH.
+
+`MenopauseStage` (perimenopause / postmenopause / unsure) is chosen in onboarding and Settings; only perimenopause asks for cycle dates.
+
 ## Product rules
 
 - Never diagnose peri/menopause; FSH is one data point, not a verdict.

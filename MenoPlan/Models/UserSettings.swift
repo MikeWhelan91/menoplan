@@ -31,16 +31,13 @@ final class UserSettings {
     var lastPeriodStartDate: Date?
     var averageCycleLengthValue: Int?
     var lutealPhaseLengthValue: Int?
-    var ovulationTrackingGoalRaw: String?
+    var menopauseStageRaw: String?
     var expectedPeriodDate: Date?
     var knownOvulationDate: Date?
     var trackingFocusRaw: String?
     var hasMigratedCycleHistoryValue: Bool?
     var userNameValue: String?
     var autoRemindersEnabled: Bool = false
-    @Attribute(originalName: "autoOvulationTestRemindersEnabled") private var autoOvulationTestRemindersEnabledValue: Bool?
-    @Attribute(originalName: "autoFertileWindowRemindersEnabled") private var autoFertileWindowRemindersEnabledValue: Bool?
-    @Attribute(originalName: "autoFertilePeakRemindersEnabled") private var autoFertilePeakRemindersEnabledValue: Bool?
     @Attribute(originalName: "autoPeriodExpectedRemindersEnabled") private var autoPeriodExpectedRemindersEnabledValue: Bool?
     @Attribute(originalName: "autoPeriodCheckInRemindersEnabled") private var autoPeriodCheckInRemindersEnabledValue: Bool?
     @Attribute(originalName: "autoPeriodLateRemindersEnabled") private var autoPeriodLateRemindersEnabledValue: Bool?
@@ -50,13 +47,10 @@ final class UserSettings {
     @Attribute(originalName: "lastHealthKitSyncDate") private var lastHealthKitSyncDateValue: Date?
     // Personalisation quiz answers - all optional so existing rows and CloudKit
     // records migrate without a default having to be invented for them.
-    var ttcDurationRaw: String?
     var birthYearValue: Int?
     var cycleRegularityRaw: String?
     var reproductiveConditionsRaw: String?
     var birthControlRecencyRaw: String?
-    var preconceptionSupplementRaw: String?
-    var supplementReminderEnabledValue: Bool?
     var hasCompletedPersonalizationValue: Bool?
     var dismissedPersonalizationPromptValue: Bool?
     var dismissedDoctorSuggestionValue: Bool?
@@ -115,16 +109,13 @@ final class UserSettings {
         self.lastPeriodStartDate = nil
         self.averageCycleLengthValue = 28
         self.lutealPhaseLengthValue = 14
-        self.ovulationTrackingGoalRaw = OvulationTrackingGoal.tryingToConceive.rawValue
+        self.menopauseStageRaw = MenopauseStage.perimenopause.rawValue
         self.expectedPeriodDate = nil
         self.knownOvulationDate = nil
         self.trackingFocusRaw = TrackingFocus.ovulation.rawValue
         self.hasMigratedCycleHistoryValue = false
         self.userNameValue = nil
         self.autoRemindersEnabled = false
-        self.autoOvulationTestRemindersEnabledValue = true
-        self.autoFertileWindowRemindersEnabledValue = true
-        self.autoFertilePeakRemindersEnabledValue = false
         self.autoPeriodExpectedRemindersEnabledValue = true
         self.autoPeriodCheckInRemindersEnabledValue = true
         self.autoPeriodLateRemindersEnabledValue = true
@@ -231,9 +222,9 @@ final class UserSettings {
         get { BodyMeasurementUnit(rawValue: heightUnitRaw ?? "") ?? bodyMeasurementUnit }
         set { heightUnitRaw = newValue.rawValue }
     }
-    var ovulationTrackingGoal: OvulationTrackingGoal {
-        get { OvulationTrackingGoal(rawValue: ovulationTrackingGoalRaw ?? "") ?? .tryingToConceive }
-        set { ovulationTrackingGoalRaw = newValue.rawValue }
+    var menopauseStage: MenopauseStage {
+        get { MenopauseStage(rawValue: menopauseStageRaw ?? "") ?? .perimenopause }
+        set { menopauseStageRaw = newValue.rawValue }
     }
     var trackingFocus: TrackingFocus {
         get { TrackingFocus(rawValue: trackingFocusRaw ?? "") ?? .ovulation }
@@ -249,20 +240,6 @@ final class UserSettings {
     var temperatureUnit: TemperatureUnit {
         get { TemperatureUnit(rawValue: temperatureUnitRaw ?? "") ?? .localeDefault }
         set { temperatureUnitRaw = newValue.rawValue }
-    }
-    // The established three automatic reminders default on for existing
-    // users. Newer prediction nudges require an explicit opt-in.
-    var autoOvulationTestRemindersEnabled: Bool {
-        get { autoOvulationTestRemindersEnabledValue ?? true }
-        set { autoOvulationTestRemindersEnabledValue = newValue }
-    }
-    var autoFertileWindowRemindersEnabled: Bool {
-        get { autoFertileWindowRemindersEnabledValue ?? true }
-        set { autoFertileWindowRemindersEnabledValue = newValue }
-    }
-    var autoFertilePeakRemindersEnabled: Bool {
-        get { autoFertilePeakRemindersEnabledValue ?? false }
-        set { autoFertilePeakRemindersEnabledValue = newValue }
     }
     var autoPeriodExpectedRemindersEnabled: Bool {
         get { autoPeriodExpectedRemindersEnabledValue ?? false }
@@ -291,10 +268,6 @@ final class UserSettings {
         get { healthKitAdvancedSignalsEnabledValue ?? false }
         set { healthKitAdvancedSignalsEnabledValue = newValue }
     }
-    var ttcDuration: TTCDuration? {
-        get { ttcDurationRaw.flatMap(TTCDuration.init(rawValue:)) }
-        set { ttcDurationRaw = newValue?.rawValue }
-    }
     var cycleRegularity: CycleRegularity? {
         get { cycleRegularityRaw.flatMap(CycleRegularity.init(rawValue:)) }
         set { cycleRegularityRaw = newValue?.rawValue }
@@ -306,14 +279,6 @@ final class UserSettings {
     var birthControlRecency: BirthControlRecency? {
         get { birthControlRecencyRaw.flatMap(BirthControlRecency.init(rawValue:)) }
         set { birthControlRecencyRaw = newValue?.rawValue }
-    }
-    var preconceptionSupplement: PreconceptionSupplement? {
-        get { preconceptionSupplementRaw.flatMap(PreconceptionSupplement.init(rawValue:)) }
-        set { preconceptionSupplementRaw = newValue?.rawValue }
-    }
-    var supplementReminderEnabled: Bool {
-        get { supplementReminderEnabledValue ?? false }
-        set { supplementReminderEnabledValue = newValue }
     }
     var hasCompletedPersonalization: Bool {
         get { hasCompletedPersonalizationValue ?? false }
@@ -329,12 +294,10 @@ final class UserSettings {
     }
     var healthProfile: HealthProfile {
         HealthProfile(
-            ttcDuration: ttcDuration,
             birthYear: birthYearValue,
             regularity: cycleRegularity,
             conditions: reproductiveConditions,
             birthControl: birthControlRecency,
-            supplement: preconceptionSupplement,
             otherCondition: otherConditionTextValue,
             heightCm: heightCmValue,
             weightKg: weightKgValue

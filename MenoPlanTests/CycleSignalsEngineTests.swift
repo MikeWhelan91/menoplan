@@ -13,16 +13,6 @@ final class CycleSignalsEngineTests: XCTestCase {
         calendar.date(from: DateComponents(year: 2026, month: 8, day: 1))!
     }
 
-    /// Low temperatures to cycle day 15 (offset 14), then a clear rise.
-    private func biphasicLogs(riseOnOffset rise: Int = 15, through last: Int = 24, wrist: Bool = false) -> [DailyFertilityLog] {
-        (4...last).map { offset in
-            let value = offset < rise ? 36.3 + Double(offset % 3) * 0.03 : 36.75
-            let log = DailyFertilityLog(date: day(offset, from: cycleStart))
-            if wrist { log.wristTemperatureCelsius = value - 1.4 } else { log.basalBodyTemperatureCelsius = value }
-            return log
-        }
-    }
-
     private func input(
         today: Date,
         cycle: CycleRecord? = nil,
@@ -38,62 +28,8 @@ final class CycleSignalsEngineTests: XCTestCase {
             logs: logs,
             metrics: metrics,
             scans: [],
-            profile: profile,
-            tryingToConceive: true
+            profile: profile
         )
-    }
-
-    // MARK: Thermal shift
-
-    func testDetectsThreeOverSixShift() throws {
-        let shift = try XCTUnwrap(ThermalShiftDetector.detect(in: biphasicLogs(), from: cycleStart, calendar: calendar))
-        XCTAssertTrue(calendar.isDate(shift.shiftDay, inSameDayAs: day(15, from: cycleStart)))
-        XCTAssertTrue(calendar.isDate(shift.estimatedOvulation, inSameDayAs: day(14, from: cycleStart)))
-        XCTAssertFalse(shift.usesWristTemperature)
-    }
-
-    func testFlatTemperaturesHaveNoShift() {
-        let flat = (4...24).map { offset -> DailyFertilityLog in
-            let log = DailyFertilityLog(date: day(offset, from: cycleStart))
-            log.basalBodyTemperatureCelsius = 36.4
-            return log
-        }
-        XCTAssertNil(ThermalShiftDetector.detect(in: flat, from: cycleStart, calendar: calendar))
-    }
-
-    func testWristTemperatureIsUsedOnlyWithoutEnoughBBT() throws {
-        let shift = try XCTUnwrap(ThermalShiftDetector.detect(in: biphasicLogs(wrist: true), from: cycleStart, calendar: calendar))
-        XCTAssertTrue(shift.usesWristTemperature)
-    }
-
-    func testTemperatureShiftMovesOvulationAndNextPeriod() throws {
-        let cycle = CycleRecord(startDate: cycleStart, averageCycleLengthAtStart: 28, lutealPhaseLengthAtStart: 14)
-        // Rise on offset 18: later than the calendar's day-14 estimate.
-        let logs = biphasicLogs(riseOnOffset: 18, through: 24)
-        let changed = CycleTrackingService.reconcileTemperatureOvulation(records: [cycle], logs: logs, calendar: calendar)
-        XCTAssertEqual(changed.count, 1)
-        XCTAssertEqual(cycle.ovulationSource, .temperatureSupported)
-
-        let window = try XCTUnwrap(CycleTrackingService.window(for: day(22, from: cycleStart), records: [cycle], settings: nil, calendar: calendar))
-        XCTAssertTrue(calendar.isDate(window.predictedOvulationDate, inSameDayAs: day(17, from: cycleStart)))
-        // Ovulation offset 17 + 14 luteal days + 1.
-        XCTAssertTrue(calendar.isDate(window.nextPeriodDate, inSameDayAs: day(32, from: cycleStart)))
-    }
-
-    func testPeakTestOutranksTemperatureShift() {
-        let peakOvulation = day(13, from: cycleStart)
-        let cycle = CycleRecord(startDate: cycleStart, predictedOvulationDate: peakOvulation, ovulationSource: .testSupported)
-        CycleTrackingService.reconcileTemperatureOvulation(records: [cycle], logs: biphasicLogs(riseOnOffset: 18), calendar: calendar)
-        XCTAssertEqual(cycle.ovulationSource, .testSupported)
-        XCTAssertTrue(calendar.isDate(cycle.predictedOvulationDate!, inSameDayAs: peakOvulation))
-    }
-
-    func testRemovedShiftFallsBackToCalendarEstimate() {
-        let cycle = CycleRecord(startDate: cycleStart, averageCycleLengthAtStart: 28, lutealPhaseLengthAtStart: 14)
-        CycleTrackingService.reconcileTemperatureOvulation(records: [cycle], logs: biphasicLogs(riseOnOffset: 18), calendar: calendar)
-        CycleTrackingService.reconcileTemperatureOvulation(records: [cycle], logs: [], calendar: calendar)
-        XCTAssertNil(cycle.ovulationSource)
-        XCTAssertTrue(calendar.isDate(cycle.predictedOvulationDate!, inSameDayAs: day(13, from: cycleStart)))
     }
 
     // MARK: Signals
@@ -102,7 +38,7 @@ final class CycleSignalsEngineTests: XCTestCase {
         let today = day(10, from: cycleStart)
         let log = DailyFertilityLog(date: today)
         log.waterMl = 3000
-        let result = CycleSignalsEngine.signals(for: .pregnancyResult, input(today: today, logs: [log]))
+        let result = CycleSignalsEngine.signals(for: .ovulationResult, input(today: today, logs: [log]))
         XCTAssertTrue(result.contains { $0.id == "highFluidIntake" })
     }
 
@@ -138,77 +74,19 @@ final class CycleSignalsEngineTests: XCTestCase {
         XCTAssertTrue(CycleSignalsEngine.bodySummary(logs: [before, now], metrics: [], today: today).contains { $0.contains("changeKg=-5.0") })
     }
 
-    func testLateFertileMucusSuggestsLaterOvulation() {
-        let today = day(24, from: cycleStart)
-        let log = DailyFertilityLog(date: today)
-        log.cervicalMucusRaw = "Egg White"
-        let signal = CycleSignalsEngine.signals(input(today: today, logs: [log])).first { $0.id == "fertileMucus" }
-        XCTAssertEqual(signal?.title, "Fertile mucus later than expected")
-    }
-
     func testQuietDataProducesNoSignals() {
         let today = day(5, from: cycleStart)
         XCTAssertTrue(CycleSignalsEngine.signals(input(today: today)).isEmpty)
     }
 
-    @MainActor
-    func testNoticedHistoryKeepsASignalOnTheDayItFirstAppeared() throws {
-        let container = try ModelContainer(for: NoticedSignal.self, configurations: ModelConfiguration(isStoredInMemoryOnly: true))
-        let context = container.mainContext
-        let signal = CycleSignal(id: "shortSleep", tone: .info, symbol: "bed.double", title: "Short on sleep", detail: "d", surfaces: [.home])
-        let resultOnly = CycleSignal(id: "pcosLH", tone: .info, symbol: "waveform", title: "PCOS", detail: "d", surfaces: [.ovulationResult])
-        let first = day(10, from: cycleStart)
+    func testLongGapBetweenPeriodsIsDescribedCalmly() {
+        let long = CycleSignalsEngine.signals(input(today: day(50, from: cycleStart)))
+        let longCycle = long.first { $0.id == "longCycle" }
+        XCTAssertEqual(longCycle?.tone, .info)
+        XCTAssertEqual(longCycle?.title, "A longer cycle than usual")
 
-        CycleSignalHistory.record([signal, resultOnly], today: first, context: context, calendar: calendar)
-        CycleSignalHistory.record([signal], today: day(11, from: cycleStart), context: context, calendar: calendar)
-        CycleSignalHistory.record([signal], today: day(12, from: cycleStart), context: context, calendar: calendar)
-        var rows = try context.fetch(FetchDescriptor<NoticedSignal>())
-        XCTAssertEqual(rows.count, 1)
-        XCTAssertTrue(calendar.isDate(rows[0].firstSeen, inSameDayAs: first))
-        XCTAssertTrue(calendar.isDate(rows[0].lastSeen, inSameDayAs: day(12, from: cycleStart)))
-
-        // After a gap it's a new occurrence on its own day.
-        CycleSignalHistory.record([signal], today: day(20, from: cycleStart), context: context, calendar: calendar)
-        rows = try context.fetch(FetchDescriptor<NoticedSignal>())
-        XCTAssertEqual(rows.count, 2)
-    }
-
-    // MARK: No contradictions
-
-    func testDetectedShiftStopsLateMucusSayingNoRiseYet() {
-        let today = day(22, from: cycleStart)
-        var logs = biphasicLogs(riseOnOffset: 15, through: 22)
-        logs.last?.cervicalMucusRaw = "Egg White"
-        let cycle = CycleRecord(startDate: cycleStart, averageCycleLengthAtStart: 28, lutealPhaseLengthAtStart: 14)
-        let signals = CycleSignalsEngine.signals(input(today: today, cycle: cycle, logs: logs))
-        XCTAssertTrue(signals.contains { $0.id == "temperatureShift" })
-        XCTAssertNotEqual(signals.first { $0.id == "fertileMucus" }?.title, "Fertile mucus later than expected")
-    }
-
-    func testPeakTestSuppressesNoTemperatureRiseYet() {
-        let today = day(20, from: cycleStart)
-        let flat = (4...20).map { offset -> DailyFertilityLog in
-            let log = DailyFertilityLog(date: day(offset, from: cycleStart))
-            log.basalBodyTemperatureCelsius = 36.4
-            return log
-        }
-        let withPeak = CycleRecord(startDate: cycleStart, predictedOvulationDate: day(14, from: cycleStart), ovulationSource: .testSupported)
-        XCTAssertFalse(CycleSignalsEngine.signals(input(today: today, cycle: withPeak, logs: flat)).contains { $0.id == "noTemperatureShiftYet" })
-        let withoutPeak = CycleRecord(startDate: cycleStart, averageCycleLengthAtStart: 28, lutealPhaseLengthAtStart: 14)
-        XCTAssertTrue(CycleSignalsEngine.signals(input(today: today, cycle: withoutPeak, logs: flat)).contains { $0.id == "noTemperatureShiftYet" })
-    }
-
-    func testContraceptionCaveatsCycleTimingSignals() {
-        let today = day(24, from: cycleStart)
-        let mucus = DailyFertilityLog(date: today)
-        mucus.cervicalMucusRaw = "Egg White"
-        let pill = DailyFertilityLog(date: day(-10, from: cycleStart))
-        pill.healthKitObservations = ["Apple Health contraceptive: Pill"]
-        let signals = CycleSignalsEngine.signals(input(today: today, logs: [mucus, pill]))
-        let fertile = signals.first { $0.id == "fertileMucus" }
-        XCTAssertEqual(fertile?.tone, .info)
-        XCTAssertTrue(fertile?.detail.hasSuffix("may not reflect your natural cycle.") == true)
-        XCTAssertTrue(CycleSignalsEngine.suggestsLaterOvulation(signals))
+        let gap = CycleSignalsEngine.signals(input(today: day(70, from: cycleStart)))
+        XCTAssertEqual(gap.first { $0.id == "longCycle" }?.title, "71 days since your last period")
     }
 
     // MARK: Weight units

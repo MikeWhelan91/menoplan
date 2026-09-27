@@ -1,45 +1,8 @@
 import Foundation
 
 /// Answers from the personalisation quiz. Each one changes something the app
-/// actually does - how confident predictions are presented, how ovulation
-/// results are worded, or whether a gentle "talk to a doctor" note appears -
-/// rather than only steering content.
-
-enum TTCDuration: String, CaseIterable, Codable, Identifiable {
-    case justStarted, underThreeMonths, threeToSixMonths, sixToTwelveMonths, overAYear
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .justStarted: "I’ve just started trying"
-        case .underThreeMonths: "0 to 3 months"
-        case .threeToSixMonths: "3 to 6 months"
-        case .sixToTwelveMonths: "6 months to a year"
-        case .overAYear: "Over a year"
-        }
-    }
-
-    var response: String? {
-        switch self {
-        case .justStarted: "Welcome. Most people don’t conceive in the first cycle or two, so it’s worth getting to know your pattern first."
-        case .underThreeMonths: nil
-        case .threeToSixMonths: "Timing makes the biggest difference. We’ll help you pinpoint your most fertile days each cycle."
-        case .sixToTwelveMonths: "This can be a tiring stretch. If you’re 35 or over, it’s a good time to check in with a doctor."
-        case .overAYear: "We know this can be emotionally tiring, and you’re not alone. After a year of trying, doctors recommend a fertility check-up, and MenoPlan can export your history for that appointment."
-        }
-    }
-
-    /// Ordinal used for the doctor-suggestion threshold.
-    var months: Int {
-        switch self {
-        case .justStarted: 0
-        case .underThreeMonths: 1
-        case .threeToSixMonths: 3
-        case .sixToTwelveMonths: 6
-        case .overAYear: 12
-        }
-    }
-}
+/// actually does - how confident cycle estimates are presented, or whether a
+/// gentle "talk to a doctor" note appears - rather than only steering content.
 
 enum CycleRegularity: String, CaseIterable, Codable, Identifiable {
     case regular, irregular, unsure
@@ -56,7 +19,7 @@ enum CycleRegularity: String, CaseIterable, Codable, Identifiable {
     var response: String? {
         switch self {
         case .regular: nil
-        case .irregular: "An irregular cycle makes ovulation harder to predict from dates alone. We’ll suggest starting ovulation tests earlier and lean on your test results more than the calendar."
+        case .irregular: "Changing cycles are one of the most common early signs of perimenopause. MenoPlan will track how much yours vary."
         case .unsure: "No problem. As you log a few periods, MenoPlan learns how much your cycle varies."
         }
     }
@@ -78,7 +41,6 @@ enum ReproductiveCondition: String, CaseIterable, Codable, Identifiable {
 
     var response: String? {
         switch self {
-        case .pcos: "With PCOS, LH can stay raised for several days, so ovulation tests may read High more often. MenoPlan will flag this on your results."
         default: nil
         }
     }
@@ -103,9 +65,9 @@ enum BirthControlRecency: String, CaseIterable, Codable, Identifiable {
     var response: String? {
         switch self {
         case .pill, .iud, .implantOrShot:
-            "Cycles can take a few months to settle after hormonal birth control, so early predictions may shift. Your test results will help."
+            "Cycles can take a few months to settle after hormonal contraception, so early estimates may shift."
         case .stillUsing:
-            "Hormonal birth control usually prevents ovulation, so cycle predictions may not apply until you stop."
+            "Hormonal contraception, including a hormonal coil, can change or stop bleeding, so cycle dates may be less useful. Symptoms still tell the story."
         default:
             nil
         }
@@ -116,38 +78,14 @@ enum BirthControlRecency: String, CaseIterable, Codable, Identifiable {
     }
 }
 
-enum PreconceptionSupplement: String, CaseIterable, Codable, Identifiable {
-    case folicAcid, prenatal, none
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .folicAcid: "Yes, folic acid"
-        case .prenatal: "Yes, a prenatal multivitamin"
-        case .none: "Not yet"
-        }
-    }
-
-    var response: String? {
-        switch self {
-        case .folicAcid, .prenatal:
-            "Great. Health guidance recommends at least 400mcg of folic acid daily before conception and through the first 12 weeks."
-        case .none:
-            "Health guidance recommends 400mcg of folic acid daily before conception and through the first 12 weeks. We can remind you each morning."
-        }
-    }
-}
-
 /// A read-only view over the personalisation fields on `UserSettings`, so
 /// callers ask questions ("should we suggest a doctor?") rather than
 /// re-deriving thresholds in every view.
 struct HealthProfile: Equatable {
-    var ttcDuration: TTCDuration?
     var birthYear: Int?
     var regularity: CycleRegularity?
     var conditions: Set<ReproductiveCondition>
     var birthControl: BirthControlRecency?
-    var supplement: PreconceptionSupplement?
     var otherCondition: String? = nil
     var heightCm: Double? = nil
     var weightKg: Double? = nil
@@ -168,30 +106,24 @@ struct HealthProfile: Equatable {
 
     var hasPCOS: Bool { conditions.contains(.pcos) }
 
-    /// Mirrors common guidance: evaluation after 12 months of trying, after
-    /// 6 months at 35+, and sooner again at 40+.
+    /// NICE NG23: under 45, symptoms are usually checked with a doctor (and
+    /// a blood test may be used) rather than assumed to be perimenopause.
     func shouldSuggestDoctor(on date: Date = .now) -> Bool {
-        guard let ttcDuration else { return false }
-        let age = age(on: date) ?? 0
-        if ttcDuration.months >= 12 { return true }
-        if age >= 35 && ttcDuration.months >= 6 { return true }
-        if age >= 40 && ttcDuration.months >= 3 { return true }
-        return false
+        guard let age = age(on: date) else { return false }
+        return age < 45
     }
 
-    /// True when dates alone are a weaker guide to ovulation for this person.
+    /// True when dates alone are a weaker guide to this person's cycle.
     var predictionsLessCertain: Bool {
-        regularity == .irregular || hasPCOS || (birthControl?.mayAffectRecentCycles ?? false) || (bmiCategory?.mayAffectOvulation ?? false)
+        regularity == .irregular || hasPCOS || (birthControl?.mayAffectRecentCycles ?? false)
     }
 
     var isEmpty: Bool {
-        ttcDuration == nil && birthYear == nil && regularity == nil && conditions.isEmpty && birthControl == nil && supplement == nil && heightCm == nil && weightKg == nil
+        birthYear == nil && regularity == nil && conditions.isEmpty && birthControl == nil && heightCm == nil && weightKg == nil
     }
 }
 
-/// WHO adult BMI bands. Only used for a gentle, optional note - both a low and
-/// a high BMI are linked with less regular ovulation, which is the one thing
-/// this app can usefully say about it.
+/// WHO adult BMI bands, shown alongside logged weight.
 enum BMICategory: String, Equatable {
     case underweight, healthy, overweight, obese
 
@@ -212,19 +144,4 @@ enum BMICategory: String, Equatable {
         case .obese: "Well above the healthy range"
         }
     }
-
-    /// True where BMI is linked with ovulation becoming less predictable.
-    var mayAffectOvulation: Bool { self == .underweight || self == .obese }
-
-    var fertilityNote: String? {
-        switch self {
-        case .underweight:
-            "A BMI under 18.5 can make ovulation less regular. Your test results will tell you more than dates alone."
-        case .obese:
-            "A BMI of 30 or more can make ovulation less regular. Your test results will tell you more than dates alone."
-        default:
-            nil
-        }
-    }
 }
-

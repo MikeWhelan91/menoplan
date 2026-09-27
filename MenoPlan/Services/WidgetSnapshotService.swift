@@ -11,16 +11,12 @@ enum WidgetSnapshotService {
         settings: UserSettings?,
         cycleRecords: [CycleRecord],
         periodEvents: [PeriodEvent],
-        scans: [Scan],
         now: Date = .now,
         calendar: Calendar = .current
     ) -> WidgetSnapshot {
         let records = cycleRecords.filter { !$0.notes.contains(sampleMarker) }
         let periods = periodEvents.filter { !$0.notes.contains(sampleMarker) }
         let window = CycleTrackingService.window(for: now, records: records, periods: periods, settings: settings, calendar: calendar)
-        let activeCycle = CycleTrackingService.activeCycle(on: now, records: records, calendar: calendar)
-
-        _ = activeCycle
         let cycleState: WidgetSnapshot.CycleState = window == nil ? .notSetUp : .tracking
 
         var phases: [String: WidgetSnapshot.DayPhase] = [:]
@@ -41,42 +37,12 @@ enum WidgetSnapshotService {
             }
         }
 
-        let recentCutoff = calendar.date(byAdding: .day, value: -60, to: now) ?? now
-        let readable = scans.filter {
-            !$0.excludedFromCalculations
-                && $0.resultType != .invalid
-                && $0.createdAt >= recentCutoff
-        }
-        func testDays(_ type: TestType) -> Set<String> {
-            Set(readable.filter { $0.testType == type }.map { WidgetSnapshot.dayKey($0.createdAt, calendar: calendar) })
-        }
-
-        func latest(_ type: TestType) -> WidgetSnapshot.LatestTest? {
-            readable.filter { $0.testType == type }.max { $0.createdAt < $1.createdAt }.map {
-                WidgetSnapshot.LatestTest(date: $0.createdAt, resultRaw: $0.resultTypeRaw)
-            }
-        }
-        let ovulationConfirmed = activeCycle.map {
-            $0.confirmedOvulationDate != nil || $0.ovulationSource == .testSupported || $0.ovulationSource == .temperatureSupported
-        } ?? false
-
         return WidgetSnapshot(
             cycleState: cycleState,
             cycle: cycleState == .tracking ? window.map {
-                WidgetSnapshot.Cycle(
-                    cycleStart: $0.cycleStart,
-                    opkStart: $0.opkStartDate,
-                    fertileStart: $0.fertileStartDate,
-                    fertileEnd: $0.fertileEndDate,
-                    ovulation: $0.predictedOvulationDate,
-                    nextPeriod: $0.nextPeriodDate,
-                    isIrregular: $0.isIrregular,
-                    ovulationConfirmed: ovulationConfirmed
-                )
+                WidgetSnapshot.Cycle(cycleStart: $0.cycleStart, nextPeriod: $0.nextPeriodDate, isIrregular: $0.isIrregular)
             } : nil,
-            dayPhases: phases,
-            ovulationTestDays: testDays(.ovulation),
-            latestOvulationTest: latest(.ovulation)
+            dayPhases: phases
         )
     }
 
@@ -91,10 +57,6 @@ enum WidgetSnapshotService {
         case .regular: nil
         case .period: .period
         case .predictedPeriod: .predictedPeriod
-        case .opkWindow: .opkWindow
-        case .fertile: .fertile
-        case .ovulation, .confirmedOvulation: .ovulation
-        case .luteal: .luteal
         }
     }
 }

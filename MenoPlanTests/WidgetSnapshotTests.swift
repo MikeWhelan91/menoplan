@@ -12,48 +12,50 @@ final class WidgetSnapshotTests: XCTestCase {
         try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 5, day: value)))
     }
 
-    private func snapshot() throws -> WidgetSnapshot {
+    private func snapshot(irregular: Bool = false) throws -> WidgetSnapshot {
         WidgetSnapshot(
             cycleState: .tracking,
-            cycle: .init(
-                cycleStart: try day(1), opkStart: try day(8), fertileStart: try day(10), fertileEnd: try day(15),
-                ovulation: try day(15), nextPeriod: try day(29), isIrregular: false, ovulationConfirmed: false
-            ),
-            dayPhases: [:], ovulationTestDays: [], latestOvulationTest: nil
+            cycle: .init(cycleStart: try day(1), nextPeriod: try day(29), isIrregular: irregular),
+            dayPhases: [:]
         )
     }
 
-    func testCountdownFollowsTheCycle() throws {
-        let snapshot = try snapshot()
-        func summary(_ value: Int) throws -> WidgetCycleSummary {
-            WidgetCycleSummary.make(for: snapshot, on: try day(value), calendar: calendar)
-        }
-
-        let early = try summary(3)
-        XCTAssertEqual(early.label, "Fertile window")
-        XCTAssertEqual(early.headline, "In 7 Days")
-        XCTAssertEqual(early.cycleDay, 3)
-
-        XCTAssertEqual(try summary(9).headline, "Tomorrow")
-        XCTAssertEqual(try summary(9).detail, "Time to start ovulation tests")
-
-        let fertile = try summary(12)
-        XCTAssertEqual(fertile.label, "Ovulation")
-        XCTAssertEqual(fertile.headline, "In 3 Days")
-        XCTAssertEqual(fertile.tone, .fertile)
-
-        XCTAssertEqual(try summary(15).headline, "Today")
-        XCTAssertEqual(try summary(15).tone, .ovulation)
-
-        let luteal = try summary(26)
-        XCTAssertEqual(luteal.label, "Period")
-        XCTAssertEqual(luteal.headline, "In 3 Days")
-        XCTAssertEqual(luteal.daysPastOvulation, 11)
-        XCTAssertEqual(luteal.detail, "11 DPO")
-        XCTAssertEqual(try summary(20).detail, "5 DPO")
-
-        XCTAssertEqual(try summary(29).headline, "Due Today")
-        XCTAssertEqual(try summary(31).headline, "2 Days Late")
+    private func summary(_ value: Int, irregular: Bool = false) throws -> WidgetCycleSummary {
+        WidgetCycleSummary.make(for: try snapshot(irregular: irregular), on: try day(value), calendar: calendar)
     }
 
+    func testCountdownFollowsTheCycle() throws {
+        let early = try summary(5)
+        XCTAssertEqual(early.label, "Next period")
+        XCTAssertEqual(early.headline, "In 24 Days")
+        XCTAssertEqual(early.detail, "Cycle day 5")
+        XCTAssertEqual(early.cycleDay, 5)
+
+        XCTAssertEqual(try summary(28).headline, "Tomorrow")
+        XCTAssertEqual(try summary(29).headline, "Due Today")
+        XCTAssertEqual(try summary(31).headline, "2 Days Late")
+        XCTAssertEqual(try summary(31).detail, "Cycles often vary more in perimenopause")
+    }
+
+    func testIrregularCycleSaysItIsAnEstimate() throws {
+        XCTAssertTrue(try summary(5, irregular: true).detail.contains("estimate"))
+    }
+
+    func testNotSetUpAsksForALastPeriod() throws {
+        let summary = WidgetCycleSummary.make(for: .empty, on: try day(5), calendar: calendar)
+        XCTAssertEqual(summary.headline, "Set Up")
+        XCTAssertEqual(summary.tone, .neutral)
+    }
+
+    func testTodayPlanOffersToLogALatePeriod() throws {
+        let upcoming = WidgetTodayPlan.make(for: try snapshot(), on: try day(10), calendar: calendar)
+        XCTAssertEqual(upcoming.phase, .upcoming)
+        XCTAssertNil(upcoming.action)
+        XCTAssertEqual(upcoming.stops.count, 1)
+
+        let late = WidgetTodayPlan.make(for: try snapshot(), on: try day(33), calendar: calendar)
+        XCTAssertEqual(late.phase, .periodDue)
+        XCTAssertEqual(late.headline, "Period Is Late")
+        XCTAssertEqual(late.action, .logPeriod)
+    }
 }

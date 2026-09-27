@@ -201,237 +201,6 @@ struct HomeView: View {
 
     // MARK: - Live Cycle Plan
 
-    /// This is deliberately a local, evidence-led summary rather than another
-    /// chat response. It gives the user one concrete next step, while keeping
-    /// predictions clearly labelled as estimates.
-    private struct CyclePlan {
-        let title: String
-        let detail: String
-        let nextStep: String
-        let uncertainty: String
-        let icon: String
-        let tint: Color
-        let evidence: [String]
-    }
-
-    private var liveCyclePlan: some View {
-        let plan = currentCyclePlan
-        let isPro = settings?.proUnlocked == true
-
-        return Button {
-            guard !isPro else { return }
-            appState.paywallSource = "live_cycle_plan_locked"
-            appState.showPremium = true
-        } label: {
-            VStack(alignment: .leading, spacing: 13) {
-                HStack(alignment: .center, spacing: 10) {
-                    Image(systemName: plan.icon)
-                        .font(.app(.title3, weight: .bold))
-                        .foregroundStyle(plan.tint)
-                        .frame(width: 36, height: 36)
-                        .background(plan.tint.opacity(0.12), in: Circle())
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("Live Cycle Plan")
-                            .font(.app(.headline, weight: .heavy))
-                            .foregroundStyle(Color.lineNavy)
-                        Text("Your signals, translated into one next step")
-                            .font(.app(.caption, weight: .medium))
-                            .foregroundStyle(Color.lineNavy.opacity(0.58))
-                    }
-
-                    Spacer()
-                    if isPro {
-                        Text("PRO")
-                            .font(.app(.caption2, weight: .heavy))
-                            .foregroundStyle(plan.tint)
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 5)
-                            .background(plan.tint.opacity(0.11), in: Capsule())
-                    } else {
-                        Image(systemName: "lock.fill")
-                            .font(.app(.caption, weight: .bold))
-                            .foregroundStyle(Color.linePurple)
-                    }
-                }
-
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(plan.title)
-                        .font(.app(.title3, weight: .heavy))
-                        .foregroundStyle(Color.lineNavy)
-                    Text(plan.detail)
-                        .font(.app(.subheadline, weight: .medium))
-                        .foregroundStyle(Color.lineNavy.opacity(0.7))
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-
-                Divider().overlay(Color.lineNavy.opacity(0.08))
-
-                Label {
-                    Text(plan.nextStep)
-                        .font(.app(.subheadline, weight: .bold))
-                } icon: {
-                    Image(systemName: "arrow.right.circle.fill")
-                }
-                .foregroundStyle(plan.tint)
-
-                if isPro {
-                    if !plan.evidence.isEmpty {
-                        VStack(alignment: .leading, spacing: 5) {
-                            Text("Based on")
-                                .font(.app(.caption, weight: .heavy))
-                                .foregroundStyle(Color.lineNavy.opacity(0.48))
-                            Text(plan.evidence.joined(separator: " · "))
-                                .font(.app(.caption, weight: .medium))
-                                .foregroundStyle(Color.lineNavy.opacity(0.65))
-                                .fixedSize(horizontal: false, vertical: true)
-                        }
-                    }
-
-                    Text(plan.uncertainty)
-                        .font(.app(.caption))
-                        .foregroundStyle(Color.lineNavy.opacity(0.52))
-                        .fixedSize(horizontal: false, vertical: true)
-                } else {
-                    Text("Unlock the full signal summary and tailored next steps.")
-                        .font(.app(.caption, weight: .semibold))
-                        .foregroundStyle(Color.linePurple)
-                }
-            }
-            .padding(16)
-            .background(
-                LinearGradient(
-                    colors: [Color.white.opacity(0.97), plan.tint.opacity(0.10)],
-                    startPoint: .topLeading,
-                    endPoint: .bottomTrailing
-                ),
-                in: RoundedRectangle(cornerRadius: 24, style: .continuous)
-            )
-            .overlay(RoundedRectangle(cornerRadius: 24, style: .continuous).stroke(plan.tint.opacity(0.18)))
-        }
-        .buttonStyle(.plain)
-        .accessibilityHint(isPro ? "Shows your current cycle summary." : "Opens MenoPlan Pro.")
-    }
-
-    private var currentCyclePlan: CyclePlan {
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
-        let recentOPKs = scans.filter {
-            $0.testType == .ovulation &&
-            !$0.excludedFromCalculations &&
-            $0.createdAt <= .now &&
-            $0.createdAt >= (calendar.date(byAdding: .day, value: -7, to: today) ?? .distantPast)
-        }
-        let latestOPK = recentOPKs.max { $0.createdAt < $1.createdAt }
-        let recentLogs = dailyLogs.filter {
-            (calendar.dateComponents([.day], from: calendar.startOfDay(for: $0.date), to: today).day ?? -99) >= -6
-        }
-        let bbtCount = recentLogs.filter { $0.basalBodyTemperatureCelsius != nil }.count
-        let recentMucus = recentLogs.sorted(by: { $0.date > $1.date }).compactMap(\.cervicalMucusRaw).first
-        var evidence: [String] = []
-        if let latestOPK { evidence.append("Latest OPK: \(latestOPK.resultType.badgeTitle)") }
-        if let recentMucus { evidence.append("Mucus: \(recentMucus)") }
-        if bbtCount > 0 { evidence.append("\(bbtCount) BBT \(bbtCount == 1 ? "reading" : "readings") this week") }
-        if settings?.healthKitSyncEnabled == true { evidence.append("Apple Health connected") }
-
-        guard let window = fertilityWindow else {
-            return CyclePlan(
-                title: "Set up your cycle plan",
-                detail: "Add a period start to place your tests, symptoms, and activities in cycle context.",
-                nextStep: "Add your last period in Calendar",
-                uncertainty: "Without a cycle start, MenoPlan cannot estimate a fertile window or expected period.",
-                icon: "calendar.badge.plus",
-                tint: .linePurple,
-                evidence: evidence
-            )
-        }
-
-        if window.isPastExpectedPeriod(on: today) {
-            return CyclePlan(
-                title: "Cycle longer than estimated",
-                detail: "No new period is logged after the expected date. The cycle remains anchored to your last recorded start.",
-                nextStep: "If it hasn't started, no action is needed. When it does, log the actual first day in Calendar.",
-                uncertainty: "The date was an estimate; a late period does not establish when ovulation happened.",
-                icon: "calendar.badge.clock",
-                tint: .linePurple,
-                evidence: evidence
-            )
-        }
-
-        if let latestOPK, latestOPK.resultType == .peak {
-            let peakApplied = activeCycle?.ovulationSource == .testSupported
-                && activeCycle?.id == latestOPK.cycleRecordID
-            return CyclePlan(
-                title: "LH peak logged",
-                detail: peakApplied ? "Your latest ovulation test is marked Peak, and this cycle's estimate reflects it." : "Your latest ovulation test is marked Peak. It is saved in your history, but this cycle's estimate may use other information.",
-                nextStep: "If you are trying to conceive, today and tomorrow are useful days to try",
-                uncertainty: "An LH peak supports timing; it does not by itself confirm ovulation. Keep logging tests or temperatures if you want a fuller picture.",
-                icon: "chart.line.uptrend.xyaxis",
-                tint: .linePurple,
-                evidence: evidence
-            )
-        }
-
-        if activeCycle?.confirmedOvulationDate != nil {
-            return CyclePlan(
-                title: "Ovulation timing recorded",
-                detail: "Your calendar is using a recorded ovulation date for this cycle rather than a general estimate.",
-                nextStep: "Keep logging only the signals that feel useful to you",
-                uncertainty: "Cycle timing can vary. This view describes your saved records and does not confirm a health outcome.",
-                icon: "checkmark.seal.fill",
-                tint: .lineTeal,
-                evidence: evidence
-            )
-        }
-
-        if let latestOPK, latestOPK.resultType == .high || latestOPK.resultType == .rising {
-            let isHigh = latestOPK.resultType == .high
-            return CyclePlan(
-                title: isHigh ? "LH is building" : "LH is rising",
-                detail: isHigh ? "Your latest test is High, which can happen as an LH surge approaches." : "Your latest test is Rising. Continue testing consistently to see how the pattern develops.",
-                nextStep: isHigh ? "Test again later today or tomorrow, following your kit instructions" : "Continue testing at a consistent time each day",
-                uncertainty: "One result cannot pinpoint ovulation. Your fertile-window dates remain estimates unless supported by more signals.",
-                icon: "arrow.up.right.circle.fill",
-                tint: .lineTeal,
-                evidence: evidence
-            )
-        }
-
-        if window.containsFertileDay(today) {
-            return CyclePlan(
-                title: "Estimated fertile window",
-                detail: "You are in the estimated fertile window, with ovulation predicted around \(DateFormatting.shortDate.string(from: window.predictedOvulationDate)).",
-                nextStep: "Keep ovulation tests and body-sign notes consistent over the next few days",
-                uncertainty: window.isIrregular ? "Your recent cycle lengths vary, so this window is intentionally broader than a single predicted date." : "This timing is based on your recorded cycle pattern and can shift from cycle to cycle.",
-                icon: "sparkles",
-                tint: .lineTeal,
-                evidence: evidence
-            )
-        }
-
-        if today < window.fertileStartDate {
-            return CyclePlan(
-                title: "Preparing for your fertile window",
-                detail: "Your estimated fertile window starts \(DateFormatting.shortDate.string(from: window.fertileStartDate)).",
-                nextStep: "Set a reminder to begin ovulation tests on \(DateFormatting.shortDate.string(from: window.opkStartDate))",
-                uncertainty: window.isIrregular ? "Your recent cycle lengths vary, so start testing early if that works for you." : "This is a calendar estimate, not a prediction of an exact ovulation day.",
-                icon: "calendar.badge.clock",
-                tint: .linePurple,
-                evidence: evidence
-            )
-        }
-
-        return CyclePlan(
-            title: "After estimated ovulation",
-            detail: "Your calendar places estimated ovulation around \(DateFormatting.shortDate.string(from: window.predictedOvulationDate)).",
-            nextStep: "Keep any symptoms, temperatures, or test results together in your timeline",
-            uncertainty: "A calendar estimate alone cannot confirm whether or when ovulation occurred.",
-            icon: "moon.stars.fill",
-            tint: .linePink,
-            evidence: evidence
-        )
-    }
-
     private var journeyOverview: some View {
         VStack(alignment: .leading, spacing: 9) {
             TimelineView(.everyMinute) { timeline in
@@ -460,11 +229,9 @@ struct HomeView: View {
                 }
                 .padding(.top, 2)
 
-                let tryingToConceive = settings?.ovulationTrackingGoal != .trackingCycle
                 let countdown = CycleJourneyCalculator.reacting(
-                    CycleJourneyCalculator.countdown(window: window, tryingToConceive: tryingToConceive),
-                    to: settings.map { CycleSignalsEngine.signals(signalInputs(settings: $0)) } ?? [],
-                    tryingToConceive: tryingToConceive
+                    CycleJourneyCalculator.countdown(window: window),
+                    to: settings.map { CycleSignalsEngine.signals(signalInputs(settings: $0)) } ?? []
                 )
                 HomeCountdownHero(
                     countdown: countdown,
@@ -472,16 +239,7 @@ struct HomeView: View {
                     uncertaintyNote: uncertaintyNote(for: window),
                     onWhy: { showPredictionWhy = true }
                 ) {
-                    Button {
-                        appState.selectedTab = .calendar
-                    } label: {
-                        HomeFertilityCurve(window: window)
-                            // The curve is mostly transparent, so without
-                            // this only the drawn strokes would take a tap.
-                            .contentShape(Rectangle())
-                    }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Opens the calendar")
+                    EmptyView()
                 }
                 .overlay(alignment: .topTrailing) { bodySignalsButton }
 
@@ -540,7 +298,7 @@ struct HomeView: View {
             HomeQuickAction(id: "symptoms", title: "Symptoms", symbol: "plus", tint: .linePurple) {
                 logRequest = HomeLogRequest(date: today, section: .symptoms)
             },
-            HomeQuickAction(id: "ovulation", title: "Ovulation", symbol: "camera.viewfinder", tint: TestType.ovulation.tint) {
+            HomeQuickAction(id: "test", title: "Test", symbol: "camera.viewfinder", tint: TestType.ovulation.tint) {
                 appState.startScan(testType: .ovulation)
             }
         ]
@@ -672,8 +430,7 @@ struct HomeView: View {
             logs: dailyLogs,
             metrics: healthMetrics,
             scans: Array(scans),
-            profile: settings.healthProfile,
-            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive
+            profile: settings.healthProfile
         )
     }
 
@@ -745,7 +502,7 @@ struct HomeView: View {
                     symbol: "stethoscope",
                     tint: .linePurple,
                     title: "It may help to talk to a doctor",
-                    message: "Doctors usually suggest a fertility check-up after a year of trying, or after 6 months from age 35. It’s a routine step, and your MenoPlan history can help that conversation.",
+                    message: "Under 45, doctors usually check menopause-type symptoms with a blood test, as the causes and support can differ. Your MenoPlan record can help that conversation.",
                     onDismiss: {
                         withAnimation(.snappy) { settings.dismissedDoctorSuggestion = true }
                         try? modelContext.save()
@@ -785,76 +542,8 @@ struct HomeView: View {
         }
     }
 
-    private func isAfterOvulation(_ window: FertilityWindow) -> Bool {
-        Calendar.current.startOfDay(for: .now) > Calendar.current.startOfDay(for: window.predictedOvulationDate)
-    }
-
     private var homeTimelineDetail: String {
-        guard let window = fertilityWindow else {
-            return "Add your last period to see useful cycle timing."
-        }
-        let fertile = compactHomeDateRange(window.fertileStartDate, window.fertileEndDate)
-        return fertile
-    }
-
-    private var compactJourneyTitle: String {
-        guard let window = fertilityWindow else { return "Set up your calendar" }
-        let today = Calendar.current.startOfDay(for: .now)
-        if Calendar.current.isDate(today, inSameDayAs: window.predictedOvulationDate) { return "Estimated ovulation is today" }
-        if window.containsFertileDay(today) { return "You’re in your estimated fertile window" }
-        if today > window.predictedOvulationDate {
-            let nextPeriod = Calendar.current.startOfDay(for: window.nextPeriodDate)
-            let days = Calendar.current.dateComponents([.day], from: today, to: nextPeriod).day ?? 0
-            if days == 1 { return "Next period expected tomorrow" }
-            if days > 1 { return "Next period expected in \(days) days" }
-            if days == 0 { return "Next period expected today" }
-            let lateDays = abs(days)
-            return lateDays == 1 ? "Your period is 1 day late" : "Your period is \(lateDays) days late"
-        }
-        return "Fertile window starts"
-    }
-
-    private func upcomingFertileDetail(_ window: FertilityWindow) -> String {
-        let today = Calendar.current.startOfDay(for: .now)
-        let start = Calendar.current.startOfDay(for: window.fertileStartDate)
-        let days = max(0, Calendar.current.dateComponents([.day], from: today, to: start).day ?? 0)
-        let countdown = days == 1 ? "Tomorrow" : "In \(days) days"
-        return "\(countdown) · Estimated through \(shortHomeDate(window.fertileEndDate))"
-    }
-
-    private func activeFertileDetail(_ window: FertilityWindow) -> String {
-        let today = Calendar.current.startOfDay(for: .now)
-        let ovulation = Calendar.current.startOfDay(for: window.predictedOvulationDate)
-        let days = Calendar.current.dateComponents([.day], from: today, to: ovulation).day ?? 0
-        let ending = shortHomeDate(window.fertileEndDate)
-
-        if days <= 0 {
-            return "This is your estimated peak day. Fertile window ends \(ending)."
-        }
-        if days == 1 {
-            return "Estimated ovulation is tomorrow. Fertile window ends \(ending)."
-        }
-        return "Estimated ovulation is in \(days) days. Fertile window ends \(ending)."
-    }
-
-    private func fullHomeDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "EEEE, d MMMM"
-        return formatter.string(from: date)
-    }
-
-    private func shortHomeDate(_ date: Date) -> String {
-        let formatter = DateFormatter()
-        formatter.dateFormat = "d MMMM"
-        return formatter.string(from: date)
-    }
-
-    private func compactHomeDateRange(_ start: Date, _ end: Date) -> String {
-        let day = DateFormatter()
-        day.dateFormat = "d"
-        let endDate = DateFormatter()
-        endDate.dateFormat = "d MMM"
-        return "\(day.string(from: start))–\(endDate.string(from: end))"
+        "Add your last period to see how your cycle is changing."
     }
 
     private func timelineMetric(_ title: String, _ value: String, tint: Color) -> some View {
@@ -871,42 +560,6 @@ struct HomeView: View {
         .padding(.horizontal, 11)
         .padding(.vertical, 8)
         .background(tint.opacity(0.09), in: RoundedRectangle(cornerRadius: 14, style: .continuous))
-    }
-
-    private var cycleDayText: String {
-        fertilityWindow.map { "CD \($0.cycleDay)" } ?? "Not set"
-    }
-
-    private var cycleProgress: CGFloat {
-        guard let fertilityWindow else { return 0.08 }
-        // The window's own length, not the settings value: a learned, hand-set
-        // or ovulation-adjusted cycle is what the rest of Home is counting to.
-        let length = Calendar.current.dateComponents([.day], from: fertilityWindow.cycleStart, to: fertilityWindow.nextPeriodDate).day ?? 28
-        return min(max(CGFloat(fertilityWindow.cycleDay) / CGFloat(max(1, length)), 0.04), 1)
-    }
-
-    private var journeyTitle: String {
-        guard let window = fertilityWindow else { return "Set up your cycle" }
-        let today = Calendar.current.startOfDay(for: .now)
-        if Calendar.current.isDate(today, inSameDayAs: window.predictedOvulationDate) { return "Predicted ovulation day" }
-        if window.containsFertileDay(today) { return window.fertileRangeTitle }
-        if today > window.predictedOvulationDate { return "After predicted ovulation" }
-        return "Preparing for your fertile window"
-    }
-
-    private var journeyDetail: String {
-        guard fertilityWindow != nil else { return "Add your last period and typical cycle length to personalise timing and reminders." }
-        return "Your tests, predicted timing, and reminders stay together in one calendar."
-    }
-
-    private var fertileWindowText: String {
-        guard let window = fertilityWindow else { return "Add cycle" }
-        return "\(DateFormatting.shortDate.string(from: window.fertileStartDate))–\(DateFormatting.shortDate.string(from: window.fertileEndDate))"
-    }
-
-    private var expectedPeriodText: String {
-        guard let window = fertilityWindow else { return "Add cycle" }
-        return DateFormatting.shortDate.string(from: window.nextPeriodDate)
     }
 
     private var quickLinks: some View {
@@ -1365,212 +1018,6 @@ private struct ScanTileTestImage: View {
             .clipped()
             .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
             .allowsHitTesting(false)
-    }
-}
-
-private struct HomeFertilityCurve: View {
-    let window: FertilityWindow
-
-    private var cycleLength: Int {
-        max(1, Calendar.current.dateComponents(
-            [.day],
-            from: Calendar.current.startOfDay(for: window.cycleStart),
-            to: Calendar.current.startOfDay(for: window.nextPeriodDate)
-        ).day ?? 28)
-    }
-
-    private func cycleProgress(for date: Date) -> CGFloat {
-        let days = Calendar.current.dateComponents(
-            [.day],
-            from: Calendar.current.startOfDay(for: window.cycleStart),
-            to: Calendar.current.startOfDay(for: date)
-        ).day ?? 0
-        return min(max(CGFloat(days) / CGFloat(cycleLength), 0), 1)
-    }
-
-    private let peakProgress: CGFloat = 0.5
-
-    private func chartProgress(for date: Date) -> CGFloat {
-        let distanceFromOvulation = cycleProgress(for: date) - cycleProgress(for: window.predictedOvulationDate)
-        return min(max(peakProgress + distanceFromOvulation, 0), 1)
-    }
-
-    private var todayProgress: CGFloat { chartProgress(for: .now) }
-
-    var body: some View {
-        VStack(spacing: 6) {
-            GeometryReader { proxy in
-                let width = proxy.size.width
-                let height = proxy.size.height
-                let baseline = height - 24
-                let peakX = peakProgress * width
-                let peakY = curveY(at: peakProgress, height: height)
-                let todayX = todayProgress * width
-                let todayY = curveY(at: todayProgress, height: height)
-                let fertileStartX = chartProgress(for: window.fertileStartDate) * width
-                let fertileEndX = chartProgress(for: window.fertileEndDate) * width
-                // Near the peak the two labels would collide, so Today drops
-                // below its dot while Ovulation stays above the peak.
-                let todayLabelBelow = abs(todayX - peakX) < (ovulationLabelWidth + todayLabelWidth) / 2 + 4
-
-                ZStack(alignment: .topLeading) {
-                    ZStack(alignment: .topLeading) {
-                        Path { path in
-                            path.move(to: CGPoint(x: 0, y: baseline))
-                            for step in 0...64 {
-                                let xProgress = CGFloat(step) / 64
-                                path.addLine(to: CGPoint(x: xProgress * width, y: curveY(at: xProgress, height: height)))
-                            }
-                            path.addLine(to: CGPoint(x: width, y: baseline))
-                            path.closeSubpath()
-                        }
-                        .fill(phaseGradient(
-                            width: width, fertileStartX: fertileStartX, fertileEndX: fertileEndX, peakX: peakX,
-                            neutral: .clear, fertile: Self.fertile.opacity(0.16), luteal: Self.luteal.opacity(0.1)
-                        ))
-
-                        Path { path in
-                            for step in 0...64 {
-                                let xProgress = CGFloat(step) / 64
-                                let point = CGPoint(x: xProgress * width, y: curveY(at: xProgress, height: height))
-                                step == 0 ? path.move(to: point) : path.addLine(to: point)
-                            }
-                        }
-                        .stroke(
-                            phaseGradient(
-                                width: width, fertileStartX: fertileStartX, fertileEndX: fertileEndX, peakX: peakX,
-                                neutral: Self.neutral.opacity(0.55), fertile: Self.fertile, luteal: Self.luteal
-                            ),
-                            style: StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round)
-                        )
-                    }
-                    // Fade the flat tails so the line doesn't hit the screen edges.
-                    .mask(
-                        LinearGradient(
-                            stops: [
-                                .init(color: .clear, location: 0),
-                                .init(color: .black, location: 0.1),
-                                .init(color: .black, location: 0.9),
-                                .init(color: .clear, location: 1)
-                            ],
-                            startPoint: .leading,
-                            endPoint: .trailing
-                        )
-                    )
-
-                    Capsule()
-                        .fill(Self.fertile.opacity(0.6))
-                        .frame(width: max(10, fertileEndX - fertileStartX), height: 4)
-                        .offset(x: fertileStartX, y: baseline + 5)
-
-                    Text(window.isWidened ? "Possible fertile days" : "Fertile window")
-                        .font(.app(size: LineType.size(8), weight: .bold))
-                        .foregroundStyle(Self.ovulation)
-                        .fixedSize()
-                        .frame(width: fertileLabelWidth)
-                        .offset(
-                            x: min(max(((fertileStartX + fertileEndX) / 2) - fertileLabelWidth / 2, 0),
-                                   max(0, width - fertileLabelWidth)),
-                            y: baseline + 11
-                        )
-
-                    Path { path in
-                        path.move(to: CGPoint(x: peakX, y: peakY + 7))
-                        path.addLine(to: CGPoint(x: peakX, y: baseline))
-                    }
-                    .stroke(
-                        Self.ovulation.opacity(0.35),
-                        style: StrokeStyle(lineWidth: 1, dash: [3, 3])
-                    )
-
-                    Text("Ovulation")
-                        .font(.app(size: LineType.size(9), weight: .bold))
-                        .foregroundStyle(Self.ovulation)
-                        .fixedSize()
-                        .frame(width: ovulationLabelWidth)
-                        .offset(
-                            x: min(max(peakX - ovulationLabelWidth / 2, 0), max(0, width - ovulationLabelWidth)),
-                            y: peakY - LineType.size(20)
-                        )
-
-                    Circle()
-                        .fill(Self.ovulation)
-                        .frame(width: 9, height: 9)
-                        .overlay(Circle().stroke(.white, lineWidth: 2))
-                        .offset(x: peakX - 4.5, y: peakY - 4.5)
-
-                    Text("Today")
-                        .font(.app(size: LineType.size(9), weight: .bold))
-                        .foregroundStyle(Color.lineNavy)
-                        .fixedSize()
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(Color.white.opacity(todayLabelBelow ? 0.85 : 0), in: Capsule())
-                        .frame(width: todayLabelWidth)
-                        .offset(
-                            x: min(max(todayX - todayLabelWidth / 2, 0), max(0, width - todayLabelWidth)),
-                            y: todayLabelBelow ? todayY + 8 : max(0, todayY - LineType.size(20))
-                        )
-
-                    Circle()
-                        .fill(Color.lineNavy)
-                        .frame(width: 8, height: 8)
-                        .overlay(Circle().stroke(.white, lineWidth: 2))
-                        .offset(x: todayX - 4, y: todayY - 4)
-                }
-            }
-            .frame(height: 104)
-
-            Text("Cycle day \(window.cycleDay) · \(window.isPastExpectedPeriod(on: .now) ? "expected period was" : "next period") \(DateFormatting.shortDate.string(from: window.nextPeriodDate))")
-                .font(.app(.caption2, weight: .bold))
-                .foregroundStyle(Color.lineNavy.opacity(0.5))
-                .multilineTextAlignment(.center)
-                .fixedSize(horizontal: false, vertical: true)
-                .frame(maxWidth: .infinity)
-        }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Estimated fertility curve. Today is cycle day \(window.cycleDay). Estimated ovulation is \(DateFormatting.shortDate.string(from: window.predictedOvulationDate)). Next period \(DateFormatting.shortDate.string(from: window.nextPeriodDate)).")
-    }
-
-    // Calendar's phase colours, so the curve reads the same as the month grid.
-    private static let fertile = Color.lineFertileSoft
-    private static let ovulation = Color.linePurple
-    private static let luteal = Color.lineLutealSoft
-    private static let neutral = Color(red: 0.58, green: 0.61, blue: 0.72)
-
-    /// Colours the curve by phase (before the fertile window, through it to
-    /// ovulation, then the luteal phase), with a short blend at each boundary.
-    private func phaseGradient(
-        width: CGFloat, fertileStartX: CGFloat, fertileEndX: CGFloat, peakX: CGFloat,
-        neutral: Color, fertile: Color, luteal: Color
-    ) -> LinearGradient {
-        let blend: CGFloat = 0.03
-        let start = min(max(fertileStartX / width, blend), 1)
-        let end = min(max(max(fertileEndX, peakX) / width, start), 1 - blend)
-        return LinearGradient(
-            stops: [
-                .init(color: neutral, location: 0),
-                .init(color: neutral, location: start - blend),
-                .init(color: fertile, location: start),
-                .init(color: fertile, location: end),
-                .init(color: luteal, location: end + blend),
-                .init(color: luteal, location: 1)
-            ],
-            startPoint: .leading,
-            endPoint: .trailing
-        )
-    }
-
-    /// The label boxes have to grow with the type scale, or the words wrap.
-    private var todayLabelWidth: CGFloat { LineType.size(30) }
-    private var ovulationLabelWidth: CGFloat { LineType.size(52) }
-    private var fertileLabelWidth: CGFloat { LineType.size(window.isWidened ? 104 : 76) }
-
-    private func curveY(at progress: CGFloat, height: CGFloat) -> CGFloat {
-        let distance = (progress - peakProgress) / 0.115
-        let intensity = exp(-0.5 * distance * distance)
-        let baseline = height - 28
-        return baseline - intensity * max(0, baseline - 28)
     }
 }
 

@@ -8,9 +8,8 @@ private extension CyclePhaseKind {
     var color: Color {
         switch self {
         case .period: .linePink
-        case .follicular: .lineNavy.opacity(0.12)
-        case .fertile: .lineFertileSoft
-        case .luteal: .lineLutealSoft
+        case .between: .lineNavy.opacity(0.12)
+        case .beforePeriod: .linePurple.opacity(0.35)
         }
     }
 }
@@ -85,13 +84,9 @@ struct CycleHistoryChart: View {
         // Implausible lengths (spotting logged as a period) would drag the
         // average; they still get a row, just not a say in the numbers.
         let closed = entries.filter(\.isPlausible).compactMap(\.length)
-        let confirmed = entries.filter { $0.ovulationConfirmed && !$0.isCurrent && $0.isPlausible }.count
         guard !closed.isEmpty else { return "Your first full cycle will appear once your next period is logged." }
         let average = Int((Double(closed.reduce(0, +)) / Double(closed.count)).rounded())
         var text = "Your cycles average \(average) days across \(closed.count) logged \(closed.count == 1 ? "cycle" : "cycles")."
-        if confirmed > 0 {
-            text += " Ovulation was confirmed by a test or temperature rise in \(confirmed)."
-        }
         if let odd = entries.first(where: { !$0.isPlausible }), let length = odd.length {
             text += " The \(length)-day cycle from \(trendsDate(odd.start)) isn't counted; it may be worth checking that period's dates."
         }
@@ -119,13 +114,6 @@ struct CycleHistoryChart: View {
                             .fill(segment.phase.color.opacity(segment.faded ? 0.35 : 1))
                             .frame(width: max(2, CGFloat(segment.length) * dayWidth - 1.5), height: 12)
                             .offset(x: CGFloat(segment.start) * dayWidth)
-                    }
-                    if entry.isPlausible {
-                    Circle()
-                        .fill(entry.ovulationConfirmed ? Color.linePurple : Color.white)
-                        .overlay(Circle().strokeBorder(Color.linePurple, lineWidth: 2))
-                        .frame(width: 14, height: 14)
-                        .offset(x: (CGFloat(entry.ovulation) + 0.5) * dayWidth - 7)
                     }
                     if entry.isCurrent {
                         Rectangle()
@@ -164,18 +152,14 @@ struct CycleHistoryChart: View {
     }
 
     private func accessibility(_ entry: CycleHistoryEntry) -> String {
-        let ovulation = entry.ovulationConfirmed ? "confirmed ovulation on day \(entry.ovulation + 1)" : "estimated ovulation on day \(entry.ovulation + 1)"
         let length = entry.length.map { "\($0) day cycle" } ?? "current cycle, day \(entry.elapsed)"
-        return "Cycle from \(trendsDate(entry.start)), \(length), \(entry.periodDays) day period, \(ovulation)"
+        return "Cycle from \(trendsDate(entry.start)), \(length), \(entry.periodDays) day period"
     }
 
     private var legend: some View {
         HStack(spacing: 12) {
-            legendItem(Capsule().fill(Color.linePink), "Period")
-            legendItem(Capsule().fill(Color.lineFertileSoft), "Fertile")
-            legendItem(Circle().fill(Color.linePurple), "Confirmed")
-            legendItem(Circle().strokeBorder(Color.linePurple, lineWidth: 2), "Estimated")
-            legendItem(Capsule().fill(Color.lineLutealSoft), "Luteal")
+            legendItem(Capsule().fill(CyclePhaseKind.period.color), CyclePhaseKind.period.title)
+            legendItem(Capsule().fill(CyclePhaseKind.beforePeriod.color), CyclePhaseKind.beforePeriod.title)
         }
         .font(.app(size: LineType.size(10), weight: .semibold))
         .foregroundStyle(Color.lineNavy.opacity(0.6))
@@ -189,71 +173,6 @@ struct CycleHistoryChart: View {
             swatch.frame(width: 10, height: 10)
             Text(title)
         }
-    }
-}
-
-// MARK: - 2. Luteal phase
-
-struct LutealPhaseChart: View {
-    let entries: [CycleHistoryEntry]
-
-    private var points: [(start: Date, length: Int)] {
-        entries.compactMap { entry in entry.lutealLength.map { (entry.start, $0) } }.suffix(8).map { $0 }
-    }
-
-    var body: some View {
-        if let summary = CycleTrendsCalculator.lutealSummary(entries) {
-            VStack(spacing: 12) {
-                Chart {
-                    ForEach(points, id: \.start) { point in
-                        BarMark(x: .value("Cycle", trendsDate(point.start)), y: .value("Days", point.length))
-                            .foregroundStyle(point.length < CycleTrendsCalculator.shortLutealThreshold ? Color.linePink : Color.lineLuteal)
-                            .cornerRadius(6)
-                            .annotation(position: .top) {
-                                Text("\(point.length)")
-                                    .font(.app(size: LineType.size(11), weight: .bold))
-                                    .foregroundStyle(Color.lineNavy.opacity(0.7))
-                            }
-                    }
-                    RuleMark(y: .value("Short", CycleTrendsCalculator.shortLutealThreshold))
-                        .lineStyle(StrokeStyle(lineWidth: 1, dash: [4, 4]))
-                        .foregroundStyle(Color.linePink.opacity(0.6))
-                }
-                .chartYScale(domain: 0...max(18, (points.map(\.length).max() ?? 14) + 3))
-                .chartYAxis { AxisMarks(position: .leading) }
-                .frame(minHeight: 180)
-                HStack(spacing: 14) {
-                    lutealLegend(.lineLuteal, "10 days or more")
-                    lutealLegend(.linePink, "Under 10 days")
-                }
-                .font(.app(size: LineType.size(11), weight: .semibold))
-                .foregroundStyle(Color.lineNavy.opacity(0.6))
-                TrendsCaption(text: caption(summary))
-            }
-        } else {
-            TrendsEmpty(
-                icon: "moon.stars.fill",
-                title: "Needs a confirmed ovulation",
-                message: "Once a Peak test or a temperature rise confirms ovulation and your next period is logged, the days in between appear here.",
-                tint: .lineLuteal
-            )
-        }
-    }
-
-    private func lutealLegend(_ color: Color, _ title: String) -> some View {
-        HStack(spacing: 5) {
-            RoundedRectangle(cornerRadius: 3).fill(color).frame(width: 12, height: 12)
-            Text(title)
-        }
-    }
-
-    private func caption(_ summary: CycleTrendsCalculator.LutealSummary) -> String {
-        let count = summary.lengths.count
-        var text = "Your luteal phase has been about \(summary.median) days across \(count) confirmed \(count == 1 ? "cycle" : "cycles"). 10 to 16 days is typical; the dashed line marks 10."
-        if summary.shortCount > 0 {
-            text += " \(summary.shortCount == 1 ? "One was" : "\(summary.shortCount) were") under 10 days, which is worth mentioning to your doctor if you're trying to conceive."
-        }
-        return text
     }
 }
 
@@ -487,26 +406,27 @@ struct BodyTrendData {
         }
     }
 
-    /// Plain-language comparison of the luteal and follicular averages.
+    /// Plain-language comparison of the week before a period with the rest
+    /// of the cycle.
     func phaseSentence(_ metric: BodyTrendMetric) -> String? {
         let averages = CycleTrendsCalculator.phaseAverages(values(metric), entries: entries)
-        guard let luteal = averages.first(where: { $0.phase == .luteal }), luteal.count >= 3,
-              let before = averages.first(where: { $0.phase == .follicular }) ?? averages.first(where: { $0.phase == .fertile }),
-              before.count >= 3 else { return nil }
-        let delta = luteal.value - before.value
+        guard let late = averages.first(where: { $0.phase == .beforePeriod }), late.count >= 3,
+              let between = averages.first(where: { $0.phase == .between }),
+              between.count >= 3 else { return nil }
+        let delta = late.value - between.value
         switch metric {
         case .restingHeartRate:
             guard abs(delta) >= 1 else { return "Your resting heart rate stays about the same through your cycle." }
-            return "Your resting heart rate runs about \(Int(abs(delta).rounded())) bpm \(delta > 0 ? "higher" : "lower") after ovulation\(delta > 0 ? ", a common pattern as progesterone rises" : "")."
+            return "Your resting heart rate runs about \(Int(abs(delta).rounded())) bpm \(delta > 0 ? "higher" : "lower") in the week before your period."
         case .hrv:
             guard abs(delta) >= 2 else { return "Your HRV stays about the same through your cycle." }
-            return "Your HRV is about \(Int(abs(delta).rounded())) ms \(delta > 0 ? "higher" : "lower") after ovulation\(delta < 0 ? ", which many people see in the luteal phase" : "")."
+            return "Your HRV is about \(Int(abs(delta).rounded())) ms \(delta > 0 ? "higher" : "lower") in the week before your period."
         case .sleep:
             guard abs(delta) >= 0.25 else { return "Your sleep stays about the same through your cycle." }
-            return "You sleep about \(Int((abs(delta) * 60).rounded())) minutes \(delta > 0 ? "more" : "less") after ovulation."
+            return "You sleep about \(Int((abs(delta) * 60).rounded())) minutes \(delta > 0 ? "more" : "less") in the week before your period."
         case .wristTemperature:
             let shown = abs(delta).formatted(.number.precision(.fractionLength(1)))
-            return delta > 0.1 ? "Your wrist temperature runs about \(shown)\(temperatureUnit.title) warmer after ovulation, consistent with ovulation happening." : "No clear rise in wrist temperature after ovulation yet."
+            return abs(delta) > 0.1 ? "Your wrist temperature runs about \(shown)\(temperatureUnit.title) \(delta > 0 ? "warmer" : "cooler") in the week before your period." : "Your wrist temperature stays about the same through your cycle."
         case .weight:
             return nil
         }

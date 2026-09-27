@@ -27,18 +27,14 @@ struct FlowLayout: Layout {
 /// Sections of the daily log, so callers (e.g. Home's quick actions) can open
 /// the sheet already scrolled to the part they care about.
 enum DailyLogSection: String, CaseIterable, Identifiable {
-    case flow, temperature, body, symptoms, mucus, position, sex, mood, supplements, notes
+    case flow, body, symptoms, mood, supplements, notes
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .flow: "Period Flow"
-        case .temperature: "Basal Body Temperature"
         case .body: "Weight & Body"
         case .symptoms: "Symptoms"
-        case .mucus: "Cervical Mucus"
-        case .position: "Cervical Position"
-        case .sex: "Sex & Insemination"
         case .mood: "Mood"
         case .supplements: "Supplements"
         case .notes: "Notes"
@@ -48,12 +44,8 @@ enum DailyLogSection: String, CaseIterable, Identifiable {
     var symbol: String {
         switch self {
         case .flow: "drop.circle.fill"
-        case .temperature: "thermometer.medium"
         case .body: "scalemass.fill"
         case .symptoms: "waveform.path.ecg"
-        case .mucus: "drop.fill"
-        case .position: "arrow.up.and.down.circle.fill"
-        case .sex: "heart.fill"
         case .mood: "face.smiling"
         case .supplements: "pills.fill"
         case .notes: "square.and.pencil"
@@ -62,9 +54,8 @@ enum DailyLogSection: String, CaseIterable, Identifiable {
 
     var tint: Color {
         switch self {
-        case .flow, .symptoms, .sex: .linePink
-        case .temperature, .position: .linePurple
-        case .mucus, .supplements, .body: .lineBlue
+        case .flow, .symptoms: .linePink
+        case .supplements, .body: .lineBlue
         case .mood: .orange
         case .notes: .lineNavy
         }
@@ -75,23 +66,14 @@ enum DailyLogSection: String, CaseIterable, Identifiable {
 /// can move between days and tell whether anything was edited.
 private struct DailyLogForm: Equatable {
     static let suggestedSymptoms = ["Cramps", "Headache", "Tender Breasts", "Bloating", "Nausea", "Fatigue", "Backache", "Spotting", "Cravings", "Dizziness", "Acne", "Insomnia", "Pelvic Pain", "Vaginal Dryness"]
-    static let mucusOptions = ["Dry", "Sticky", "Creamy", "Watery", "Egg White"]
-    static let positionOptions = ["Low · Firm · Closed", "Medium", "High · Soft · Open"]
-    static let sexOptions = ["Unprotected", "Protected", "Withdrawal", "No Sex"]
-    static let inseminationOptions = ["IUI", "At-Home Insemination", "Frozen Sperm", "Trigger Shot", "No Insemination"]
     static let moodOptions = ["Happy", "Calm", "Energetic", "Relaxed", "Focused", "Tired", "Irritable", "Anxious", "Sad", "Mood Swings"]
-    static let supplementOptions = ["Prenatal", "Folic Acid", "Vitamin D", "Fish Oil/DHA", "Inositol", "Iron", "Calcium", "Probiotic"]
+    static let supplementOptions = ["Vitamin D", "Calcium", "Magnesium", "Omega-3", "Iron", "Vitamin B12", "Probiotic"]
 
     var symptoms: Set<String> = []
     var customSymptomsText = ""
     var moods: Set<String> = []
     var supplements: Set<String> = []
-    var mucus: String?
-    var position: String?
-    var insemination: String?
-    var sex: String?
     var flow: FlowIntensity?
-    var bbtCelsius: Double?
     var weightKg: Double?
     var waterMl: Double?
     var notes = ""
@@ -102,12 +84,7 @@ private struct DailyLogForm: Equatable {
         customSymptomsText = log.symptoms.filter { !Self.suggestedSymptoms.contains($0) }.joined(separator: ", ")
         moods = Set(log.moods)
         supplements = Set(log.supplements)
-        mucus = log.cervicalMucusRaw
-        position = log.cervicalPositionRaw
-        insemination = log.inseminationRaw
-        sex = log.sexRaw
         flow = log.flowIntensity
-        bbtCelsius = log.basalBodyTemperatureCelsius
         weightKg = log.weightKg
         waterMl = log.waterMl
         notes = log.notes
@@ -161,7 +138,6 @@ struct DailyFertilityLogEditor: View {
     }
 
     private var settings: UserSettings? { UserSettings.canonical(from: settingsQuery) }
-    private var temperatureUnit: TemperatureUnit { settings?.temperatureUnit ?? .localeDefault }
     private var realPeriods: [PeriodEvent] { periodEvents.filter { !$0.notes.contains("[LineCheck Screenshot Sample]") } }
     private var existing: DailyFertilityLog? { allLogs.first { Calendar.current.isDate($0.date, inSameDayAs: date) } }
     private var isToday: Bool { Calendar.current.isDateInToday(date) }
@@ -328,9 +304,6 @@ struct DailyFertilityLogEditor: View {
                     singleChips(visible(flowOptions, in: .flow), selection: flowTitleBinding, tint: DailyLogSection.flow.tint)
                 }
             }
-            if sectionVisible(.temperature, options: ["temperature", "bbt"]) {
-                LogSection(.temperature) { temperatureContent }
-            }
             if sectionVisible(.body, options: Self.bodySearchTerms) {
                 LogSection(.body) { bodyContent }
             }
@@ -351,29 +324,6 @@ struct DailyFertilityLogEditor: View {
                             .foregroundStyle(Color.lineNavy.opacity(0.5))
                             .fixedSize(horizontal: false, vertical: true)
                     }
-                }
-            }
-            if sectionVisible(.mucus, options: DailyLogForm.mucusOptions) {
-                LogSection(.mucus) {
-                    singleChips(visible(DailyLogForm.mucusOptions, in: .mucus), selection: $form.mucus, tint: DailyLogSection.mucus.tint)
-                    if form.mucus == "Egg White" {
-                        Label("Clear, stretchy mucus is a sign you’re close to ovulation.", systemImage: "sparkles")
-                            .font(.app(.caption, weight: .semibold))
-                            .foregroundStyle(Color.lineBlue)
-                            .fixedSize(horizontal: false, vertical: true)
-                            .transition(.opacity.combined(with: .move(edge: .top)))
-                    }
-                }
-            }
-            if sectionVisible(.position, options: DailyLogForm.positionOptions) {
-                LogSection(.position) {
-                    singleChips(visible(DailyLogForm.positionOptions, in: .position), selection: $form.position, tint: DailyLogSection.position.tint)
-                }
-            }
-            if sectionVisible(.sex, options: DailyLogForm.sexOptions + DailyLogForm.inseminationOptions) {
-                LogSection(.sex) {
-                    singleChips(visible(DailyLogForm.sexOptions, in: .sex), selection: $form.sex, tint: DailyLogSection.sex.tint)
-                    singleChips(visible(DailyLogForm.inseminationOptions, in: .sex), selection: $form.insemination, tint: DailyLogSection.sex.tint)
                 }
             }
             if sectionVisible(.mood, options: DailyLogForm.moodOptions) {
@@ -406,52 +356,11 @@ struct DailyFertilityLogEditor: View {
     private func optionsFor(_ section: DailyLogSection) -> [String] {
         switch section {
         case .flow: FlowIntensity.allCases.map(\.title)
-        case .temperature: ["temperature", "bbt"]
         case .body: Self.bodySearchTerms
         case .symptoms: DailyLogForm.suggestedSymptoms
-        case .mucus: DailyLogForm.mucusOptions
-        case .position: DailyLogForm.positionOptions
-        case .sex: DailyLogForm.sexOptions + DailyLogForm.inseminationOptions
         case .mood: DailyLogForm.moodOptions
         case .supplements: DailyLogForm.supplementOptions
         case .notes: []
-        }
-    }
-
-    private var temperatureContent: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if existing?.basalBodyTemperatureSource == .healthKit, form.bbtCelsius == baseline.bbtCelsius, form.bbtCelsius != nil {
-                Label("Synced from Apple Health", systemImage: "heart.fill")
-                    .font(.app(.caption2, weight: .semibold))
-                    .foregroundStyle(Color.linePurple.opacity(0.7))
-            }
-            HStack(spacing: 10) {
-                Spacer(minLength: 0)
-                TextField("e.g. \(temperatureUnit == .fahrenheit ? "97.8" : "36.5")", text: bbtTextBinding)
-                    .keyboardType(.decimalPad)
-                    .multilineTextAlignment(.center)
-                    .focused($isInputFocused)
-                    .frame(width: 96)
-                    .padding(.vertical, 10)
-                    .background(Color.lineBackground, in: RoundedRectangle(cornerRadius: 12))
-
-                Button(action: toggleTemperatureUnit) {
-                    Text(temperatureUnit.title)
-                        .font(.app(.subheadline, weight: .bold))
-                        .foregroundStyle(Color.linePurple)
-                        .frame(width: 56)
-                        .padding(.vertical, 10)
-                        .background(Color.linePurple.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
-                }
-                .buttonStyle(.plain)
-                .accessibilityLabel("Temperature unit")
-                .accessibilityValue(temperatureUnit == .celsius ? "Celsius" : "Fahrenheit")
-                .accessibilityHint("Double tap to switch units")
-                Spacer(minLength: 0)
-            }
-            Text("Taken first thing, before getting up, gives the most reliable reading. A sustained rise after ovulation is one of the clearer confirmation signs.")
-                .font(.app(.caption2))
-                .foregroundStyle(Color.lineNavy.opacity(0.5))
         }
     }
 
@@ -552,12 +461,6 @@ struct DailyFertilityLogEditor: View {
                     Text("BMI \(String(format: "%.1f", bmi)) · \(category.title)")
                         .font(.app(.caption, weight: .bold))
                         .foregroundStyle(Color.lineNavy.opacity(0.7))
-                    if let note = category.fertilityNote {
-                        Text(note)
-                            .font(.app(.caption2))
-                            .foregroundStyle(Color.lineNavy.opacity(0.5))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
                 }
             }
 
@@ -705,26 +608,6 @@ struct DailyFertilityLogEditor: View {
         )
     }
 
-    private var bbtTextBinding: Binding<String> {
-        Binding<String>(
-            get: {
-                guard let bbtCelsius = form.bbtCelsius else { return "" }
-                let display = temperatureUnit == .fahrenheit ? bbtCelsius * 9 / 5 + 32 : bbtCelsius
-                return String(format: "%.1f", display)
-            },
-            set: { newValue in
-                guard let value = Double(newValue) else { form.bbtCelsius = nil; return }
-                form.bbtCelsius = temperatureUnit == .fahrenheit ? (value - 32) * 5 / 9 : value
-            }
-        )
-    }
-
-    private func toggleTemperatureUnit() {
-        guard let settings else { return }
-        settings.temperatureUnit = settings.temperatureUnit == .celsius ? .fahrenheit : .celsius
-        try? modelContext.save()
-    }
-
     private func multiChips(_ values: [String], selection: Binding<Set<String>>, tint: Color) -> some View {
         FlowLayout(spacing: 8) {
             ForEach(values, id: \.self) { value in
@@ -814,16 +697,9 @@ struct DailyFertilityLogEditor: View {
         let log = existing ?? DailyFertilityLog(date: date)
         let customSymptoms = form.customSymptomsText.split(separator: ",").map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }.filter { !$0.isEmpty }
         log.symptoms = Array(form.symptoms.union(customSymptoms)).sorted(); log.moods = form.moods.sorted(); log.supplements = form.supplements.sorted()
-        log.cervicalMucusRaw = form.mucus; log.cervicalPositionRaw = form.position; log.inseminationRaw = form.insemination; log.sexRaw = form.sex; log.notes = form.notes
+        log.notes = form.notes
         log.flowIntensity = form.flow
-        // Only a temperature the person actually typed becomes theirs - paging
-        // past a day must not claim a Health-synced reading as user-entered.
-        let bbtChanged = form.bbtCelsius != baseline.bbtCelsius
-        if existing == nil || bbtChanged {
-            log.basalBodyTemperatureCelsius = form.bbtCelsius
-            log.basalBodyTemperatureSource = .userConfirmed
-        }
-        // Same rule for weight and water: only what was changed here becomes
+        // Only what was changed here becomes
         // the person's own entry, and only that is written to Apple Health.
         let weightChanged = form.weightKg != baseline.weightKg
         let waterChanged = form.waterMl != baseline.waterMl
@@ -846,19 +722,9 @@ struct DailyFertilityLogEditor: View {
                 let water = form.waterMl
                 BodyMeasurementStore.writeToHealth(settings: settings) { await $0.saveWater(millilitres: water, on: day) }
             }
-            if bbtChanged {
-                let bbt = form.bbtCelsius
-                BodyMeasurementStore.writeToHealth(settings: settings) { await $0.saveBasalBodyTemperature(celsius: bbt, on: day) }
-            }
         }
         if startPeriod, let settings {
             _ = CycleTrackingService.recordPeriodStart(date, settings: settings, records: cycleRecords, periods: periodEvents, context: modelContext)
-        }
-        if bbtChanged || startPeriod {
-            // A typed temperature can complete (or undo) a post-ovulation
-            // rise, which moves this cycle's ovulation and next period.
-            let records = (try? modelContext.fetch(FetchDescriptor<CycleRecord>())) ?? cycleRecords
-            CycleTrackingService.reconcileTemperatureOvulation(records: records, logs: allLogs + (existing == nil ? [log] : []))
         }
         try? modelContext.save()
         baseline = form
