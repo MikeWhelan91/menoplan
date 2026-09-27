@@ -8,7 +8,7 @@ extension CycleSignal {
         case "temperatureShift", "sustainedHighTemperature", "noTemperatureShiftYet", "possibleFever": "Temperature"
         case "fertileMucus", "healthLHSurge", "midCyclePain", "lutealSpotting", "periodLate", "longCycle": "Cycle"
         case "highFluidIntake", "pcosLH": "Test reading"
-        case "hormonalContraception", "breastfeeding", "healthPregnancy": "Apple Health"
+        case "hormonalContraception", "breastfeeding": "Apple Health"
         case "shortSleep", "restingHeartRateUp", "hrvDown", "highTrainingLoad": "Lifestyle"
         case "weightChange", "bmi": "Body"
         default: "Insight"

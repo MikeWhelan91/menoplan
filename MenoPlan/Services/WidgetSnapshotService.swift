@@ -20,12 +20,8 @@ enum WidgetSnapshotService {
         let window = CycleTrackingService.window(for: now, records: records, periods: periods, settings: settings, calendar: calendar)
         let activeCycle = CycleTrackingService.activeCycle(on: now, records: records, calendar: calendar)
 
-        let cycleState: WidgetSnapshot.CycleState
-        switch activeCycle?.pregnancyState {
-        case .confirmedPregnant: cycleState = .pregnant
-        case .ended: cycleState = .ended
-        default: cycleState = window == nil ? .notSetUp : .tracking
-        }
+        _ = activeCycle
+        let cycleState: WidgetSnapshot.CycleState = window == nil ? .notSetUp : .tracking
 
         var phases: [String: WidgetSnapshot.DayPhase] = [:]
         if let window, cycleState == .tracking {
@@ -79,9 +75,7 @@ enum WidgetSnapshotService {
                 )
             } : nil,
             dayPhases: phases,
-            pregnancyTestDays: testDays(.pregnancy),
             ovulationTestDays: testDays(.ovulation),
-            latestPregnancyTest: latest(.pregnancy),
             latestOvulationTest: latest(.ovulation)
         )
     }

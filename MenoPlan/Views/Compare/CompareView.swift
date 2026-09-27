@@ -401,48 +401,31 @@ struct CompareView: View {
     }
 
     private func localSummary(_ earlier: Scan, _ later: Scan) -> CompareSummary {
-        if earlier.testType == .ovulation {
-            let delta = later.testControlRatio - earlier.testControlRatio
-            if delta > 0.08 {
-                return CompareSummary(
-                    title: "The later test line looks stronger",
-                    detail: "The later ovulation test line appears closer to the control line.",
-                    metricNote: "Photo measurements can help show the test line moving closer to the control line, but always follow your test instructions.",
-                    icon: "arrow.up.right",
-                    tint: ovulationTint(for: later.resultType)
-                )
-            }
-            if delta < -0.08 {
-                return CompareSummary(
-                    title: "The later test line looks lighter",
-                    detail: "The later ovulation test appears lighter than the earlier saved result.",
-                    metricNote: "Ovulation-test lines can change quickly depending on timing, hydration, and the test’s reading window.",
-                    icon: "arrow.down.right",
-                    tint: Color.lineTeal
-                )
-            }
+        let delta = later.testControlRatio - earlier.testControlRatio
+        if delta > 0.08 {
             return CompareSummary(
-                title: "Results look similar",
-                detail: "The test line looks similar in these two saved ovulation-test photos.",
-                metricNote: "Testing at similar times of day makes comparisons more useful.",
-                icon: "equal",
-                tint: Color.lineNavy
+                title: "The later test line looks stronger",
+                detail: "The later ovulation test line appears closer to the control line.",
+                metricNote: "Photo measurements can help show the test line moving closer to the control line, but always follow your test instructions.",
+                icon: "arrow.up.right",
+                tint: ovulationTint(for: later.resultType)
             )
         }
-
-        let assessment = CompareViewModel().pregnancyAssessment(from: earlier, to: later)
-        let icon: String = switch assessment.direction {
-        case .stronger: "arrow.up.right"
-        case .lighter: "arrow.down.right"
-        case .similar: "equal"
-        case .notComparable: "arrow.left.arrow.right"
+        if delta < -0.08 {
+            return CompareSummary(
+                title: "The later test line looks lighter",
+                detail: "The later ovulation test appears lighter than the earlier saved result.",
+                metricNote: "Ovulation-test lines can change quickly depending on timing, hydration, and the test’s reading window.",
+                icon: "arrow.down.right",
+                tint: Color.lineTeal
+            )
         }
         return CompareSummary(
-            title: assessment.title,
-            detail: assessment.detail,
-            metricNote: assessment.metricNote,
-            icon: icon,
-            tint: assessment.direction == .stronger ? Color.linePink : Color.lineNavy
+            title: "Results look similar",
+            detail: "The test line looks similar in these two saved ovulation-test photos.",
+            metricNote: "Testing at similar times of day makes comparisons more useful.",
+            icon: "equal",
+            tint: Color.lineNavy
         )
     }
 
@@ -579,7 +562,7 @@ struct CompareView: View {
             allDailyLogs: dailyLogs,
             healthMetrics: healthMetrics,
             scans: scans,
-            signalSurface: testType == .ovulation ? .ovulationResult : .pregnancyResult
+            signalSurface: .ovulationResult
         )
     }
 

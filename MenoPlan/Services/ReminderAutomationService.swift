@@ -3,7 +3,6 @@ import SwiftData
 
 enum PeriodCheckInCopy {
     static let title = "Did your period start?"
-    static let titleWithTest = "Did your period start? If not, consider a test"
 }
 
 enum OvulationReminderCopy {
@@ -70,28 +69,16 @@ enum ReminderAutomationService {
         // add a mid-window nudge to keep testing through the whole estimate
         // rather than implying one precise day is the only one that matters.
         let hasOvulationEvidence = cycle.confirmedOvulationDate != nil || cycle.ovulationSource == .testSupported || cycle.ovulationSource == .temperatureSupported
-        // A cycle marked "ended" (including pregnancy loss) should never keep
-        // nudging the user to retest for a pregnancy that has already
-        // concluded - that reminder type is suppressed entirely rather than
-        // just skipped for one sync, so an already-scheduled one is cancelled
-        // below via the existing managedTypes/targetTypes cleanup.
-        let pregnancyHasEnded = cycle.pregnancyState == .ended
-        let canTrackOvulation = cycle.pregnancyState == .trying || cycle.pregnancyState == .periodArrived
-        // In pregnancy mode there's no period to expect or test for - keep
-        // every cycle nudge quiet until the person leaves that mode.
-        let isPregnant = cycle.pregnancyState == .confirmedPregnant
+        let canTrackOvulation = true
         var candidates: [(ReminderType, Bool, Date, String)] = [
             (.ovulationTest, settings.autoOvulationTestRemindersEnabled && !hasOvulationEvidence && canTrackOvulation, window.opkStartDate, OvulationReminderCopy.startTitle),
             (.fertileWindow, settings.autoFertileWindowRemindersEnabled && !hasOvulationEvidence && canTrackOvulation, window.fertileStartDate, OvulationReminderCopy.fertileTitle),
             (.fertilePeak, settings.autoFertilePeakRemindersEnabled && !hasOvulationEvidence && canTrackOvulation, window.predictedOvulationDate, OvulationReminderCopy.peakTitle),
-            (.periodExpected, settings.autoPeriodExpectedRemindersEnabled && !isPregnant, calendar.date(byAdding: .day, value: -1, to: window.nextPeriodDate) ?? window.nextPeriodDate, "Period may start soon"),
-            (.periodCheckIn, settings.autoPeriodCheckInRemindersEnabled && !isPregnant, window.nextPeriodDate, settings.autoPregnancyRetestRemindersEnabled ? PeriodCheckInCopy.titleWithTest : PeriodCheckInCopy.title),
+            (.periodExpected, settings.autoPeriodExpectedRemindersEnabled, calendar.date(byAdding: .day, value: -1, to: window.nextPeriodDate) ?? window.nextPeriodDate, "Period may start soon"),
+            (.periodCheckIn, settings.autoPeriodCheckInRemindersEnabled, window.nextPeriodDate, PeriodCheckInCopy.title),
             // The home card checks in daily. One later optional notification
             // is more useful than repeating it two days after the estimate.
-            (.periodLate, settings.autoPeriodLateRemindersEnabled && !pregnancyHasEnded && !isPregnant, calendar.date(byAdding: .day, value: (window.isIrregular || window.profileWidening == .pcos || window.profileWidening == .irregularPeriods) ? 14 : 7, to: window.nextPeriodDate) ?? window.nextPeriodDate, "Still waiting for your period?"),
-            // The due-day check-in already covers testing if bleeding has not
-            // started. Never schedule a second alert at the same time for it.
-            (.pregnancyRetest, settings.autoPregnancyRetestRemindersEnabled && !settings.autoPeriodCheckInRemindersEnabled && !pregnancyHasEnded && !isPregnant, window.nextPeriodDate, "Consider a pregnancy test")
+            (.periodLate, settings.autoPeriodLateRemindersEnabled, calendar.date(byAdding: .day, value: (window.isIrregular || window.profileWidening == .pcos || window.profileWidening == .irregularPeriods) ? 14 : 7, to: window.nextPeriodDate) ?? window.nextPeriodDate, "Still waiting for your period?")
         ]
         if window.isIrregular || window.profileWidening != nil, settings.autoOvulationTestRemindersEnabled, !hasOvulationEvidence, canTrackOvulation {
             let midpointDays = calendar.dateComponents([.day], from: window.opkStartDate, to: window.fertileEndDate).day.map { $0 / 2 } ?? 0

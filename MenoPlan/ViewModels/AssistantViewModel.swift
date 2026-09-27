@@ -91,12 +91,8 @@ final class AssistantViewModel {
 
     func starterPrompts(for focus: TrackingFocus) -> [String] {
         switch focus {
-        case .pregnancy:
-            ["When should I retest?", "Do my recent scans look stronger?", "I’m spiralling a bit about these results"]
         case .ovulation:
             ["When should I test again today?", "Does this look close to my strongest result?", "When should I take ovulation tests this week?"]
-        case .both:
-            ["What should I do next based on my recent tests?", "Should I set a reminder?", "I’m worried this cycle isn’t going well"]
         }
     }
 

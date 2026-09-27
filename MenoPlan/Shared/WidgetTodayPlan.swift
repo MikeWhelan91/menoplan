@@ -2,11 +2,10 @@ import Foundation
 
 /// The "Today's Plan" widget answers one question - "should I test
 /// today, and why?" - then lists the next few dates that matter. Testing guidance mirrors the app: ovulation tests start 7 days
-/// before estimated ovulation, and a pregnancy test is possible from 4 days
-/// before the expected period and most accurate from the period date itself.
+/// before estimated ovulation.
 struct WidgetTodayPlan: Equatable {
     enum Phase: Equatable { case idle, beforeTesting, ovulationTesting, twoWeekWait, periodDue }
-    enum Action: Equatable { case ovulationTest, pregnancyTest }
+    enum Action: Equatable { case ovulationTest }
 
     /// A date coming up, e.g. "Earliest Test" on Wed 1.
     struct Stop: Equatable {
@@ -67,12 +66,11 @@ struct WidgetTodayPlan: Equatable {
         let toOvulation = days(to: cycle.ovulation)
         let toPeriod = days(to: cycle.nextPeriod)
         let ovulationTitle = cycle.ovulationConfirmed ? "Ovulation" : "Likely Ovulation"
-        let earliest = shift(cycle.nextPeriod, -4)
         // Future dates only, one per day (the earlier entry wins a tie).
         var upcoming: [Stop] = []
         for (title, date) in [
             ("Ovulation Tests Start", cycle.opkStart), ("Fertile Days Begin", cycle.fertileStart),
-            (ovulationTitle, cycle.ovulation), ("Earliest Pregnancy Test", earliest), ("Period Due", cycle.nextPeriod),
+            (ovulationTitle, cycle.ovulation), ("Period Due", cycle.nextPeriod),
         ] where days(to: date) > 0 && !upcoming.contains(where: { calendar.isDate($0.date, inSameDayAs: date) }) {
             upcoming.append(Stop(title: title, date: start(date)))
         }
@@ -156,63 +154,15 @@ struct WidgetTodayPlan: Equatable {
             phase: isLate ? .periodDue : .twoWeekWait, label: label, headline: "", detail: "", compactDetail: "",
             tip: nil, action: nil, isDone: false, stops: stops
         )
-        let retestDay = friendly(shift(today, 2))
-
-        switch testedToday(snapshot.latestPregnancyTest) {
-        case "faintLineDetected":
-            var plan = base
-            plan.headline = "Faint Line Today"
-            plan.detail = "Retest \(retestDay) to see if the line gets darker"
-            plan.compactDetail = "Retest \(retestDay)"
-            plan.tip = "Faint lines are common in the first days"
-            plan.isDone = true
-            return plan
-        case "appearsPositive":
-            var plan = base
-            plan.headline = "Positive Test Today"
-            plan.detail = "Retest \(retestDay) to watch the line darken"
-            plan.compactDetail = "Retest \(retestDay)"
-            plan.tip = "When you're ready, let your GP or midwife know"
-            plan.isDone = true
-            return plan
-        case .some:
-            var plan = base
-            plan.headline = "Today's Test Is Done"
-            if isLate {
-                plan.detail = "No period yet? Test again \(retestDay)"
-                plan.compactDetail = "Test again \(retestDay)"
-            } else {
-                plan.detail = "\(pastOvulation) · most accurate \(friendly(cycle.nextPeriod))"
-                plan.compactDetail = "Most accurate \(friendly(cycle.nextPeriod))"
-            }
-            plan.tip = "An early negative can still turn positive"
-            plan.isDone = true
-            return plan
-        case .none:
-            break
-        }
-
         var plan = base
-        if isLate || toPeriod == 0 {
-            plan.headline = "Take a Pregnancy Test"
-            plan.detail = "A test now gives a reliable result"
-            plan.compactDetail = "Result will be reliable"
-            plan.action = .pregnancyTest
-        } else if days(to: earliest) > 0 {
-            // "Test from Tomorrow" already names the day, so the reason line
-            // moves on to the period date instead of repeating it.
-            let fromTomorrow = days(to: earliest) == 1
-            plan.headline = fromTomorrow ? "Test from Tomorrow" : "Too Early to Test"
-            plan.detail = fromTomorrow
-                ? "\(pastOvulation) · period due \(friendly(cycle.nextPeriod))"
-                : "\(pastOvulation) · earliest test \(friendly(earliest))"
-            plan.compactDetail = fromTomorrow ? "Period due \(friendly(cycle.nextPeriod))" : "Earliest test \(friendly(earliest))"
-            plan.tip = "Testing too early can miss a pregnancy"
+        if isLate {
+            plan.headline = "Period Is Late"
+            plan.detail = "Log it when it starts to keep your timeline accurate"
+            plan.compactDetail = "Log it when it starts"
         } else {
-            plan.headline = "You Can Test Today"
-            plan.detail = "\(pastOvulation) · most accurate \(friendly(cycle.nextPeriod))"
-            plan.compactDetail = "Most accurate \(friendly(cycle.nextPeriod))"
-            plan.action = .pregnancyTest
+            plan.headline = toPeriod == 0 ? "Period Due Today" : "Period Due \(friendly(cycle.nextPeriod))"
+            plan.detail = "\(pastOvulation) · period due \(friendly(cycle.nextPeriod))"
+            plan.compactDetail = "Period due \(friendly(cycle.nextPeriod))"
         }
         return plan
     }

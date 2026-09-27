@@ -56,67 +56,33 @@ struct ResultView: View {
                     if let result = flow.analysisResult {
                         resultImage
                             .resultSectionFade(index: 0, revealedCount: revealedSectionCount)
-                        if flow.testType == .ovulation {
-                            if isSelfAssessedResult {
-                                resultHero(result)
-                                resultSectionDivider
-                                selfAssessmentExplanation(result)
-                            } else if flow.wasLocallyScanned {
-                                // "What To Do Now" is interpretive TTC
-                                // guidance, and the stage stepper/evidence
-                                // breakdown read as more diagnostic certainty
-                                // than a pixel heuristic backs up - all three
-                                // are reserved for an AI-backed result.
-                                ovulationResultPanel(result, showStageDetail: false)
-                                resultSectionDivider
-                                localScanLunaNudge
-                            } else {
-                                ovulationResultPanel(result)
-                                resultSectionDivider
-                                ovulationInsight(result)
-                            }
-                            let readingSignals = resultSignals(result)
-                            if !readingSignals.isEmpty {
-                                CycleSignalsCard(title: "What may affect this reading", signals: readingSignals)
-                                    .resultSectionFade(index: 1, revealedCount: revealedSectionCount)
-                            }
-                            resultSectionDivider
-                            ovulationCycleStats(result)
-                                .resultSectionFade(index: 1, revealedCount: revealedSectionCount)
-                        } else {
+                        if isSelfAssessedResult {
                             resultHero(result)
-                                .resultSectionFade(index: 1, revealedCount: revealedSectionCount)
-                            let readingSignals = resultSignals(result)
-                            if !readingSignals.isEmpty {
-                                CycleSignalsCard(title: "What may affect this reading", signals: readingSignals)
-                                    .resultSectionFade(index: 1, revealedCount: revealedSectionCount)
-                            }
-                            if !flow.wasLocallyScanned {
-                                resultSectionDivider
-                                pregnancyExplanationSections(result)
-                                    .resultSectionFade(index: 2, revealedCount: revealedSectionCount)
-                            }
-                            if flow.completedFreeLunaCheck {
-                                resultSectionDivider
-                                freeLunaConversionCard
-                                    .resultSectionFade(index: 3, revealedCount: revealedSectionCount)
-                            }
-                            if !isSelfAssessedResult, !flow.wasLocallyScanned,
-                               appState.settings?.proUnlocked == true || lineStrengthTrendScans.count >= 2 {
-                                resultSectionDivider
-                                lineStrengthTrendSection
-                                    .resultSectionFade(index: 3, revealedCount: revealedSectionCount)
-                            }
                             resultSectionDivider
-                            pregnancyTiming
-                                .resultSectionFade(index: 4, revealedCount: revealedSectionCount)
-                            if flow.mode == .aiQuickCheck {
-                                resultSectionDivider
-                                nextStepsSection(result)
-                                    .resultSectionFade(index: 5, revealedCount: revealedSectionCount)
-                            }
+                            selfAssessmentExplanation(result)
+                        } else if flow.wasLocallyScanned {
+                            // "What To Do Now" is interpretive TTC
+                            // guidance, and the stage stepper/evidence
+                            // breakdown read as more diagnostic certainty
+                            // than a pixel heuristic backs up - all three
+                            // are reserved for an AI-backed result.
+                            ovulationResultPanel(result, showStageDetail: false)
+                            resultSectionDivider
+                            localScanLunaNudge
+                        } else {
+                            ovulationResultPanel(result)
+                            resultSectionDivider
+                            ovulationInsight(result)
                         }
-                        if flow.testType == .ovulation, !flow.wasLocallyScanned,
+                        let readingSignals = resultSignals(result)
+                        if !readingSignals.isEmpty {
+                            CycleSignalsCard(title: "What may affect this reading", signals: readingSignals)
+                                .resultSectionFade(index: 1, revealedCount: revealedSectionCount)
+                        }
+                        resultSectionDivider
+                        ovulationCycleStats(result)
+                            .resultSectionFade(index: 1, revealedCount: revealedSectionCount)
+                        if !flow.wasLocallyScanned,
                            appState.settings?.proUnlocked == true || lineStrengthTrendScans.count >= 2 {
                             resultSectionDivider
                             lineStrengthTrendSection
@@ -132,10 +98,7 @@ struct ResultView: View {
                         resultActions
                             .resultSectionFade(index: 6, revealedCount: revealedSectionCount)
 #if DEBUG
-                        if let diagnostics = flow.localPregnancyDiagnostics {
-                            resultSectionDivider
-                            localModelDebugPanel(diagnostics)
-                        } else if let diagnostics = flow.localOvulationDiagnostics {
+                        if let diagnostics = flow.localOvulationDiagnostics {
                             resultSectionDivider
                             localOvulationDebugPanel(diagnostics)
                         }
@@ -170,11 +133,9 @@ struct ResultView: View {
         .overlay {
             if showSelfAssessmentLunaGate {
                 LunaCheckGateOverlay(
-                    title: flow.testType == .pregnancy ? "Your free Luna Check has been used" : "No Luna Checks left right now",
-                    message: flow.testType == .pregnancy
-                        ? "Watch an ad for one extra check this week, or unlock unlimited Luna Checks with Pro."
-                        : "Watch an ad for one more check, or upgrade for unlimited Luna Checks.",
-                    adButtonTitle: flow.testType == .pregnancy ? "Watch ad for this week's check" : "Watch ad for one more Luna Check",
+                    title: "No Luna Checks left right now",
+                    message: "Watch an ad for one more check, or upgrade for unlimited Luna Checks.",
+                    adButtonTitle: "Watch ad for one more Luna Check",
                     onWatchAd: { Task { await unlockLunaForSelfAssessment() } },
                     onUpgrade: {
                         showSelfAssessmentLunaGate = false
@@ -265,7 +226,7 @@ struct ResultView: View {
         }
         .sheet(isPresented: $showReminderEditor) {
             ReminderEditorView(
-                initialType: flow.testType == .pregnancy ? .pregnancyRetest : .ovulationTest,
+                initialType: .ovulationTest,
                 initialDate: reminderDate(),
                 initialTitle: reminderTitle()
             )
@@ -352,40 +313,6 @@ struct ResultView: View {
         }
     }
 
-    private func localModelDebugPanel(_ diagnostics: LocalPregnancyDiagnostics) -> some View {
-        DisclosureGroup {
-            VStack(alignment: .leading, spacing: 10) {
-                Text(diagnostics.report)
-                    .font(.system(.caption2, design: .monospaced))
-                    .foregroundStyle(Color.lineNavy.opacity(0.78))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                Button("Copy diagnostics") {
-                    UIPasteboard.general.string = diagnostics.report
-                    appState.toast = "Model diagnostics copied"
-                }
-                .buttonStyle(.secondaryLine)
-                if let analyzedImage = diagnostics.analyzedImage {
-                    Button("Save analyzed image to Photos") {
-                        UIImageWriteToSavedPhotosAlbum(analyzedImage, nil, nil, nil)
-                        appState.toast = "Saved the exact analyzed image to Photos"
-                    }
-                    .buttonStyle(.secondaryLine)
-                }
-            }
-            .padding(.top, 12)
-        } label: {
-            Label("Local Model Debug", systemImage: "ladybug.fill")
-                .font(.app(.headline))
-                .foregroundStyle(Color.lineNavy)
-        }
-        .padding(16)
-        .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 18))
-        .overlay {
-            RoundedRectangle(cornerRadius: 18)
-                .stroke(Color.orange.opacity(0.25))
-        }
-    }
 #endif
 
     /// Shown because the person told us they have PCOS: LH can sit high for
@@ -404,10 +331,9 @@ struct ResultView: View {
             metrics: healthMetrics,
             scans: Array(scans),
             profile: settings.healthProfile,
-            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive,
-            pregnancyState: settings.pregnancyJourneyState
+            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive
         )
-        let surface: CycleSignalSurface = flow.testType == .ovulation ? .ovulationResult : .pregnancyResult
+        let surface: CycleSignalSurface = .ovulationResult
         return CycleSignalsEngine.signals(for: surface, input)
             // PCOS only changes the reading of a High/Peak - on a Low it's noise.
             .filter { $0.id != "pcosLH" || [.high, .peak].contains(result.resultType) }
@@ -552,24 +478,6 @@ struct ResultView: View {
         .padding(.horizontal, 16)
     }
 
-    /// Not called at all for a local scan - see the `flow.wasLocallyScanned`
-    /// branch in `body`, which leaves the reliability warning and Luna CTA
-    /// already appended to `resultHero` as the only thing below the image.
-    private func pregnancyExplanationSections(_ result: LineAnalysisResult) -> some View {
-        Group {
-            if isSelfAssessedResult {
-                selfAssessmentExplanation(result)
-            } else {
-                VStack(spacing: 20) {
-                    readSummary(result)
-                    Divider()
-                        .overlay(Color.lineNavy.opacity(0.08))
-                    pregnancyEvidence(result)
-                }
-            }
-        }
-    }
-
     /// True only for a genuine self-report (the "Not the right result?"
     /// override) - a free local scan is still a real analysis, so it takes
     /// the normal explanation UI instead of the "you picked this, nothing
@@ -609,9 +517,6 @@ struct ResultView: View {
 
     private func selfAssessmentCopy(for resultType: ScanResultType) -> String {
         switch resultType {
-        case .appearsPositive: "You selected positive, indicating that you can see a test line. This choice is saved to your history for tracking."
-        case .appearsNegative: "You selected negative, indicating that you cannot see a test line. This choice is saved to your history for tracking."
-        case .faintLineDetected: "You selected faint line, indicating that you may be able to see a light test line. This choice is saved to your history for tracking."
         case .unclear: "You selected unclear because you could not confidently choose another result. You can retake the photo or repeat the test according to its instructions."
         case .low: "You selected low, indicating that the test line looks much lighter than the control line."
         case .rising: "You selected rising, indicating that the test line is becoming more visible but remains lighter than the control line."
@@ -619,40 +524,6 @@ struct ResultView: View {
         case .peak: "You selected peak, indicating that the test line looks as dark as or darker than the control line."
         default: "This is the result you selected and saved for your records."
         }
-    }
-
-    private func pregnancyEvidence(_ result: LineAnalysisResult) -> some View {
-        // An unclear or invalid classification must never visually endorse a
-        // speculative model control detection. The result itself is the
-        // authoritative contract for what we can show the user.
-        let controlIsConfirmed = result.controlLineDetected
-            && ![.unclear, .invalid].contains(result.resultType)
-        return VStack(alignment: .center, spacing: 10) {
-            HStack(spacing: 8) {
-                Image(systemName: "viewfinder")
-                    .font(.system(size: LineType.size(19), weight: .bold))
-                    .foregroundStyle(result.resultType.tint)
-                Text("Visible Line Check")
-                    .font(.app(.headline, weight: .bold))
-                    .foregroundStyle(Color.lineNavy)
-            }
-
-            HStack(alignment: .top, spacing: 16) {
-                lineEvidence(
-                    label: "Test",
-                    status: result.resultType.testLineLabel,
-                    detected: result.testLineDetected,
-                    tint: result.resultType.tint
-                )
-                lineEvidence(
-                    label: "Control",
-                    status: controlIsConfirmed ? "Detected" : "Not Clear",
-                    detected: controlIsConfirmed,
-                    tint: controlIsConfirmed ? result.resultType.tint : Color.lineNavy
-                )
-            }
-        }
-        .frame(maxWidth: .infinity)
     }
 
     private func lineEvidence(label: String, status: String, detected: Bool, tint: Color) -> some View {
@@ -704,53 +575,6 @@ struct ResultView: View {
             }
         }
         .frame(maxWidth: .infinity)
-    }
-
-    private var pregnancyTimeline: PregnancyTimeline? {
-        guard let settings = appState.settings else { return nil }
-        return PregnancyTimelineCalculator.timeline(
-            expectedPeriodDate: settings.expectedPeriodDate,
-            knownOvulationDate: settings.knownOvulationDate,
-            fertilityWindow: fertilityWindow
-        )
-    }
-
-    @ViewBuilder
-    private var pregnancyTiming: some View {
-        if let timeline = pregnancyTimeline {
-            VStack(alignment: .center, spacing: 12) {
-                HStack(spacing: 8) {
-                    Image(systemName: "clock")
-                        .font(.system(size: LineType.size(20), weight: .semibold))
-                        .foregroundStyle(Color.linePink)
-                    Text("Your Timing")
-                        .font(.app(.headline, weight: .bold))
-                        .foregroundStyle(Color.lineNavy)
-                }
-
-                HStack(spacing: 8) {
-                    resultMetric(
-                        title: "DPO",
-                        value: timeline.daysPastOvulation.map { "\(max(0, $0)) days" } ?? "Not set",
-                        symbol: "calendar",
-                        info: TerminologyInfo(
-                            title: "Days past ovulation (DPO)",
-                            message: "DPO means days past ovulation. It counts the estimated number of days since ovulation and helps put pregnancy-test timing into context. Ovulation dates are estimates unless you entered a known date."
-                        )
-                    )
-                    resultMetric(
-                        title: "Period due",
-                        value: DateFormatting.shortDate.string(from: timeline.expectedPeriodDate),
-                        symbol: "drop"
-                    )
-                    resultMetric(
-                        title: "Check again",
-                        value: "In 2–3 days",
-                        symbol: "arrow.clockwise"
-                    )
-                }
-            }
-        }
     }
 
     private func resultMetric(title: String, value: String, symbol: String, info: TerminologyInfo? = nil) -> some View {
@@ -872,7 +696,7 @@ struct ResultView: View {
     /// than "this whole trend is a positive/negative result" - the individual points still
     /// carry the actual per-scan result color.
     private var lineStrengthTrendLineColor: Color {
-        flow.testType == .pregnancy ? Color.linePink : Color.linePurple
+        Color.linePurple
     }
 
     private var lineStrengthTrendSection: some View {
@@ -1000,7 +824,7 @@ struct ResultView: View {
             }
 
             if appState.settings?.proUnlocked == true, lineStrengthTrendScans.count >= 2 {
-                Text("Tracks how strong the test line has looked across your last \(lineStrengthTrendScans.count) \(flow.testType == .pregnancy ? "pregnancy" : "ovulation") scans.")
+                Text("Tracks how strong the test line has looked across your last \(lineStrengthTrendScans.count) ovulation scans.")
                     .font(.app(.caption))
                     .foregroundStyle(.secondary)
             }
@@ -1029,33 +853,12 @@ struct ResultView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.orange.opacity(0.22)))
     }
 
-    private var freeLunaConversionCard: some View {
-        VStack(spacing: 10) {
-            Label("Luna checked this one for you", systemImage: "moon.fill")
-                .font(.app(.headline, weight: .bold))
-                .foregroundStyle(Color.linePink)
-            Text("Unlock unlimited Luna Checks, comparisons and line-strength trends with Pro.")
-                .font(.app(.subheadline))
-                .foregroundStyle(Color.lineNavy.opacity(0.70))
-                .multilineTextAlignment(.center)
-            Button("Unlock MenoPlan Pro") {
-                appState.paywallSource = "luna_checked_banner"
-                appState.showPremium = true
-            }
-            .buttonStyle(.primaryLine)
-        }
-        .frame(maxWidth: .infinity)
-        .padding(16)
-        .background(Color.linePinkSoft.opacity(0.72), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18).stroke(Color.linePink.opacity(0.18)))
-    }
-
     private var previousComparableScan: Scan? {
         guard let current = savedScan else { return nil }
         return scans.first {
             $0.id != current.id &&
             $0.testType == current.testType &&
-            (current.testType == .pregnancy || $0.cycleRecordID == nil || current.cycleRecordID == nil || $0.cycleRecordID == current.cycleRecordID) &&
+            ($0.cycleRecordID == nil || current.cycleRecordID == nil || $0.cycleRecordID == current.cycleRecordID) &&
             $0.createdAt < current.createdAt
         }
     }
@@ -1131,11 +934,6 @@ struct ResultView: View {
 
     private var retryLunaButtonTitle: String {
         guard let settings = appState.settings else { return "Watch ad for Luna Check" }
-        if flow.testType == .pregnancy {
-            return AICheckQuotaService().canUsePregnancyLuna(settings)
-                ? "Use Luna Check"
-                : "Watch ad for Luna Check"
-        }
         return AICheckQuotaService().canUseAI(settings)
             ? "Use Luna Check"
             : "Watch ad for Luna Check"
@@ -1146,18 +944,7 @@ struct ResultView: View {
         guard let settings = appState.settings else { return }
         let quota = AICheckQuotaService()
 
-        if flow.testType == .pregnancy {
-            if quota.canUsePregnancyLuna(settings) {
-                beginLunaAnalysisOfCurrentPhoto()
-            } else if quota.canClaimPregnancyRewardedCheck(settings) {
-                showSelfAssessmentLunaGate = true
-            } else {
-                AppAnalytics.log("linecheck_ai_quota_exhausted", ["test_type": flow.testType.rawValue])
-                appState.paywallSource = "luna_check_quota"
-                appState.showPremium = true
-                appState.toast = "This week's rewarded Luna Check has been used"
-            }
-        } else if quota.canUseAI(settings) {
+        if quota.canUseAI(settings) {
             beginLunaAnalysisOfCurrentPhoto()
         } else if quota.canClaimRewardedCheck(settings) {
             showSelfAssessmentLunaGate = true
@@ -1181,9 +968,7 @@ struct ResultView: View {
             return
         }
 
-        let added = flow.testType == .pregnancy
-            ? quota.addPregnancyRewardedCheck(settings)
-            : quota.addRewardedChecks(settings)
+        let added = quota.addRewardedChecks(settings)
         guard added else {
             appState.toast = "A rewarded Luna Check is not available right now"
             return
@@ -1207,33 +992,6 @@ struct ResultView: View {
     private func retryWithLuna() async {
         guard !isUnlockingRetry, let settings = appState.settings else { return }
         let quota = AICheckQuotaService()
-
-        if flow.testType == .pregnancy {
-            if quota.canUsePregnancyLuna(settings) {
-                beginRetry(mode: .aiQuickCheck)
-                return
-            }
-            guard quota.canClaimPregnancyRewardedCheck(settings) else {
-                AppAnalytics.log("linecheck_ai_quota_exhausted", ["test_type": flow.testType.rawValue])
-                appState.paywallSource = "luna_check_quota"
-                appState.showPremium = true
-                appState.toast = "This week's rewarded Luna Check has been used"
-                return
-            }
-            isUnlockingRetry = true
-            defer { isUnlockingRetry = false }
-            if await RewardedAdService().showRewardedAd(),
-               quota.addPregnancyRewardedCheck(settings) {
-                flow.suppressCompletionInterstitial = true
-                try? modelContext.save()
-                beginRetry(mode: .aiQuickCheck)
-            } else {
-                appState.toast = quota.canClaimPregnancyRewardedCheck(settings)
-                    ? "Rewarded ad unavailable"
-                    : "This week's rewarded Luna Check has been used"
-            }
-            return
-        }
 
         if quota.canUseAI(settings) {
             beginRetry(mode: .aiQuickCheck)
@@ -1272,10 +1030,6 @@ struct ResultView: View {
     }
 
     private func resultSubtitle(for result: LineAnalysisResult) -> String {
-        if flow.testType == .pregnancy,
-           result.explanation.localizedCaseInsensitiveContains("cross-style") {
-            return "Cross result detected"
-        }
         return result.resultType.referenceSubtitle(testType: flow.testType)
     }
 
@@ -1286,23 +1040,6 @@ struct ResultView: View {
                     .fill(index < Int(round(Double(result.certaintyPercentage) / 100.0 * 12.0)) ? result.resultType.resultTint(for: flow.testType) : Color.black.opacity(0.08))
                     .frame(height: 8)
             }
-        }
-    }
-
-    private func pregnancyLineReveal(tint: Color) -> some View {
-        ZStack(alignment: .leading) {
-            Capsule()
-                .fill(Color.white)
-                .frame(height: 58)
-                .overlay(Capsule().stroke(Color.black.opacity(0.06), lineWidth: 1))
-            HStack(spacing: 34) {
-                revealMark(tint: tint, delayOpacity: 0.72)
-                revealMark(tint: tint, delayOpacity: 1.0)
-                Spacer()
-            }
-            .padding(.leading, 48)
-            .opacity(revealLine ? 1 : 0)
-            .blur(radius: revealLine ? 0 : 6)
         }
     }
 
@@ -1818,7 +1555,7 @@ struct ResultView: View {
                     allDailyLogs: dailyLogs,
                     healthMetrics: healthMetrics,
                     scans: Array(scans),
-                    signalSurface: flow.testType == .ovulation ? .ovulationResult : .pregnancyResult
+                    signalSurface: .ovulationResult
                 ),
                 mode: "resultNarrative"
             )
@@ -1827,47 +1564,6 @@ struct ResultView: View {
             #if DEBUG
             print("Personalised result guidance failed: \(error.localizedDescription)")
             #endif
-        }
-    }
-
-    private func nextStepsSection(_ result: LineAnalysisResult) -> some View {
-        VStack(alignment: .center, spacing: 12) {
-            Text("Next Steps")
-                .font(.app(.headline, weight: .bold))
-                .foregroundStyle(result.resultType.tint)
-            VStack(spacing: 0) {
-                ForEach(nextSteps(for: result), id: \.title) { step in
-                    Button {
-                        handleNextStep(step.action)
-                    } label: {
-                        HStack(spacing: 14) {
-                            Image(systemName: step.icon)
-                                .font(.system(size: LineType.size(20), weight: .semibold))
-                                .foregroundStyle(result.resultType.tint)
-                                .frame(width: 28)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(step.title)
-                                    .font(.app(.subheadline, weight: .bold))
-                                    .foregroundStyle(Color.lineNavy)
-                                Text(step.subtitle)
-                                    .font(.app(.caption))
-                                    .foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                            Spacer()
-                            Image(systemName: "chevron.right")
-                                .font(.app(.caption, weight: .bold))
-                                .foregroundStyle(Color.lineNavy.opacity(0.45))
-                        }
-                        .padding(.horizontal, 14)
-                        .padding(.vertical, 12)
-                    }
-                    .buttonStyle(.plain)
-                    if step.title != nextSteps(for: result).last?.title {
-                        Divider().padding(.leading, 56)
-                    }
-                }
-            }
         }
     }
 
@@ -1925,45 +1621,6 @@ struct ResultView: View {
         .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.linePurple.opacity(0.14)))
     }
 
-    private func pregnancyActionCard(_ result: LineAnalysisResult) -> some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(pregnancyActionTitle(for: result.resultType), systemImage: "calendar.badge.clock")
-                .font(.app(.headline, weight: .bold))
-                .foregroundStyle(Color.lineNavy)
-            Text(pregnancyActionCopy(for: result.resultType))
-                .font(.app(.subheadline))
-                .lineSpacing(3)
-                .foregroundStyle(.secondary)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(14)
-        .background(Color.linePink.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.linePink.opacity(0.14)))
-    }
-
-    private func pregnancyActionTitle(for result: ScanResultType) -> String {
-        switch result {
-        case .appearsPositive: "Positive line pattern"
-        case .faintLineDetected: "Faint Line Found"
-        case .appearsNegative: "No second line detected"
-        case .unclear: "Result is not clear"
-        case .invalid: "Test may be invalid"
-        default: "Keep tracking"
-        }
-    }
-
-    private func pregnancyActionCopy(for result: ScanResultType) -> String {
-        switch result {
-        case .appearsPositive: "The image appears to show a control line and a visible test line. Save this result, compare future tests under similar lighting, and consider confirming with a healthcare professional."
-        case .faintLineDetected: "A faint possible second line is visible. Retesting in a few days with a similar test and similar lighting can make the line easier to compare. Follow your test instructions."
-        case .appearsNegative: "The image does not show a clear second line. If this was before or around the expected period, retesting in a few days or after a missed period may be clearer."
-        case .unclear: "A faint mark may be present, but this photo is not clear enough to tell. Check the test within its reading window and repeat with a new test in a few days."
-        case .invalid: "The control line was not clear. Repeat with a new test and follow the timing window in the test instructions."
-        default: "Keep saving tests under similar conditions so MenoPlan can show how the line changes over time."
-        }
-    }
-
     private func ovulationActionTitle(for result: ScanResultType) -> String {
         switch result {
         case .low: "Test line is still light"
@@ -1988,60 +1645,6 @@ struct ResultView: View {
         }
     }
 
-    private struct ResultNextStep {
-        var title: String
-        var subtitle: String
-        var icon: String
-        var action: ResultNextAction
-    }
-
-    private enum ResultNextAction {
-        case reminder
-        case history
-        case retest
-    }
-
-    private func nextSteps(for result: LineAnalysisResult) -> [ResultNextStep] {
-        switch result.resultType {
-        case .appearsPositive:
-            return [
-                ResultNextStep(title: "Retest in 2 days", subtitle: "See whether the line looks different", icon: "calendar.badge.clock", action: .reminder),
-                ResultNextStep(title: "Save for comparison", subtitle: "Keep this result in history", icon: "bookmark", action: .history),
-                ResultNextStep(title: "Follow test instructions", subtitle: "Confirm timing and result window", icon: "book", action: .retest)
-            ]
-        case .appearsNegative:
-            return [
-                ResultNextStep(title: "Retest if your period is late", subtitle: "Wait 2-3 days and test again", icon: "calendar.badge.clock", action: .reminder),
-                ResultNextStep(title: "Set a reminder", subtitle: "We can remind you to test again", icon: "bell", action: .reminder),
-                ResultNextStep(title: "Review history", subtitle: "Compare with recent scans", icon: "clock", action: .history)
-            ]
-        case .invalid:
-            return [
-                ResultNextStep(title: "Take a new test", subtitle: "Use a new test kit", icon: "arrow.clockwise", action: .retest),
-                ResultNextStep(title: "Follow the instructions", subtitle: "Check the steps and timing", icon: "drop", action: .retest),
-                ResultNextStep(title: "Retake a clear photo", subtitle: "Good lighting and a flat surface help", icon: "camera", action: .retest)
-            ]
-        default:
-            return [
-                ResultNextStep(title: "Test again later", subtitle: "A second scan can clarify this", icon: "arrow.clockwise", action: .retest),
-                ResultNextStep(title: "Set a reminder", subtitle: "We can remind you to check again", icon: "bell", action: .reminder),
-                ResultNextStep(title: "Save this result", subtitle: "Keep it for comparison", icon: "bookmark", action: .history)
-            ]
-        }
-    }
-
-    private func handleNextStep(_ action: ResultNextAction) {
-        switch action {
-        case .reminder:
-            showReminderEditor = true
-        case .history:
-            appState.selectedTab = .history
-            appState.activeFlow = nil
-        case .retest:
-            flow.resetForNewCapture(keepingStep: .guide)
-        }
-    }
-
     private func finishResultFlow() {
         persistResult(showToast: false, dismissAfterSave: false)
         queuePostScanPromptIfNeeded()
@@ -2059,9 +1662,9 @@ struct ResultView: View {
     private var lunaPromptText: String {
         let dateText = flow.effectiveTestDate.formatted(date: .abbreviated, time: .omitted)
         guard let result = flow.analysisResult else {
-            return "Can you help me understand my \(flow.testType == .pregnancy ? "pregnancy" : "ovulation") test from \(dateText)?"
+            return "Can you help me understand my ovulation test from \(dateText)?"
         }
-        return "About my \(flow.testType == .pregnancy ? "pregnancy" : "ovulation") test from \(dateText): the result was \"\(result.resultType.referenceTitle)\". Can you help me understand what this means?"
+        return "About my ovulation test from \(dateText): the result was \"\(result.resultType.referenceTitle)\". Can you help me understand what this means?"
     }
 
     private func queuePostScanPromptIfNeeded() {
@@ -2162,7 +1765,6 @@ struct ResultView: View {
                 if CycleTrackingService.applyPeakResult(from: scan, records: cycleRecords) != nil {
                     appState.toast = "Peak saved — ovulation estimate updated"
                 }
-                _ = CycleTrackingService.applyPregnancyResult(from: scan, records: cycleRecords, settings: appState.settings)
                 modelContext.insert(scan)
                 AppAnalytics.log("linecheck_scan_completed", [
                     "test_type": flow.testType.rawValue,
@@ -2196,7 +1798,7 @@ struct ResultView: View {
     }
 
     private func completeMatchingReminder(for scan: Scan) {
-        let expectedTypes: Set<ReminderType> = scan.testType == .pregnancy ? [.pregnancyRetest] : [.ovulationTest, .ovulationFollowUp]
+        let expectedTypes: Set<ReminderType> = [.ovulationTest, .ovulationFollowUp]
         let lowerBound = Calendar.current.date(byAdding: .day, value: -3, to: scan.createdAt) ?? .distantPast
         let upperBound = Calendar.current.date(byAdding: .hour, value: 12, to: scan.createdAt) ?? scan.createdAt
         guard let reminder = reminders.filter({
@@ -2262,14 +1864,6 @@ struct ResultView: View {
     }
 
     private func reminderTitle() -> String {
-        guard flow.testType == .ovulation else {
-            return switch flow.analysisResult?.resultType {
-            case .invalid: "Repeat pregnancy test"
-            case .faintLineDetected: "Compare the faint line later"
-            case .appearsPositive: "Compare pregnancy-test lines"
-            default: "Pregnancy retest"
-            }
-        }
         return switch flow.analysisResult?.resultType {
         case .rising, .high: "Repeat ovulation test"
         case .peak: "Check after strongest ovulation result"
@@ -2326,10 +1920,7 @@ struct ResultView: View {
                 userStatedOpinion: userOpinion
             )
             guard AICheckQuotaService().consumeAI(settings) else { return }
-            var reconciled = response.lineAnalysisResult
-            if flow.testType == .pregnancy {
-                reconciled = AIResultReconciler.tightenPregnancyPositive(reconciled)
-            }
+            let reconciled = response.lineAnalysisResult
             applyRecheckResult(reconciled, userOpinion: userOpinion)
             showLookAgainOpinionPicker = false
             appState.toast = "Luna took another look"
@@ -2394,7 +1985,6 @@ struct ResultView: View {
         scan.lineStrength = updated.lineStrength
 
         CycleTrackingService.reconcileOvulationEstimates(records: cycleRecords, scans: scans)
-        _ = CycleTrackingService.applyPregnancyResult(from: scan, records: cycleRecords, settings: appState.settings)
         _ = CycleTrackingService.applyPeakResult(from: scan, records: cycleRecords)
         try? modelContext.save()
         if scan.testType == .ovulation,
@@ -2507,9 +2097,7 @@ private struct LookAgainOpinionOverlay: View {
     var onCancel: () -> Void
 
     private var options: [(value: String, title: String)] {
-        testType == .pregnancy
-            ? [("appearsPositive", "Positive"), ("faintLineDetected", "Faint Line"), ("appearsNegative", "Negative"), ("notSure", "Not Sure")]
-            : [("peak", "Peak"), ("high", "High"), ("rising", "Rising"), ("low", "Low"), ("notSure", "Not sure")]
+        [("peak", "Peak"), ("high", "High"), ("rising", "Rising"), ("low", "Low"), ("notSure", "Not sure")]
     }
 
     var body: some View {
@@ -2554,9 +2142,7 @@ private struct ResultOverrideOverlay: View {
     @FocusState private var isRatioFieldFocused: Bool
 
     private var options: [ScanResultType] {
-        testType == .pregnancy
-            ? [.appearsPositive, .faintLineDetected, .appearsNegative, .unclear, .invalid]
-            : [.peak, .high, .rising, .low, .unclear, .invalid]
+        [.peak, .high, .rising, .low, .unclear, .invalid]
     }
 
     /// Only categories with a real line have a ratio worth fine-tuning -
@@ -2889,9 +2475,6 @@ private extension ScanResultType {
 
     var referenceTitle: String {
         switch self {
-        case .appearsPositive: "Positive"
-        case .appearsNegative: "Negative"
-        case .faintLineDetected: "Faint Line"
         case .invalid: "Invalid"
         case .low: "Low"
         case .rising: "Rising"
@@ -2904,23 +2487,19 @@ private extension ScanResultType {
 
     func referenceSubtitle(testType: TestType) -> String {
         switch self {
-        case .appearsPositive: "Pregnancy line detected"
-        case .appearsNegative: "No pregnancy line detected"
-        case .faintLineDetected: "Possible pregnancy line"
         case .invalid: "Result can’t be read"
         case .low: "LH appears low"
         case .rising: "LH may be rising"
         case .high: "LH appears high"
         case .peak: "LH surge likely"
-        case .unclear: testType == .pregnancy ? "Possible faint mark" : "Lines can’t be compared"
-        case .manualSaved: testType == .pregnancy ? "Pregnancy check saved" : "Ovulation check saved"
+        case .unclear: "Lines can’t be compared"
+        case .manualSaved: "Ovulation check saved"
         }
     }
 
     var meaningIcon: String {
         switch self {
-        case .appearsPositive, .faintLineDetected: "heart"
-        case .appearsNegative, .low: "info.circle"
+        case .low: "info.circle"
         case .invalid: "exclamationmark.circle"
         case .rising, .high, .peak: "waveform.path.ecg"
         case .unclear: "questionmark.circle"
@@ -2930,9 +2509,9 @@ private extension ScanResultType {
 
     var testLineLabel: String {
         switch self {
-        case .appearsPositive, .faintLineDetected, .rising, .high, .peak:
+        case .rising, .high, .peak:
             "Line detected"
-        case .appearsNegative, .low:
+        case .low:
             "No strong line"
         case .invalid:
             "Control missing"

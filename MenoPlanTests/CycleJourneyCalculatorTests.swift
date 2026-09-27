@@ -45,26 +45,6 @@ final class CycleJourneyCalculatorTests: XCTestCase {
         XCTAssertEqual(try widened(try day(9, 30)).stage, .waitingToTest)
     }
 
-    func testCountdownWalksThroughEveryStage() throws {
-        let w = try window(on: try day(9, 2))
-        XCTAssertTrue(calendar.isDate(w.predictedOvulationDate, inSameDayAs: try day(9, 14)))
-        XCTAssertTrue(calendar.isDate(w.nextPeriodDate, inSameDayAs: try day(9, 29)))
-
-        XCTAssertEqual(try countdown(9, 2).stage, .beforeOvulationTesting)
-        XCTAssertEqual(try countdown(9, 2).suggestedTest, .ovulation)
-        XCTAssertEqual(try countdown(9, 14).stage, .ovulationDay)
-        XCTAssertEqual(try countdown(9, 14).headline, "Today")
-
-        let waiting = try countdown(9, 18)
-        XCTAssertEqual(waiting.stage, .waitingToTest)
-        XCTAssertEqual(waiting.value, 7, "Early test is 4 days before the Sep 29 period, i.e. Sep 25")
-        XCTAssertEqual(waiting.suggestedTest, .pregnancy)
-        XCTAssertTrue(waiting.footnote.contains("11 days"))
-
-        XCTAssertEqual(try countdown(9, 26).stage, .earlyTesting)
-        XCTAssertEqual(try countdown(9, 29).stage, .periodDue)
-    }
-
     func testFertileStageCountsDownToOvulation() throws {
         let w = try window(on: try day(9, 12))
         XCTAssertTrue(w.containsFertileDay(try day(9, 12), calendar: calendar))
@@ -74,47 +54,6 @@ final class CycleJourneyCalculatorTests: XCTestCase {
         XCTAssertEqual(fertile.unit, "Days")
     }
 
-    func testConceptionTimelineDates() throws {
-        let today = try day(9, 20)
-        let timeline = CycleJourneyCalculator.conceptionTimeline(window: try window(on: today), cycle: nil, calendar: calendar)
-        XCTAssertTrue(calendar.isDate(timeline.implantationStart, inSameDayAs: try day(9, 20)))
-        XCTAssertTrue(calendar.isDate(timeline.implantationEnd, inSameDayAs: try day(9, 24)))
-        XCTAssertTrue(calendar.isDate(timeline.earliestTestDate, inSameDayAs: try day(9, 25)))
-        XCTAssertTrue(calendar.isDate(timeline.reliableTestDate, inSameDayAs: try day(9, 29)))
-        // Naegele: 280 days after the Sep 1 LMP for a 28-day cycle.
-        XCTAssertTrue(calendar.isDate(timeline.dueDate, inSameDayAs: try day(6, 8, year: 2027)))
-        XCTAssertEqual(timeline.cycleLength, 28)
-        XCTAssertFalse(timeline.ovulationIsConfirmed)
-    }
-
-    // CycleRecord normalises with Calendar.current, so these use it too.
-    func testPregnancyProgressFromLMPAndRecordedOvulation() throws {
-        let calendar = Calendar.current
-        func day(_ month: Int, _ day: Int, year: Int = 2026) throws -> Date { try XCTUnwrap(calendar.date(from: DateComponents(year: year, month: month, day: day))) }
-        let cycle = CycleRecord(startDate: try day(9, 1), averageCycleLengthAtStart: 28, lutealPhaseLengthAtStart: 14)
-        let progress = CycleJourneyCalculator.pregnancyProgress(on: try day(10, 17), cycle: cycle, calendar: calendar)
-        XCTAssertEqual(progress.gestationalDays, 46)
-        XCTAssertEqual(progress.weeks, 6)
-        XCTAssertEqual(progress.days, 4)
-        XCTAssertEqual(progress.trimester, 1)
-        XCTAssertEqual(progress.ageLabel, "6 weeks, 4 days")
-
-        // A later recorded ovulation moves dating (and the due date) later.
-        cycle.confirmedOvulationDate = try day(9, 19)
-        cycle.ovulationSource = .userConfirmed
-        let adjusted = CycleJourneyCalculator.pregnancyProgress(on: try day(10, 17), cycle: cycle, calendar: calendar)
-        XCTAssertEqual(adjusted.gestationalDays, 42)
-        XCTAssertTrue(calendar.isDate(adjusted.dueDate, inSameDayAs: try day(6, 12, year: 2027)))
-    }
-
-    func testLongCycleShiftsDueDate() throws {
-        let calendar = Calendar.current
-        func day(_ month: Int, _ day: Int, year: Int = 2026) throws -> Date { try XCTUnwrap(calendar.date(from: DateComponents(year: year, month: month, day: day))) }
-        let cycle = CycleRecord(startDate: try day(9, 1), averageCycleLengthAtStart: 35, lutealPhaseLengthAtStart: 14)
-        let progress = CycleJourneyCalculator.pregnancyProgress(on: try day(9, 1), cycle: cycle, calendar: calendar)
-        // A 35-day cycle pushes the due date a week later than a 28-day one.
-        XCTAssertTrue(calendar.isDate(progress.dueDate, inSameDayAs: try day(6, 15, year: 2027)))
-    }
 }
 
 final class CalendarProjectionTests: XCTestCase {
@@ -296,11 +235,11 @@ final class PeriodBulkEditPlanTests: XCTestCase {
         XCTAssertEqual(CycleJourneyCalculator.reacting(base, to: []), base)
     }
 
-    func testSustainedHighTemperatureStrengthensLateTestAdvice() throws {
+    func testSustainedHighTemperatureNotesTheLateCycle() throws {
         let late = try reactionCountdown(10, 2)
         let reacted = CycleJourneyCalculator.reacting(late, to: [signal("sustainedHighTemperature", tone: .attention, title: "Temperatures high for 19 days")])
         XCTAssertEqual(reacted.headline, late.headline)
-        XCTAssertEqual(reacted.footnote, "Temperatures high for 19 days. A pregnancy test now gives a clear answer")
+        XCTAssertEqual(reacted.footnote, "Temperatures high for 19 days")
     }
 
     func testEarlyFertileMucusStartsTestingToday() throws {
@@ -320,13 +259,6 @@ final class PeriodBulkEditPlanTests: XCTestCase {
         XCTAssertEqual(reacted.headline, "Still Early")
         XCTAssertNil(reacted.value)
         XCTAssertEqual(CycleJourneyCalculator.reacting(waiting, to: [signal("noTemperatureShiftYet")]).headline, "Still Early")
-    }
-
-    func testLateMucusWarnsAnEarlyTestMayBeTooSoon() throws {
-        let early = try reactionCountdown(9, 26)
-        XCTAssertEqual(early.stage, .earlyTesting)
-        let reacted = CycleJourneyCalculator.reacting(early, to: [signal("fertileMucus", title: "Fertile mucus later than expected")])
-        XCTAssertTrue(reacted.footnote.contains("an early pregnancy test may be too soon"))
     }
 
     func testContraceptionOverridesEverythingElse() throws {

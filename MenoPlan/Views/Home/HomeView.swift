@@ -27,16 +27,9 @@ struct HomeView: View {
     @AppStorage("homePeriodCheckInSnoozedCycleID") private var checkInSnoozedCycleID = ""
     @AppStorage("homePeriodCheckInDismissedUntilNextDay") private var checkInSnoozedUntil = 0.0
     @State private var logRequest: HomeLogRequest?
-    @State private var storyLaunch: HomeStoryLaunch?
     @State private var showPersonalization = false
-    @State private var showPregnancyDetails = false
-    @State private var showPregnancyReveal = false
     @State private var showBodySignals = false
     @State private var showHealthPrompt = false
-    /// "<cycle start epoch>|story,story" - which insight cards have been
-    /// opened this cycle, so unseen ones keep their highlight ring.
-    @AppStorage("homeStoriesSeen") private var storiesSeenRaw = ""
-    @AppStorage("homePregnancyPromptSnoozedUntil") private var pregnancyPromptSnoozedUntil = 0.0
 
     var body: some View {
         NavigationStack {
@@ -44,9 +37,7 @@ struct HomeView: View {
                 VStack(alignment: .leading, spacing: 14) {
                     journeyOverview
                     homeNudges
-                    if activeCycle?.pregnancyState != .confirmedPregnant {
-                        scanTiles
-                    }
+                    scanTiles
                     todayPanel
                     quickLinks
                     recentScansPanel
@@ -138,47 +129,9 @@ struct HomeView: View {
                 DailyFertilityLogEditor(date: request.date, existing: log(for: request.date), initialSection: request.section)
                     .presentationDetents([.large])
             }
-            .fullScreenCover(item: $storyLaunch) { launch in
-                if let timeline = conceptionTimeline {
-                    CycleStoryViewer(
-                        timeline: timeline,
-                        stories: stories(for: timeline),
-                        index: min(launch.index, stories(for: timeline).count - 1),
-                        onSeen: markStorySeen,
-                        onAction: handleStoryAction
-                    )
-                }
-            }
             .sheet(isPresented: $showPersonalization) {
                 if let settings {
                     PersonalizationQuizSheet(settings: settings)
-                }
-            }
-            .sheet(isPresented: $showPregnancyDetails) {
-                if let pregnancyProgress {
-                    PregnancyDetailSheet(
-                        progress: pregnancyProgress,
-                        completedMilestones: activeCycle?.completedMilestones ?? [],
-                        onPregnancyEnded: { changePregnancyMode(PregnancyModeService.markPregnancyEnded) },
-                        onNotPregnant: { changePregnancyMode(PregnancyModeService.returnToCycleTracking) },
-                        onSetDueDate: { date in
-                            changePregnancyMode { cycle, settings, context in
-                                await PregnancyModeService.setManualDueDate(date, cycle: cycle, settings: settings, context: context)
-                            }
-                        },
-                        onResetDueDate: { changePregnancyMode(PregnancyModeService.clearManualDueDate) },
-                        onToggleMilestone: { title in
-                            activeCycle?.toggleMilestone(title)
-                            try? modelContext.save()
-                        }
-                    )
-                }
-            }
-            .fullScreenCover(isPresented: $showPregnancyReveal) {
-                if let pregnancyProgress {
-                    PregnancyRevealView(progress: pregnancyProgress, name: settings?.userName ?? "") {
-                        showPregnancyReveal = false
-                    }
                 }
             }
             .sheet(isPresented: $showPeriodStartCheckIn) {
@@ -393,18 +346,6 @@ struct HomeView: View {
             )
         }
 
-        if activeCycle?.pregnancyState == .confirmedPregnant {
-            return CyclePlan(
-                title: "Pregnancy confirmed",
-                detail: "Cycle predictions are paused while your saved results stay available in History.",
-                nextStep: "Use History to keep your results together",
-                uncertainty: "This is an organisational summary, not medical advice.",
-                icon: "heart.fill",
-                tint: .linePink,
-                evidence: evidence
-            )
-        }
-
         if window.isPastExpectedPeriod(on: today) {
             return CyclePlan(
                 title: "Cycle longer than estimated",
@@ -508,78 +449,45 @@ struct HomeView: View {
                 periodCheckInCard
             }
 
-            if let cycle = activeCycle, cycle.pregnancyState == .confirmedPregnant, let pregnancyProgress {
-                PregnancyWeekStrip(currentWeek: pregnancyProgress.weeks)
-                    .padding(.top, 2)
-                PregnancyHomeHero(progress: pregnancyProgress) { showPregnancyDetails = true }
-                    .padding(.top, 4)
-                    .transition(.asymmetric(insertion: .scale(scale: 0.9).combined(with: .opacity), removal: .opacity))
-                    .id(cycle.id)
-            } else if let window = fertilityWindow {
-                if activeCycle?.pregnancyState == .ended {
-                        // Deliberately neutral, not celebratory or alarming -
-                        // this covers a pregnancy loss as well as any other
-                        // reason a cycle ended early. History stays intact;
-                        // nothing here implies the user must "reset" anything.
-                        VStack(spacing: 8) {
-                            Text("This cycle has ended")
-                                .font(.app(size: LineType.size(18), weight: .bold))
-                                .foregroundStyle(Color.lineNavy)
-                            Text("Your saved tests and history are kept as they are. Predictions and reminders for this cycle are paused.")
-                                .font(.app(.caption, weight: .medium))
-                                .foregroundStyle(Color.lineNavy.opacity(0.62))
-                                .multilineTextAlignment(.center)
-                            Button("Start tracking a new cycle") {
-                                appState.selectedTab = .calendar
-                            }
-                            .font(.app(.caption, weight: .bold))
-                            .foregroundStyle(Color.lineBlue)
-                        }
-                        .frame(maxWidth: .infinity)
-                } else {
-                    HomeWeekStrip(
-                        window: window,
-                        cycleRecords: cycleRecords,
-                        periodEvents: periodEvents,
-                        loggedDays: loggedDays
-                    ) { day in
-                        logRequest = HomeLogRequest(date: day, section: nil)
-                    }
-                    .padding(.top, 2)
-
-                    let tryingToConceive = settings?.ovulationTrackingGoal != .trackingCycle
-                    let countdown = CycleJourneyCalculator.reacting(
-                        CycleJourneyCalculator.countdown(window: window, tryingToConceive: tryingToConceive),
-                        to: settings.map { CycleSignalsEngine.signals(signalInputs(settings: $0)) } ?? [],
-                        tryingToConceive: tryingToConceive
-                    )
-                    HomeCountdownHero(
-                        countdown: countdown,
-                        numberColor: HomePhaseStyle.forDay(.now, window: window, cycleRecords: cycleRecords, periodEvents: periodEvents).accent,
-                        uncertaintyNote: uncertaintyNote(for: window),
-                        onWhy: { showPredictionWhy = true }
-                    ) {
-                        Button {
-                            appState.selectedTab = .calendar
-                        } label: {
-                            HomeFertilityCurve(window: window)
-                                // The curve is mostly transparent, so without
-                                // this only the drawn strokes would take a tap.
-                                .contentShape(Rectangle())
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityHint("Opens the calendar")
-                    }
-                    .overlay(alignment: .topTrailing) { bodySignalsButton }
-
-                    HomeQuickActionsRow(actions: quickActions(for: countdown))
-                        .padding(.bottom, 4)
-
-                    if showsPregnancyConfirmPrompt {
-                        pregnancyConfirmCard
-                            .transition(.move(edge: .top).combined(with: .opacity))
-                    }
+            if let window = fertilityWindow {
+                HomeWeekStrip(
+                    window: window,
+                    cycleRecords: cycleRecords,
+                    periodEvents: periodEvents,
+                    loggedDays: loggedDays
+                ) { day in
+                    logRequest = HomeLogRequest(date: day, section: nil)
                 }
+                .padding(.top, 2)
+
+                let tryingToConceive = settings?.ovulationTrackingGoal != .trackingCycle
+                let countdown = CycleJourneyCalculator.reacting(
+                    CycleJourneyCalculator.countdown(window: window, tryingToConceive: tryingToConceive),
+                    to: settings.map { CycleSignalsEngine.signals(signalInputs(settings: $0)) } ?? [],
+                    tryingToConceive: tryingToConceive
+                )
+                HomeCountdownHero(
+                    countdown: countdown,
+                    numberColor: HomePhaseStyle.forDay(.now, window: window, cycleRecords: cycleRecords, periodEvents: periodEvents).accent,
+                    uncertaintyNote: uncertaintyNote(for: window),
+                    onWhy: { showPredictionWhy = true }
+                ) {
+                    Button {
+                        appState.selectedTab = .calendar
+                    } label: {
+                        HomeFertilityCurve(window: window)
+                            // The curve is mostly transparent, so without
+                            // this only the drawn strokes would take a tap.
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityHint("Opens the calendar")
+                }
+                .overlay(alignment: .topTrailing) { bodySignalsButton }
+
+                HomeQuickActionsRow(actions: quickActions(for: countdown))
+                    .padding(.bottom, 4)
+
             } else {
                     Button {
                         appState.calendarSetupRequest = .ovulation
@@ -602,61 +510,9 @@ struct HomeView: View {
             }
         }
         .padding(.vertical, 4)
-        .animation(.spring(response: 0.5, dampingFraction: 0.86), value: activeCycle?.pregnancyState)
-        .animation(.spring(response: 0.4, dampingFraction: 0.86), value: showsPregnancyConfirmPrompt)
     }
 
     // MARK: - Journey helpers
-
-    private var pregnancyProgress: PregnancyProgress? {
-        guard let cycle = activeCycle, cycle.pregnancyState == .confirmedPregnant else { return nil }
-        return CycleJourneyCalculator.pregnancyProgress(
-            cycle: cycle,
-            fallbackCycleLength: settings?.averageCycleLength ?? 28,
-            fallbackLutealLength: settings?.lutealPhaseLength ?? 14
-        )
-    }
-
-    /// Only while a cycle is being tracked - not once pregnant or ended.
-    private var conceptionTimeline: ConceptionTimeline? {
-        guard let window = fertilityWindow else { return nil }
-        if let state = activeCycle?.pregnancyState, state == .confirmedPregnant || state == .ended { return nil }
-        return CycleJourneyCalculator.conceptionTimeline(window: window, cycle: activeCycle)
-    }
-
-    private func stories(for timeline: ConceptionTimeline) -> [CycleStory] {
-        guard settings?.ovulationTrackingGoal != .trackingCycle else { return [.cycleDay, .hormones] }
-        return CycleStory.stories(for: timeline, tryingToConceive: true)
-    }
-
-    private var storiesSeenKey: String {
-        conceptionTimeline.map { String(Int($0.cycleStart.timeIntervalSince1970)) } ?? ""
-    }
-
-    private var seenStories: Set<String> {
-        let parts = storiesSeenRaw.split(separator: "|", maxSplits: 1).map(String.init)
-        guard parts.count == 2, parts[0] == storiesSeenKey else { return [] }
-        return Set(parts[1].split(separator: ",").map(String.init))
-    }
-
-    private func markStorySeen(_ story: CycleStory) {
-        var seen = seenStories
-        guard seen.insert(story.rawValue).inserted else { return }
-        storiesSeenRaw = storiesSeenKey + "|" + seen.sorted().joined(separator: ",")
-    }
-
-    private func handleStoryAction(_ action: CycleStoryAction) {
-        switch action {
-        case .remindToTest(let date):
-            let morning = Calendar.current.date(bySettingHour: 8, minute: 0, second: 0, of: date) ?? date
-            // Let the story cover finish dismissing before the sheet rises.
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                reminderDraft = HomeReminderDraft(type: .pregnancyRetest, date: max(morning, .now), title: "Take a pregnancy test")
-            }
-        case .scanPregnancyTest:
-            appState.startScan(testType: .pregnancy)
-        }
-    }
 
     private var loggedDays: Set<Date> {
         let calendar = Calendar.current
@@ -684,48 +540,10 @@ struct HomeView: View {
             HomeQuickAction(id: "symptoms", title: "Symptoms", symbol: "plus", tint: .linePurple) {
                 logRequest = HomeLogRequest(date: today, section: .symptoms)
             },
-            HomeQuickAction(id: "pregnancy", title: "Pregnancy", symbol: "camera.viewfinder", tint: TestType.pregnancy.tint) {
-                appState.startScan(testType: .pregnancy)
-            },
             HomeQuickAction(id: "ovulation", title: "Ovulation", symbol: "camera.viewfinder", tint: TestType.ovulation.tint) {
                 appState.startScan(testType: .ovulation)
             }
         ]
-    }
-
-    // MARK: - Pregnancy mode
-
-    private var showsPregnancyConfirmPrompt: Bool {
-        FeatureFlags.pregnancyModeEnabled
-            && activeCycle?.pregnancyState == .possiblePositive
-            && Date.now.timeIntervalSince1970 >= pregnancyPromptSnoozedUntil
-    }
-
-    private var pregnancyConfirmCard: some View {
-        HomeNudgeCard(
-            symbol: "heart.circle.fill",
-            tint: .linePink,
-            title: "You saved a positive test",
-            message: "Switch to pregnancy mode to see how far along you are and your estimated due date. You can switch back any time."
-        ) {
-            HStack(spacing: 10) {
-                Button("Not yet") {
-                    let tomorrow = Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: .now)) ?? .now
-                    withAnimation { pregnancyPromptSnoozedUntil = tomorrow.timeIntervalSince1970 }
-                }
-                .buttonStyle(.secondaryLine)
-                Button("I’m pregnant") { confirmPregnancy() }
-                    .buttonStyle(.primaryLine)
-            }
-        }
-    }
-
-    private func confirmPregnancy() {
-        guard let cycle = activeCycle, let settings else { return }
-        Task {
-            await PregnancyModeService.confirmPregnancy(cycle: cycle, settings: settings, context: modelContext)
-            showPregnancyReveal = true
-        }
     }
 
     // MARK: - Setup checklist (for people who skipped onboarding)
@@ -855,8 +673,7 @@ struct HomeView: View {
             metrics: healthMetrics,
             scans: Array(scans),
             profile: settings.healthProfile,
-            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive,
-            pregnancyState: settings.pregnancyJourneyState
+            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive
         )
     }
 
@@ -918,18 +735,12 @@ struct HomeView: View {
         .accessibilityValue(signals.isEmpty ? "Nothing new" : "\(signals.count) new observations")
     }
 
-    private func changePregnancyMode(_ change: @escaping @MainActor (CycleRecord, UserSettings, ModelContext) async -> Void) {
-        guard let cycle = activeCycle, let settings else { return }
-        Task { await change(cycle, settings, modelContext) }
-    }
-
     // MARK: - Nudges
 
     @ViewBuilder
     private var homeNudges: some View {
         if let settings {
-            let isPregnant = activeCycle?.pregnancyState == .confirmedPregnant
-            if !isPregnant, settings.healthProfile.shouldSuggestDoctor(), !settings.dismissedDoctorSuggestion {
+            if settings.healthProfile.shouldSuggestDoctor(), !settings.dismissedDoctorSuggestion {
                 HomeNudgeCard(
                     symbol: "stethoscope",
                     tint: .linePurple,
@@ -955,7 +766,7 @@ struct HomeView: View {
                 setupChecklist(settings)
                     .transition(.opacity.combined(with: .scale(scale: 0.97)))
             }
-            if settings.hasCompletedOnboarding, !settings.hasCompletedPersonalization, !settings.dismissedPersonalizationPrompt, !isPregnant, !showsSetupChecklist(settings) {
+            if settings.hasCompletedOnboarding, !settings.hasCompletedPersonalization, !settings.dismissedPersonalizationPrompt, !showsSetupChecklist(settings) {
                 HomeNudgeCard(
                     symbol: "person.crop.circle.badge.questionmark",
                     tint: .linePink,
@@ -1104,8 +915,8 @@ struct HomeView: View {
                 appState.showTrendsRequested = true
                 appState.selectedTab = .calendar
             }
-            homeLink("Progression", imageName: "HomeProgressionIcon", tint: .linePink, iconSize: CGSize(width: 40, height: 32), showsProBadge: settings?.proUnlocked != true) {
-                appState.historyRoute = .progression
+            homeLink("Compare", imageName: "HomeCompareIcon", tint: .linePink) {
+                appState.historyRoute = .compare
                 appState.selectedTab = .history
             }
             homeLink("Ask Luna", imageName: "HomeLunaIcon", tint: .linePurple) { appState.selectedTab = .assistant }
@@ -1154,15 +965,6 @@ struct HomeView: View {
 
     private var scanTiles: some View {
         VStack(spacing: 12) {
-            ScanHeroTile(
-                testType: .pregnancy,
-                title: "Pregnancy Test Check",
-                subtitle: "Check a home pregnancy test",
-                result: .faintLineDetected
-            ) {
-                appState.startScan(testType: .pregnancy)
-            }
-
             ScanHeroTile(
                 testType: .ovulation,
                 title: "Ovulation Test Check",
@@ -1328,8 +1130,7 @@ enum HomePeriodCheckInPolicy {
         snoozedUntil: TimeInterval,
         calendar: Calendar = .current
     ) -> Bool {
-        guard let window, let cycle, cycle.endDate == nil,
-              cycle.pregnancyState == .trying else { return false }
+        guard let window, let cycle, cycle.endDate == nil else { return false }
         let today = calendar.startOfDay(for: date)
         guard today >= calendar.startOfDay(for: window.nextPeriodDate) else { return false }
         let start = calendar.startOfDay(for: cycle.startDate)
@@ -1366,11 +1167,6 @@ private struct HomeLogRequest: Identifiable {
     let date: Date
     let section: DailyLogSection?
     var id: String { "\(date.timeIntervalSince1970)-\(section?.rawValue ?? "all")" }
-}
-
-private struct HomeStoryLaunch: Identifiable {
-    let index: Int
-    var id: Int { index }
 }
 
 private struct HomeReminderDraft: Identifiable {
@@ -1534,13 +1330,13 @@ private struct ScanTileTestImage: View {
     var viewportWidth: CGFloat? = nil
 
     private var assetName: String {
-        testType == .pregnancy ? "HomePregnancyTest" : "HomeOvulationTest"
+        "HomeOvulationTest"
     }
 
     private var artScale: CGFloat { layout.isRegular ? 1.45 : 1 }
 
-    private var imageWidth: CGFloat { (testType == .pregnancy ? 304 : 334) * artScale }
-    private var viewportHeight: CGFloat { (testType == .pregnancy ? 88 : 82) * artScale }
+    private var imageWidth: CGFloat { 334 * artScale }
+    private var viewportHeight: CGFloat { 82 * artScale }
 
     /// Shifts the artwork right inside its window, so the test enters from the
     /// left with its cap intact and only its far end is cropped — the phone's
@@ -1549,13 +1345,13 @@ private struct ScanTileTestImage: View {
     /// edge is what guarantees nothing is cut off that end, at any art scale.
     private var cropOffset: CGFloat {
         guard layout.isRegular, let viewportWidth else {
-            return testType == .pregnancy ? 92 : 124
+            return 124
         }
         return max(0, imageWidth - viewportWidth)
     }
 
     private var rotation: Double {
-        testType == .pregnancy ? -7 : -4
+        -4
     }
 
     var body: some View {

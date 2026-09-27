@@ -31,8 +31,6 @@ extension LineAnalysisResult {
         let testControlRatio: Double
         let lineStrength: Double
         switch resultType {
-        case .appearsPositive: (testLineDetected, testControlRatio, lineStrength) = (true, 0.6, 0.6)
-        case .faintLineDetected: (testLineDetected, testControlRatio, lineStrength) = (true, 0.25, 0.25)
         case .low: (testLineDetected, testControlRatio, lineStrength) = (true, 0.25, 0.22)
         case .rising: (testLineDetected, testControlRatio, lineStrength) = (true, 0.55, 0.42)
         case .high: (testLineDetected, testControlRatio, lineStrength) = (true, 0.85, 0.68)
@@ -57,8 +55,7 @@ extension LineAnalysisResult {
     /// fine-tune it rather than accept the category's typical value.
     static func defaultTestControlRatio(for resultType: ScanResultType) -> Double {
         switch resultType {
-        case .appearsPositive: 0.6
-        case .faintLineDetected, .low: 0.25
+        case .low: 0.25
         case .rising: 0.55
         case .high: 0.85
         case .peak: 1.05
@@ -91,20 +88,6 @@ final class LineAnalysisEngine {
             : rawQuality
         guard let cgImage = ImageHelpers.resized(image, maxDimension: 520).cgImage else {
             return unclear(quality: quality)
-        }
-        if testType == .pregnancy,
-           let colorImage = rgbImage(from: cgImage),
-           let grayscale = grayscaleImage(from: cgImage) {
-            if let anchored = controlAnchoredPregnancyResult(
-                color: colorImage,
-                grayscale: grayscale,
-                quality: quality
-            ) {
-                return anchored
-            }
-            if let colorResult = pregnancyColorLineResult(in: colorImage, quality: quality) {
-                return colorResult
-            }
         }
         if testType == .ovulation,
            let colorImage = rgbImage(from: cgImage) {
@@ -232,18 +215,6 @@ final class LineAnalysisEngine {
             )
         }
 
-        if testType == .pregnancy {
-            let result: ScanResultType = colouredTest
-                ? (ratio >= LineAnalysisConstants.pregnancyPositiveThreshold ? .appearsPositive : .faintLineDetected)
-                : .appearsNegative
-            return LineAnalysisResult(
-                resultType: result, confidencePercentage: certainty, certaintyPercentage: certainty,
-                controlLineDetected: true, testLineDetected: colouredTest,
-                testControlRatio: ratio, lineStrength: min(1, score(testIndex) / 8),
-                quality: quality, explanation: explanation(for: result, ratio: ratio)
-            )
-        }
-
         let result = ovulationResult(ratio: ratio, testDetected: colouredTest)
         return LineAnalysisResult(
             resultType: result, confidencePercentage: certainty, certaintyPercentage: certainty,
@@ -334,36 +305,9 @@ final class LineAnalysisEngine {
         if quality.status != .good && certainty < 58 {
             return LineAnalysisResult(resultType: .unclear, confidencePercentage: certainty, certaintyPercentage: certainty, controlLineDetected: true, testLineDetected: testDetected, testControlRatio: ratio, lineStrength: test, quality: quality, explanation: "This image may be hard to analyse. Try retaking it with even lighting.")
         }
-        if testType == .pregnancy,
-           !testDetected,
-           candidate.plausibleSpacing,
-           candidate.testSupport >= 2,
-           test > max(0.018, noise * 0.92),
-           ratio >= 0.09 {
-            certainty = min(58, certainty)
-            return LineAnalysisResult(
-                resultType: .unclear,
-                confidencePercentage: certainty,
-                certaintyPercentage: certainty,
-                controlLineDetected: true,
-                testLineDetected: false,
-                testControlRatio: ratio,
-                lineStrength: test,
-                quality: quality,
-                explanation: "A faint mark may be present, but it can’t be confirmed from this image. Check the test within its reading window and repeat with a new test in a few days, or when the test instructions recommend."
-            )
-        }
-        let pregnancyLineDetected = testDetected
         let ovulationLineDetected = testDetected || (test > max(noise * 1.08, 0.024) && ratio > 0.075)
-        let mapped = testType == .pregnancy
-            ? pregnancyResult(test: test, ratio: ratio, testDetected: pregnancyLineDetected)
-            : ovulationResult(ratio: ratio, testDetected: ovulationLineDetected)
-        if mapped == .faintLineDetected {
-            certainty = min(82, certainty)
-        } else if mapped == .appearsNegative {
-            certainty = min(88, certainty)
-        }
-        let reportedTestDetected = testType == .pregnancy ? pregnancyLineDetected : ovulationLineDetected
+        let mapped = ovulationResult(ratio: ratio, testDetected: ovulationLineDetected)
+        let reportedTestDetected = ovulationLineDetected
         let lineResult = LineAnalysisResult(
             resultType: mapped,
             confidencePercentage: certainty,
@@ -375,14 +319,6 @@ final class LineAnalysisEngine {
             quality: quality,
             explanation: explanation(for: mapped, ratio: ratio)
         )
-
-        if testType == .pregnancy,
-           let crossResult = crossPregnancyResult(in: grayscale, quality: quality) {
-            if mapped == .appearsPositive || mapped == .faintLineDetected {
-                return mergedPregnancyResult(lineResult: lineResult, crossResult: crossResult)
-            }
-            return crossResult
-        }
 
         return lineResult
     }
@@ -443,93 +379,6 @@ final class LineAnalysisEngine {
         }
 
         return primary.certaintyPercentage >= fallback.certaintyPercentage ? primary : fallback
-    }
-
-    /// Reconciles the faithful crop with the locally enhanced copy. Enhancement
-    /// can reveal a faint mark, but it can also amplify shadows and plastic
-    /// edges, so enhanced-only evidence is never promoted to a positive result.
-    func preferredPregnancyResult(primary: LineAnalysisResult, fallback: LineAnalysisResult) -> LineAnalysisResult {
-        let primaryPositive = primary.resultType == .appearsPositive || primary.resultType == .faintLineDetected
-        let fallbackPositive = fallback.resultType == .appearsPositive || fallback.resultType == .faintLineDetected
-
-        if primaryPositive && fallbackPositive {
-            let bothStrong = primary.resultType == .appearsPositive
-                && fallback.resultType == .appearsPositive
-                && min(primary.testControlRatio, fallback.testControlRatio) >= LineAnalysisConstants.pregnancyPositiveThreshold
-            let resultType: ScanResultType = bothStrong ? .appearsPositive : .faintLineDetected
-            let certainty = bothStrong
-                ? min(primary.certaintyPercentage, fallback.certaintyPercentage)
-                : min(82, max(58, min(primary.certaintyPercentage, fallback.certaintyPercentage)))
-            return LineAnalysisResult(
-                resultType: resultType,
-                confidencePercentage: certainty,
-                certaintyPercentage: certainty,
-                controlLineDetected: primary.controlLineDetected && fallback.controlLineDetected,
-                testLineDetected: true,
-                testControlRatio: min(2, (primary.testControlRatio + fallback.testControlRatio) / 2),
-                lineStrength: max(primary.lineStrength, fallback.lineStrength),
-                quality: primary.quality,
-                explanation: explanation(for: resultType, ratio: (primary.testControlRatio + fallback.testControlRatio) / 2)
-            )
-        }
-
-        if primaryPositive {
-            var result = primary
-            result.resultType = .faintLineDetected
-            result.confidencePercentage = min(72, result.confidencePercentage)
-            result.certaintyPercentage = min(72, result.certaintyPercentage)
-            result.explanation = "A possible faint test line is visible in the original photo, but the adjusted view does not agree. Check within the test’s reading window and consider repeating the test."
-            return result
-        }
-
-        if fallbackPositive {
-            return LineAnalysisResult(
-                resultType: .unclear,
-                confidencePercentage: 52,
-                certaintyPercentage: 52,
-                controlLineDetected: primary.controlLineDetected || fallback.controlLineDetected,
-                testLineDetected: false,
-                testControlRatio: fallback.testControlRatio,
-                lineStrength: fallback.lineStrength,
-                quality: primary.quality,
-                explanation: "A possible mark appears only after image adjustment, so this local check cannot confirm it. Review the original test and consider repeating with a new photo."
-            )
-        }
-
-        if primary.resultType == .appearsNegative,
-           fallback.resultType == .appearsNegative,
-           primary.controlLineDetected,
-           fallback.controlLineDetected {
-            var result = primary.certaintyPercentage >= fallback.certaintyPercentage ? primary : fallback
-            result.confidencePercentage = min(88, result.confidencePercentage)
-            result.certaintyPercentage = min(88, result.certaintyPercentage)
-            return result
-        }
-
-        if primary.controlLineDetected, primary.resultType != .invalid { return primary }
-        if fallback.controlLineDetected, fallback.resultType != .invalid { return fallback }
-        return primary.certaintyPercentage >= fallback.certaintyPercentage ? primary : fallback
-    }
-
-    private func mergedPregnancyResult(lineResult: LineAnalysisResult, crossResult: LineAnalysisResult) -> LineAnalysisResult {
-        LineAnalysisResult(
-            resultType: .appearsPositive,
-            confidencePercentage: max(lineResult.confidencePercentage, crossResult.confidencePercentage),
-            certaintyPercentage: max(lineResult.certaintyPercentage, crossResult.certaintyPercentage),
-            controlLineDetected: true,
-            testLineDetected: true,
-            testControlRatio: max(lineResult.testControlRatio, crossResult.testControlRatio),
-            lineStrength: max(lineResult.lineStrength, crossResult.lineStrength),
-            quality: lineResult.quality,
-            explanation: crossResult.explanation
-        )
-    }
-
-    func pregnancyResult(test: Double, ratio: Double, testDetected: Bool) -> ScanResultType {
-        guard testDetected else { return .appearsNegative }
-        if ratio >= LineAnalysisConstants.pregnancyPositiveThreshold { return .appearsPositive }
-        if ratio >= LineAnalysisConstants.pregnancyFaintThreshold || test > 0 { return .faintLineDetected }
-        return .appearsNegative
     }
 
     func ovulationResult(ratio: Double) -> ScanResultType {
@@ -619,26 +468,6 @@ final class LineAnalysisEngine {
         }
 
         return candidates.max { $0.score < $1.score }
-    }
-
-    private func crossPregnancyResult(in image: GrayscaleImage, quality: ImageQualityResult) -> LineAnalysisResult? {
-        guard let candidate = bestCrossCandidate(in: image), candidate.isPositive else { return nil }
-        let ratio = min(2.0, candidate.vertical / max(candidate.horizontal, 0.01))
-        let certainty = min(
-            LineAnalysisConstants.maxCertainty,
-            max(62, 58 + Int(candidate.score * 9) - (quality.status == .good ? 0 : 10))
-        )
-        return LineAnalysisResult(
-            resultType: .faintLineDetected,
-            confidencePercentage: certainty,
-            certaintyPercentage: certainty,
-            controlLineDetected: true,
-            testLineDetected: true,
-            testControlRatio: ratio,
-            lineStrength: max(candidate.vertical, candidate.horizontal),
-            quality: quality,
-            explanation: "A possible cross-style pregnancy mark is visible. Check the test instructions and consider testing again in a few days."
-        )
     }
 
     private func bestCrossCandidate(in image: GrayscaleImage) -> CrossCandidate? {
@@ -851,418 +680,6 @@ final class LineAnalysisEngine {
         )
     }
 
-    /// Pink and purple test lines can be lighter than shadows, outlines, or text on
-    /// a test body. The generic grayscale reader can therefore lock onto the wrong
-    /// pair of features with high confidence. Prefer a chroma-based two-line read
-    /// when a clearly colored pregnancy line pair is present, then retain the
-    /// grayscale reader as the fallback for blue-dye and monochrome tests.
-    private func pregnancyColorLineResult(in image: RGBImage, quality: ImageQualityResult) -> LineAnalysisResult? {
-        let axes: [ColorLineAxis] = [.verticalLines, .horizontalLines]
-        let crossRanges: [ClosedRange<Double>] = [0.24...0.76, 0.32...0.68, 0.38...0.62]
-        var bestPair: ColorLinePair?
-
-        for axis in axes {
-            let primaryCount = axis.primaryCount(in: image)
-            let crossCount = axis.crossCount(in: image)
-
-            for crossRange in crossRanges {
-                let crossStart = max(0, Int(crossRange.lowerBound * Double(crossCount)))
-                let crossEnd = min(crossCount, Int(crossRange.upperBound * Double(crossCount)))
-                guard crossEnd - crossStart > 12 else { continue }
-
-                let profile = (0..<primaryCount).map { primary -> Double in
-                    var sum = 0.0
-                    for cross in crossStart..<crossEnd {
-                        sum += axis.pregnancyLineSignal(in: image, primary: primary, cross: cross)
-                    }
-                    return sum / Double(crossEnd - crossStart)
-                }
-
-                guard let pair = strongestPregnancyColorPair(in: profile, axis: axis) else { continue }
-                if bestPair == nil || pair.score > bestPair!.score {
-                    bestPair = pair
-                }
-            }
-        }
-
-        guard let pair = bestPair else { return nil }
-        let ratio = min(2.0, pair.weaker / max(pair.stronger, 0.01))
-        let qualityPenalty = quality.status == .good ? 0 : 10
-        let certainty = min(
-            LineAnalysisConstants.maxCertainty,
-            max(64, 68 + Int(pair.score * 34) - qualityPenalty)
-        )
-
-        return LineAnalysisResult(
-            resultType: ratio >= LineAnalysisConstants.pregnancyPositiveThreshold ? .appearsPositive : .faintLineDetected,
-            confidencePercentage: certainty,
-            certaintyPercentage: certainty,
-            controlLineDetected: true,
-            testLineDetected: true,
-            testControlRatio: ratio,
-            lineStrength: pair.weaker,
-            quality: quality,
-            explanation: explanation(for: ratio >= LineAnalysisConstants.pregnancyPositiveThreshold ? .appearsPositive : .faintLineDetected, ratio: ratio)
-        )
-    }
-
-    /// Reads a guided pregnancy result window by finding the control line
-    /// first, then looking only at plausible test-line positions to its left.
-    /// The same ordering applies after rotating a horizontal result window:
-    /// "above control" becomes the lower primary coordinate.
-    private func controlAnchoredPregnancyResult(
-        color: RGBImage,
-        grayscale: GrayscaleImage,
-        quality: ImageQualityResult
-    ) -> LineAnalysisResult? {
-        // The guided result window is wider than it is tall for vertical
-        // lines, and taller than it is wide after a quarter-turn. Searching
-        // both axes lets a horizontal window edge masquerade as a control
-        // line on otherwise valid-looking invalid tests.
-        let axes: [(color: ColorLineAxis, gray: LineAxis)] = color.width >= color.height
-            ? [(.verticalLines, .verticalLines)]
-            : [(.horizontalLines, .horizontalLines)]
-        var best: AnchoredPregnancyEvidence?
-
-        for axesForDirection in axes {
-            let primaryCount = axesForDirection.color.primaryCount(in: color)
-            let crossCount = axesForDirection.color.crossCount(in: color)
-            guard primaryCount > 44, crossCount > 24 else { continue }
-            let crossStart = Int(Double(crossCount) * 0.24)
-            let crossEnd = Int(Double(crossCount) * 0.76)
-            // The margins outside crossStart/crossEnd are already excluded
-            // from line detection as presumed background/housing, not
-            // window - reuse them as an in-photo white-balance reference
-            // (2026-08-24, after researching how Premom's calibrated strips
-            // solve this problem with a printed reference patch this app
-            // has no equivalent of). Correcting toward what that housing
-            // "should" read as neutral before measuring dye colour is the
-            // same principle, without needing a manufactured reference.
-            let whiteBalance = estimateWhiteBalanceGains(
-                color: color,
-                axis: axesForDirection.color,
-                primaryCount: primaryCount,
-                crossCount: crossCount,
-                crossStart: crossStart,
-                crossEnd: crossEnd
-            )
-
-            let colorProfile = (0..<primaryCount).map { primary -> Double in
-                var sum = 0.0
-                for cross in crossStart..<crossEnd {
-                    sum += axesForDirection.color.pregnancyLineSignal(
-                        in: color,
-                        primary: primary,
-                        cross: cross,
-                        whiteBalance: whiteBalance
-                    )
-                }
-                return sum / Double(max(1, crossEnd - crossStart))
-            }
-            let grayProfile = (0..<primaryCount).map { primary -> Double in
-                var sum = 0.0
-                for cross in crossStart..<crossEnd {
-                    sum += 1.0 - axesForDirection.gray.luminance(
-                        in: grayscale,
-                        primary: primary,
-                        cross: cross
-                    )
-                }
-                return sum / Double(max(1, crossEnd - crossStart))
-            }
-
-            let colorContrast = localContrastProfile(colorProfile)
-            let grayContrast = localContrastProfile(grayProfile)
-            let colorNoise = max(0.0025, standardDeviation(colorContrast))
-            let grayNoise = max(0.012, standardDeviation(grayContrast))
-            let combined = zip(colorContrast, grayContrast).map { colorValue, grayValue in
-                colorValue / colorNoise + grayValue / grayNoise * 0.58
-            }
-
-            // Locate every plausible line position first, then decide roles
-            // by position (test is always left of control - confirmed fixed
-            // physical convention), not by picking "the strongest feature in
-            // a fixed window" and calling it control. That conflated
-            // strength with role: a strong, dark, recent test line can
-            // outscore a lighter control line and fall inside what used to
-            // be the fixed 48-82% "control" window, getting misread as
-            // control while the real (weaker) control line - possibly
-            // further right than a fixed cutoff allowed - was never
-            // considered at all. Confirmed on a real photo during
-            // calibration (2026-08-27): a strength-1.0 double-line positive
-            // read as Negative because the fixed window handed the reader
-            // its own test line as "control" and found nothing where it
-            // then searched for "test" to that line's left.
-            func lineSupport(at index: Int) -> (color: Double, gray: Double, support: Int) {
-                let supportCount = anchoredLineSupport(
-                    color: color,
-                    colorAxis: axesForDirection.color,
-                    primary: index,
-                    crossStart: crossStart,
-                    crossEnd: crossEnd,
-                    colorThreshold: max(0.0028, colorNoise * 0.72)
-                )
-                return (colorContrast[index], grayContrast[index], supportCount)
-            }
-            func passesControlThreshold(_ evidence: (color: Double, gray: Double, support: Int)) -> Bool {
-                evidence.support >= 2
-                    && (evidence.color > max(0.007, colorNoise * 1.25)
-                        || evidence.gray > max(0.027, grayNoise * 1.75))
-            }
-            func passesTestThreshold(_ evidence: (color: Double, gray: Double, support: Int)) -> Bool {
-                evidence.support >= 2 && evidence.color > max(0.0035, colorNoise * 0.82)
-            }
-
-            // Keep clear of the extreme edges, where window borders and
-            // printed-legend boundaries live.
-            let searchLower = max(1, Int(Double(primaryCount) * 0.04))
-            let searchUpper = min(primaryCount - 1, Int(Double(primaryCount) * 0.95))
-            guard searchUpper > searchLower + 2 else { continue }
-            var peakIndices: [Int] = []
-            for index in searchLower...searchUpper {
-                let value = combined[index]
-                guard value > 0 else { continue }
-                let previous = index > searchLower ? combined[index - 1] : -Double.infinity
-                let next = index < searchUpper ? combined[index + 1] : -Double.infinity
-                if value >= previous && value >= next {
-                    peakIndices.append(index)
-                }
-            }
-            peakIndices.sort { combined[$0] > combined[$1] }
-            let candidatePeaks = Array(peakIndices.prefix(10))
-
-            let minimumDistance = max(5, Int(Double(primaryCount) * 0.055))
-            let maximumDistance = max(minimumDistance + 1, Int(Double(primaryCount) * 0.46))
-            // The shared capture guide fixes C in the right half of the T/C
-            // box. Enforce that physical invariant so a red/blue mark on the
-            // test side, printed text, or a window edge cannot validate the
-            // control merely because it is the strongest local peak.
-            let controlLowerBound = Int(Double(primaryCount) * 0.50)
-            // The last sliver of a guided crop can be the plastic window's
-            // right border. It has enough luminance contrast to masquerade
-            // as C and turn a test-only invalid strip into a false negative.
-            // A real control this close to the edge is not reliably framed;
-            // fail closed instead of declaring a negative result.
-            let controlUpperBound = Int(Double(primaryCount) * 0.88)
-
-            var chosenControlIndex: Int?
-            var chosenTestIndex: Int?
-            var bestPairScore = -Double.infinity
-            for controlCandidate in candidatePeaks {
-                guard controlCandidate >= controlLowerBound, controlCandidate <= controlUpperBound else { continue }
-                let controlEvidence = lineSupport(at: controlCandidate)
-                guard passesControlThreshold(controlEvidence) else { continue }
-                for testCandidate in candidatePeaks where testCandidate < controlCandidate {
-                    let distance = controlCandidate - testCandidate
-                    guard distance >= minimumDistance, distance <= maximumDistance else { continue }
-                    let pairScore = combined[controlCandidate] + combined[testCandidate]
-                    if pairScore > bestPairScore {
-                        bestPairScore = pairScore
-                        chosenControlIndex = controlCandidate
-                        chosenTestIndex = testCandidate
-                    }
-                }
-            }
-
-            // A clear control can be valid even when its test companion is
-            // too faint to clear the stricter pair threshold. Resolve that
-            // control independently before calling the image unclear: the
-            // old pair-only rule made a plainly visible control disappear on
-            // faint-line photos, including Manual Check originals.
-            if chosenControlIndex == nil {
-                if let standaloneControl = candidatePeaks.first(where: {
-                    $0 >= controlLowerBound && $0 <= controlUpperBound && passesControlThreshold(lineSupport(at: $0))
-                }) {
-                    let controlEvidence = lineSupport(at: standaloneControl)
-                    // A very faint line often never makes the global top-ten
-                    // peak list: the clear control, window boundary, and
-                    // mild enhancement artefacts all outrank it. Once C is
-                    // independently established in the right half, search
-                    // every physically plausible position to its left for a
-                    // repeated coloured mark instead of discarding it before
-                    // the weak-line logic gets a chance to assess it.
-                    let weakTest = (searchLower..<standaloneControl)
-                        .filter { candidate in
-                            let distance = standaloneControl - candidate
-                            guard distance >= minimumDistance,
-                                  distance <= maximumDistance else { return false }
-                            let evidence = lineSupport(at: candidate)
-                            return evidence.support >= 2
-                                && (
-                                    evidence.color > max(0.0018, colorNoise * 0.42)
-                                    || evidence.gray > max(0.018, grayNoise * 1.10)
-                                )
-                        }
-                        .max { combined[$0] < combined[$1] }
-
-                    if let weakTest {
-                        chosenControlIndex = standaloneControl
-                        chosenTestIndex = weakTest
-                    } else {
-                        let controlStrength = controlEvidence.color / max(colorNoise, 0.0025) * 0.75
-                            + controlEvidence.gray / max(grayNoise, 0.012) * 0.25
-                        let certainty = min(88, max(58, 58 + Int(controlStrength * 5)))
-                        return LineAnalysisResult(
-                            resultType: .appearsNegative,
-                            confidencePercentage: certainty,
-                            certaintyPercentage: certainty,
-                            controlLineDetected: true,
-                            testLineDetected: false,
-                            testControlRatio: 0,
-                            lineStrength: 0,
-                            quality: quality,
-                            explanation: explanation(for: .appearsNegative, ratio: 0)
-                        )
-                    }
-                }
-            }
-
-            // No qualifying control anywhere. A prominent,
-            // independently-qualifying peak with no control is an invalid
-            // test, not a negative one.
-            if chosenControlIndex == nil {
-                if candidatePeaks.contains(where: { passesTestThreshold(lineSupport(at: $0)) }) {
-                    return LineAnalysisResult(
-                        resultType: .invalid,
-                        confidencePercentage: 0,
-                        certaintyPercentage: 82,
-                        controlLineDetected: false,
-                        testLineDetected: true,
-                        testControlRatio: 0,
-                        // Zeroed like every other .invalid branch in this file -
-                        // without a control line this isn't a real measurement,
-                        // so it must not read as a strong data point on the
-                        // line-strength trend chart or anywhere else that
-                        // treats lineStrength as a trustworthy reading.
-                        lineStrength: 0,
-                        quality: quality,
-                        explanation: "A test line is visible, but the control line is missing. This test is invalid and should be repeated with a new test."
-                    )
-                }
-                continue
-            }
-
-            let controlIndex = chosenControlIndex!
-            var testIndex = chosenTestIndex!
-            let controlColor = colorContrast[controlIndex]
-            let controlGray = grayContrast[controlIndex]
-
-            // With C anchored on the right, a genuine very faint line may be
-            // visible chiefly as a narrow grayscale dip rather than a dye
-            // peak. Prefer that physically valid T candidate over a weaker
-            // colour/edge pair selected earlier by the generic peak ranking.
-            let grayscaleTestCandidates = (searchLower..<controlIndex).filter { candidate in
-                let distance = controlIndex - candidate
-                return distance >= minimumDistance && distance <= maximumDistance
-            }
-            // A colour-supported T candidate is stronger evidence than a
-            // darker, dye-free window edge. Only use the grayscale rescue
-            // when the selected candidate does not qualify as a dyed line.
-            if !passesTestThreshold(lineSupport(at: testIndex)),
-               let grayscaleTest = grayscaleTestCandidates.max(by: { grayContrast[$0] < grayContrast[$1] }),
-               grayContrast[grayscaleTest] > max(0.018, grayNoise * 1.10),
-               grayContrast[grayscaleTest] > grayContrast[testIndex] {
-                testIndex = grayscaleTest
-            }
-
-            #if DEBUG
-            Self.debugHook?("axis=\(axesForDirection.color) primaryCount=\(primaryCount) crossCount=\(crossCount) crossStart=\(crossStart) crossEnd=\(crossEnd) controlIndex=\(controlIndex) testIndex=\(testIndex) controlColor=\(controlColor) controlGray=\(controlGray) colorNoise=\(colorNoise) grayNoise=\(grayNoise) peaks=\(candidatePeaks)")
-            #endif
-
-            let testColor = colorContrast[testIndex]
-            let testGray = grayContrast[testIndex]
-            let testEvidence = lineSupport(at: testIndex)
-            let support = testEvidence.support
-            let testDetected = passesTestThreshold(testEvidence)
-            let weakMarkDetected = support >= 2
-                && testColor > max(0.0025, colorNoise * 0.60)
-            let ambiguousGrayMarkDetected = !weakMarkDetected
-                // The control has already been anchored in the guide's right
-                // half and this candidate is already constrained to the
-                // physically valid T area on its left. At that point a
-                // narrow grayscale anomaly is possible evidence, but not
-                // enough to confirm a Faint Line.
-                && testGray > max(0.018, grayNoise * 1.10)
-            // Was max(color, gray) - let a purely luminance-driven signal (a
-            // shadow: dark, but no real dye chroma) report the same strength
-            // as a genuinely coloured line, since the gray term alone could
-            // dominate independent of any color evidence. Confirmed real
-            // case 2026-08-23 (calibration): a window shadow measured
-            // testColor near zero but testGray high enough that max() still
-            // reported strength=0.1756 - high enough to be mistaken for real
-            // partial evidence upstream. Colour now dominates the blend; a
-            // true line is expected to show both real chroma and luminance
-            // contrast together, not luminance alone.
-            let controlStrength = controlColor / max(colorNoise, 0.0025) * 0.75 + controlGray / max(grayNoise, 0.012) * 0.25
-            let testStrength = testColor / max(colorNoise, 0.0025) * 0.75 + testGray / max(grayNoise, 0.012) * 0.25
-            // Use absolute local contrast for the T/C ratio. Dividing both
-            // bands by noise independently made a barely visible line look
-            // equal to a strong control line.
-            let controlMagnitude = controlColor + controlGray * 0.12
-            let testMagnitude = testColor + testGray * 0.12
-            let magnitudeRatio = testMagnitude / max(controlMagnitude, 0.004)
-            let dyeRatio = testColor / max(controlColor, 0.003)
-            let ratio = min(2, min(magnitudeRatio, dyeRatio))
-            #if DEBUG
-            Self.debugHook?("testIndex=\(testIndex) testColor=\(testColor) testGray=\(testGray) support=\(support) testDetected=\(testDetected) magnitudeRatio=\(magnitudeRatio) dyeRatio=\(dyeRatio) ratio=\(ratio)")
-            #endif
-            let evidence = AnchoredPregnancyEvidence(
-                controlStrength: controlStrength,
-                testStrength: testStrength,
-                ratio: ratio,
-                support: support,
-                // A weak coloured mark repeated across at least two vertical
-                // segments is real spatial evidence, even when it misses the
-                // stricter confidence threshold used for a normal line. Do
-                // not discard it into a negative result: manual scan must
-                // surface it as a faint line for the user to review.
-                testDetected: testDetected || weakMarkDetected,
-                weakMarkDetected: weakMarkDetected,
-                ambiguousGrayMarkDetected: ambiguousGrayMarkDetected,
-                score: controlStrength * 1.8 + (testDetected ? testStrength : 0)
-                    + (axesForDirection.color == .verticalLines ? 0.35 : 0)
-            )
-            if best == nil || evidence.score > best!.score { best = evidence }
-        }
-
-        guard let evidence = best else { return nil }
-        if evidence.ambiguousGrayMarkDetected {
-            return LineAnalysisResult(
-                resultType: .unclear,
-                confidencePercentage: 52,
-                certaintyPercentage: 52,
-                controlLineDetected: true,
-                testLineDetected: false,
-                testControlRatio: evidence.ratio,
-                lineStrength: min(1, evidence.testStrength / 8),
-                quality: quality,
-                explanation: "A possible faint mark is visible in the test area, but this photo cannot confirm it. Retake the photo in even light or repeat with a new test."
-            )
-        }
-        let mapped = pregnancyResult(
-            test: evidence.testStrength,
-            ratio: evidence.ratio,
-            testDetected: evidence.testDetected
-        )
-        let qualityPenalty = quality.status == .good ? 0 : 10
-        var certainty = min(
-            LineAnalysisConstants.maxCertainty,
-            max(52, 58 + Int(evidence.controlStrength * 5) + evidence.support * 4 - qualityPenalty)
-        )
-        if evidence.weakMarkDetected { certainty = min(82, certainty) }
-        return LineAnalysisResult(
-            resultType: mapped,
-            confidencePercentage: mapped == .appearsNegative ? min(90, certainty) : min(84, certainty),
-            certaintyPercentage: mapped == .appearsNegative ? min(90, certainty) : min(84, certainty),
-            controlLineDetected: true,
-            testLineDetected: evidence.testDetected,
-            testControlRatio: evidence.ratio,
-            lineStrength: min(1, evidence.testStrength / 8),
-            quality: quality,
-            explanation: explanation(for: mapped, ratio: evidence.ratio)
-        )
-    }
-
     /// Samples the presumed-background margins for pixels that plausibly
     /// *are* neutral housing (bright, low-saturation - excludes shadows,
     /// ink marks, and edges that might leak into the margin at an angle),
@@ -1344,53 +761,6 @@ final class LineAnalysisEngine {
             let count = Double(max(1, end - start))
             return support + (colorSum / count > colorThreshold ? 1 : 0)
         }
-    }
-
-    private func strongestPregnancyColorPair(in profile: [Double], axis: ColorLineAxis) -> ColorLinePair? {
-        guard profile.count > 40 else { return nil }
-        let smoothed = smooth(profile)
-        let sorted = smoothed.sorted()
-        let background = sorted[sorted.count / 2]
-        let scores = smoothed.map { max(0, $0 - background) }
-        let noise = max(0.0025, standardDeviation(scores))
-        let lower = Int(Double(scores.count) * 0.12)
-        let upper = Int(Double(scores.count) * 0.88)
-        let threshold = max(0.009, noise * 1.35)
-        var peaks = [PeakSignal]()
-
-        for index in lower..<(upper - 1) where index > 0 {
-            let value = scores[index]
-            if value >= scores[index - 1], value >= scores[index + 1], value > threshold {
-                peaks.append(PeakSignal(index: index, value: value))
-            }
-        }
-
-        peaks.sort { $0.value > $1.value }
-        var best: ColorLinePair?
-        for left in peaks.prefix(18) {
-            for right in peaks.prefix(18) where right.index > left.index {
-                let distance = Double(right.index - left.index) / Double(scores.count)
-                // Two shoulders of one thick control line or its dye halo must
-                // not be accepted as a control/test pair.
-                guard (0.060...0.25).contains(distance) else { continue }
-                let stronger = max(left.value, right.value)
-                let weaker = min(left.value, right.value)
-                let balance = weaker / max(stronger, 0.01)
-                guard balance >= 0.10, weaker > max(0.009, noise * 1.15) else { continue }
-
-                let midpoint = Double(left.index + right.index) / 2.0 / Double(scores.count)
-                guard (0.18...0.78).contains(midpoint) else { continue }
-                let centerBonus = max(0, 1.0 - abs(midpoint - 0.48) * 2.0)
-                let spacingBonus = max(0, 1.0 - abs(distance - 0.10) * 5.0)
-                let orientationBonus = axis == .verticalLines ? 0.04 : 0
-                let score = stronger + weaker + balance * 0.10 + centerBonus * 0.04 + spacingBonus * 0.04 + orientationBonus
-                let candidate = ColorLinePair(stronger: stronger, weaker: weaker, score: score)
-                if best == nil || candidate.score > best!.score {
-                    best = candidate
-                }
-            }
-        }
-        return best
     }
 
     private func ovulationColorStripResult(in image: RGBImage, quality: ImageQualityResult) -> LineAnalysisResult? {
@@ -1871,8 +1241,6 @@ final class LineAnalysisEngine {
 
     private func explanation(for result: ScanResultType, ratio: Double) -> String {
         switch result {
-        case .appearsPositive, .faintLineDetected: "A line appears to be detected in the test region. Follow your test instructions and consider testing again in a few days."
-        case .appearsNegative: "No test line was detected in this image. If you tested early, consider retesting in a few days."
         case .low: "The image appears to show a control line with no strong LH test line yet. Keep testing during your expected fertile window."
         case .rising: "The test line appears to be getting darker, but is still lighter than the control line. Consider testing again later or tomorrow."
         case .high: "The test line appears close to the control line. This can mean LH is rising, so keep testing consistently."
@@ -1990,17 +1358,6 @@ private enum ColorLineAxis {
 private struct ColorLinePair {
     var stronger: Double
     var weaker: Double
-    var score: Double
-}
-
-private struct AnchoredPregnancyEvidence {
-    var controlStrength: Double
-    var testStrength: Double
-    var ratio: Double
-    var support: Int
-    var testDetected: Bool
-    var weakMarkDetected: Bool
-    var ambiguousGrayMarkDetected: Bool
     var score: Double
 }
 

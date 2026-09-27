@@ -44,45 +44,6 @@ struct AIAnalysisResponse: Decodable, Sendable {
 }
 
 enum AIResultReconciler {
-    static func tightenPregnancyPositive(_ result: LineAnalysisResult) -> LineAnalysisResult {
-        guard result.resultType == .appearsPositive,
-              result.testControlRatio < 0.50 || result.lineStrength < 0.48 else {
-            return result
-        }
-
-        return LineAnalysisResult(
-            resultType: .faintLineDetected,
-            confidencePercentage: result.confidencePercentage,
-            certaintyPercentage: result.certaintyPercentage,
-            controlLineDetected: result.controlLineDetected,
-            testLineDetected: true,
-            testControlRatio: result.testControlRatio,
-            lineStrength: result.lineStrength,
-            quality: result.quality,
-            explanation: "A faint possible pregnancy mark is visible in the result area."
-        )
-    }
-
-    static func reconcilePregnancyNegative(
-        ai: LineAnalysisResult,
-        originalLocal: LineAnalysisResult?,
-        enhancedLocal: LineAnalysisResult?
-    ) -> LineAnalysisResult {
-        // This used to downgrade a confident AI negative to faintLineDetected
-        // when local pixel evidence found a "possible mark." In production it
-        // did that to a genuinely negative test (single control line only) —
-        // the local engine mistook the control line's own edge, or a
-        // contrast-enhancement artifact, for a second line and manufactured a
-        // false positive. Local pixel evidence is fallible instrument data;
-        // it's given to Luna as context (see AIAnalysisService's
-        // localPixelAnalysis payload and the ovulation prompt), but it must
-        // never overwrite Luna's own considered read afterward, matching
-        // reconcileOvulation. Kept as a documented no-op rather than deleted
-        // so this specific failure isn't silently reintroduced.
-        _ = originalLocal
-        _ = enhancedLocal
-        return ai
-    }
 
     static func reconcileOvulation(
         ai: LineAnalysisResult,
@@ -180,43 +141,20 @@ final class AIAnalysisService {
         // original, deliberately skipping any enhancement, since the point
         // of a recheck is a genuinely independent second read rather than
         // the same processed pixels the first read already saw.
-        let primaryImage: UIImage
-        if isRecheck {
-            primaryImage = uploadImage
-        } else {
-            switch testType {
-            case .pregnancy:
-                primaryImage = manuallyEnhancedImage.map { ImageHelpers.resized($0, maxDimension: 1400) }
-                    ?? ImageEnhancementService().enhanceAuto(uploadImage).image
-            case .ovulation:
-                primaryImage = uploadImage
-            }
-        }
+        let primaryImage = uploadImage
         guard let imageBase64 = Self.encodedJPEG(primaryImage) else {
             throw AIAnalysisServiceError.imageEncodingFailed
         }
         // Sent as context for Luna to weigh, never as ground truth it can act
         // on unchecked — the server only ever puts this in the prompt text
         // and must not let it substitute for Luna's own read (see
-        // AIResultReconciler.reconcileOvulation / reconcilePregnancyNegative,
-        // both intentionally no-ops for this exact reason). Always computed
+        // AIResultReconciler.reconcileOvulation,
+        // intentionally a no-op for this exact reason). Always computed
         // from the true, unenhanced original regardless of what's actually
         // sent as the primary image, so it stays an independent signal
         // rather than restating the same processed pixels back to the model.
         let localPixelAnalysis = Self.localPixelAnalysis(for: uploadImage, testType: testType)
-        let localModelAnalysis: LocalModelAnalysisPayload?
-        if testType == .pregnancy,
-           let prediction = try? await LocalModelService().predict(image: uploadImage) {
-            localModelAnalysis = LocalModelAnalysisPayload(
-                modelVersion: LocalPregnancyModelMetadata.version,
-                imageUsable: prediction.imageUsable,
-                controlLinePresent: prediction.controlLinePresent,
-                testLinePresent: prediction.testLinePresent,
-                testLineStrength: prediction.testLineStrength
-            )
-        } else {
-            localModelAnalysis = nil
-        }
+        let localModelAnalysis: LocalModelAnalysisPayload? = nil
 
         var request = URLRequest(url: endpoint)
         request.httpMethod = "POST"

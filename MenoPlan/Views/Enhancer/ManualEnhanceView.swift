@@ -411,62 +411,40 @@ struct OnDeviceCheckView: View {
             // expectations. Randomised within the range, not fixed, so
             // repeat scans don't feel robotically identical.
             async let minimumDisplay: Void = Task.sleep(for: .seconds(Double.random(in: 2.8...3.2)))
-            switch flow.testType {
-            case .pregnancy:
-                async let analysisTask = OnDevicePregnancyAnalysisService().analyseWithDiagnostics(image)
-                let (analysis, _) = try await (analysisTask, minimumDisplay)
-                guard requestToken == flow.analysisRequestToken else { return }
-                if let settings = appState.settings, !settings.proUnlocked {
-                    let wasIntroductoryCheck = AICheckQuotaService().isPregnancyFreeLunaAvailable(settings)
-                    guard AICheckQuotaService().consumePregnancyLuna(settings) else {
-                        failed = true
-                        errorMessage = "This Luna Check is no longer available. Return and choose another option."
-                        return
-                    }
-                    flow.completedFreeLunaCheck = wasIntroductoryCheck
-                    try? modelContext.save()
-                }
-                flow.analysisResult = analysis.result
-                flow.localPregnancyDiagnostics = analysis.diagnostics
-                flow.localOvulationDiagnostics = nil
-                flow.autoSummary = "Analysed privately with the MenoPlan on-device pregnancy model."
-            case .ovulation:
-                guard let settings = appState.settings else {
-                    failed = true
-                    errorMessage = "Settings are unavailable."
-                    return
-                }
-                guard AICheckQuotaService().canUseAI(settings) else {
-                    failed = true
-                    errorMessage = "No Luna Checks are available right now. Return and choose another option."
-                    return
-                }
-                let usesIncludedFreeLuna = AICheckQuotaService().willConsumeFreeOvulationLuna(settings)
-                let descriptor = FetchDescriptor<Scan>(sortBy: [SortDescriptor(\Scan.createdAt, order: .reverse)])
-                let history = try modelContext.fetch(descriptor)
-                let validOvulationScans = history.filter { scan in
-                    scan.testType == .ovulation
-                        && scan.controlLineDetected
-                        && scan.resultType != .invalid
-                        && scan.resultType != .unclear
-                        && !scan.excludedFromCalculations
-                }
-                let recentRatios = Array(validOvulationScans.prefix(8).map { $0.testControlRatio })
-                async let analysisTask = OnDeviceOvulationAnalysisService().analyse(image, recentRatios: recentRatios)
-                let (analysis, _) = try await (analysisTask, minimumDisplay)
-                guard requestToken == flow.analysisRequestToken else { return }
-                guard AICheckQuotaService().consumeAI(settings) else {
-                    failed = true
-                    errorMessage = "No Luna Checks are available right now. Return and choose another option."
-                    return
-                }
-                flow.completedFreeLunaCheck = usesIncludedFreeLuna
-                try? modelContext.save()
-                flow.analysisResult = analysis.result
-                flow.localOvulationDiagnostics = analysis.diagnostics
-                flow.localPregnancyDiagnostics = nil
-                flow.autoSummary = "Analysed privately on this device. \(analysis.trendSummary)"
+            guard let settings = appState.settings else {
+                failed = true
+                errorMessage = "Settings are unavailable."
+                return
             }
+            guard AICheckQuotaService().canUseAI(settings) else {
+                failed = true
+                errorMessage = "No Luna Checks are available right now. Return and choose another option."
+                return
+            }
+            let usesIncludedFreeLuna = AICheckQuotaService().willConsumeFreeOvulationLuna(settings)
+            let descriptor = FetchDescriptor<Scan>(sortBy: [SortDescriptor(\Scan.createdAt, order: .reverse)])
+            let history = try modelContext.fetch(descriptor)
+            let validOvulationScans = history.filter { scan in
+                scan.testType == .ovulation
+                    && scan.controlLineDetected
+                    && scan.resultType != .invalid
+                    && scan.resultType != .unclear
+                    && !scan.excludedFromCalculations
+            }
+            let recentRatios = Array(validOvulationScans.prefix(8).map { $0.testControlRatio })
+            async let analysisTask = OnDeviceOvulationAnalysisService().analyse(image, recentRatios: recentRatios)
+            let (analysis, _) = try await (analysisTask, minimumDisplay)
+            guard requestToken == flow.analysisRequestToken else { return }
+            guard AICheckQuotaService().consumeAI(settings) else {
+                failed = true
+                errorMessage = "No Luna Checks are available right now. Return and choose another option."
+                return
+            }
+            flow.completedFreeLunaCheck = usesIncludedFreeLuna
+            try? modelContext.save()
+            flow.analysisResult = analysis.result
+            flow.localOvulationDiagnostics = analysis.diagnostics
+            flow.autoSummary = "Analysed privately on this device. \(analysis.trendSummary)"
             guard requestToken == flow.analysisRequestToken else { return }
             if let settings = appState.settings,
                (settings.proUnlocked || flow.completedFreeLunaCheck),
@@ -681,9 +659,7 @@ private func computeLocalScanResult(adjusted: UIImage, original: UIImage?, testT
     }
     let result: LineAnalysisResult
     if let originalResult {
-        result = testType == .pregnancy
-            ? localAnalyser.preferredPregnancyResult(primary: originalResult, fallback: adjustedResult)
-            : localAnalyser.preferredOvulationResult(primary: originalResult, fallback: adjustedResult)
+        result = localAnalyser.preferredOvulationResult(primary: originalResult, fallback: adjustedResult)
     } else {
         result = adjustedResult
     }
@@ -694,7 +670,7 @@ private func computeLocalScanResult(adjusted: UIImage, original: UIImage?, testT
     guard surfaceDetected || result.controlLineDetected
         || adjustedResult.controlLineDetected
         || originalResult?.controlLineDetected == true else {
-        let testName = testType == .pregnancy ? "pregnancy" : "ovulation"
+        let testName = "ovulation"
         return LineAnalysisResult(
             resultType: .invalid,
             confidencePercentage: 0,

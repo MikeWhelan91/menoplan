@@ -22,13 +22,6 @@ final class TestTemplateGeometryTests: XCTestCase {
         XCTAssertEqual(cropped.size.height, 200, accuracy: 1)
     }
 
-    func testPregnancyAnalysisUsesTheGuidedTCBox() {
-        let image = UIGraphicsImageRenderer(size: CGSize(width: 1_000, height: 250)).image { _ in }
-        let analysis = TestTemplateGeometry.analysisImage(from: image, testType: .pregnancy)
-        XCTAssertEqual(analysis.size.width, 400, accuracy: 1)
-        XCTAssertEqual(analysis.size.height, 200, accuracy: 1)
-    }
-
     func testOvulationKeepsTheAlignedOuterCropForNow() {
         let image = UIGraphicsImageRenderer(size: CGSize(width: 1_000, height: 250)).image { _ in }
         let analysis = TestTemplateGeometry.analysisImage(from: image, testType: .ovulation)

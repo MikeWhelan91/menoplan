@@ -2,7 +2,7 @@ import Foundation
 
 @Observable
 final class HomeViewModel {
-    var selectedTestType: TestType = .pregnancy
+    var selectedTestType: TestType = .ovulation
 }
 
 /// The caller supplies one clock reading for both the hour and daily variant.

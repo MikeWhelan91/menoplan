@@ -51,7 +51,7 @@ private let premiumFeatures: [PremiumFeature] = [
     .init(symbol: "moon.fill", imageName: "LunaCheckIcon", title: "Unlimited Luna tools", detail: "Checks, comparisons and chat."),
     .init(symbol: "doc.text.fill", title: "Doctor Visit Reports", detail: "Share a clear fertility PDF.", isExpandable: true),
     .init(symbol: "calendar.badge.clock", title: "Luna Weekly Reports", detail: "Personal guidance, every week.", isExpandable: true),
-    .init(symbol: "chart.xyaxis.line", imageName: "HomeTrendsIcon", title: "Full fertility trends", detail: "Pregnancy line, OPK, BBT and cycle-signal charts."),
+    .init(symbol: "chart.xyaxis.line", imageName: "HomeTrendsIcon", title: "Full trends", detail: "Test, cycle and symptom-pattern charts."),
     .init(symbol: "sparkles.rectangle.stack", title: "AI Progression Analysis", detail: "Choose 3+ saved tests and get a plain-language trend summary."),
     .init(symbol: "nosign", title: "No ads", detail: "An uninterrupted experience.")
 ]

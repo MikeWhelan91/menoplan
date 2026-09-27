@@ -67,10 +67,6 @@ final class ImageQualityService {
             || Double(pinkMembranePixels) / total >= 0.25
     }
 
-    func hasPlausiblePregnancyTestSurface(_ image: UIImage) -> Bool {
-        hasPlausibleTestSurface(image, testType: .pregnancy)
-    }
-
     func hasPlausibleOvulationTestSurface(_ image: UIImage) -> Bool {
         hasPlausibleTestSurface(image, testType: .ovulation)
     }

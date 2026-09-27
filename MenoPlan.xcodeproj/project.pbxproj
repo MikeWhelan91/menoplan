@@ -8,7 +8,6 @@
 
 /* Begin PBXBuildFile section */
 		0489320D5A7EBC3865F27FCC /* Enums.swift in Sources */ = {isa = PBXBuildFile; fileRef = CADF1C2A5AC7BFEBBD4FF97A /* Enums.swift */; };
-		0595741A12504D193196454B /* ProgressionListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BC09F83D63144B4C3108B15F /* ProgressionListView.swift */; };
 		083082CE626EB539B6C45DB0 /* FertilityWindowCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFF203C89CE81E7EA5DC9C81 /* FertilityWindowCalculatorTests.swift */; };
 		08CFF7CA6144C6E9E8019012 /* CycleSignalsEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02ACA676E113F06DA796AC9B /* CycleSignalsEngineTests.swift */; };
 		0A70ECC247E6A13743E6A40B /* CycleTrendsCards.swift in Sources */ = {isa = PBXBuildFile; fileRef = EDDD9709A07851CFCC8FEADE /* CycleTrendsCards.swift */; };
@@ -17,7 +16,6 @@
 		0ED1152F176FD58BC8F7ED03 /* PlusJakartaSans-Regular.ttf in Resources */ = {isa = PBXBuildFile; fileRef = CB21E7782A8EA214153DEE43 /* PlusJakartaSans-Regular.ttf */; };
 		1261C52FBCF3E6DC241C82AF /* CalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 855B2E8350957428CF6668FB /* CalendarView.swift */; };
 		155F075C09EB13E048A470C0 /* FirebaseAnalytics in Frameworks */ = {isa = PBXBuildFile; productRef = C98F38125EAAB972A231805C /* FirebaseAnalytics */; };
-		157E49BC2E5E90A0EA8FBC88 /* ProgressionGroupDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76533068FCF188CB7FB58EE6 /* ProgressionGroupDetailView.swift */; };
 		15835DB368D0FE9223A1DFFB /* CalendarViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07BBCCFD9F533766838CA76E /* CalendarViewModel.swift */; };
 		2070EBF2DA517404CD333953 /* MenoPlanWidgetsBundle.swift in Sources */ = {isa = PBXBuildFile; fileRef = FFB34D4B89E2B12CA9C28C13 /* MenoPlanWidgetsBundle.swift */; };
 		20865BE37C564820F1254C61 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 7A494249A4C659635D909C89 /* Assets.xcassets */; };
@@ -26,14 +24,12 @@
 		23EAA567CC9DA55FA66A7785 /* PeriodBulkEditService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 63FBC34C44B924AC8BA43CD5 /* PeriodBulkEditService.swift */; };
 		24DECA99BD10CC63BA691BCF /* DateFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B8336D50B66F2394FC1295 /* DateFormatting.swift */; };
 		2736E3BB14381CAF3E0F9544 /* CycleTrendsCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03AD65FB9601B905894BB934 /* CycleTrendsCalculator.swift */; };
-		27E04A4A17CA4E5F7A2E528E /* ProgressionScanPickerSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E21EB1605C03BCAE421BDF5 /* ProgressionScanPickerSheet.swift */; };
 		2DDBCB2798E62F5FDC32C5B9 /* WeeklyLunaUpdateViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4ADCB88E3F7A236F5A86BCC2 /* WeeklyLunaUpdateViews.swift */; };
 		2FD95007E6ADD37336060770 /* ovulate2.json in Resources */ = {isa = PBXBuildFile; fileRef = A467961CB7971F91780C60B1 /* ovulate2.json */; };
 		31C1EAE5AE62230EE1565B18 /* PurchaseService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A436C32A3A77A9CD202BF3F /* PurchaseService.swift */; };
 		31D6AF7433FFA54E9FD89A1F /* ManualEnhanceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FEFB68447107FE88835B34B /* ManualEnhanceView.swift */; };
 		33046CA8CC0965C1B10AEFD1 /* PDFExportHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D9AB13C6F5BF9077A26426C /* PDFExportHelper.swift */; };
 		34964C18A3C1FCFB5F90F674 /* TodayPlanWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68779322F23A534675DFA1A0 /* TodayPlanWidget.swift */; };
-		371E09BA2D49BD91E4BC58BC /* PregnancyTimelineCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = C76AEEC20D251670C310E10E /* PregnancyTimelineCalculator.swift */; };
 		38C36FDBBFC3FE205E0ECA45 /* PlusJakartaSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 56660ECE0A87770DC95CEF9B /* PlusJakartaSans-Medium.ttf */; };
 		398EAD6FB401B1507337A367 /* AdaptiveLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C001AB9703DD2A86840B0ECE /* AdaptiveLayout.swift */; };
 		39A5AAB95BBC46AB33804127 /* WidgetTodayPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00A1108498F058A24F4B2E4 /* WidgetTodayPlan.swift */; };
@@ -45,11 +41,9 @@
 		3FCE4B0DAA82A167E1DC5635 /* RevenueCatAdMob in Frameworks */ = {isa = PBXBuildFile; productRef = 674E0B1CB8E3BAAAAC62082A /* RevenueCatAdMob */; };
 		41DF7047EEC5F79F202DE13B /* WidgetTodayPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00A1108498F058A24F4B2E4 /* WidgetTodayPlan.swift */; };
 		4501EF2E85FC9FA9A604C725 /* Scan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7199AED3A1C2DD0FCC0CC905 /* Scan.swift */; };
-		4507ADC6255EE3BDF3A799D6 /* ProgressionGroupTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A45C8D18F5F6904D3A2D5C27 /* ProgressionGroupTests.swift */; };
 		47698FEC25EBCEFE4254AC3E /* WidgetSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC21C2851E8294B1AF054A8 /* WidgetSnapshotTests.swift */; };
 		47DBC33C512290020FBE36DB /* PlusJakartaSans-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7BE0608F049B48EA99B6222D /* PlusJakartaSans-ExtraBold.ttf */; };
 		4C874E830383E0147FAC042A /* AssistantViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 809420E20F2D3A4893205EF4 /* AssistantViewModel.swift */; };
-		4DC21F5FF5765C72FE9110F4 /* OnDevicePregnancyReconcilerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = DECA1FA7240D98EF3E5232F2 /* OnDevicePregnancyReconcilerTests.swift */; };
 		509BA2E282503FD8C2ABF20E /* ImageQualityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = E9FA9E22CE1BA36A5A3A90A4 /* ImageQualityService.swift */; };
 		510140B4689F44E7F0208A4B /* LineCheckApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 758726AA38FCB35650B5D711 /* LineCheckApp.swift */; };
 		5105DDD79B34E735FB2A5999 /* EnhancerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 283F53344EB14C92BCC13759 /* EnhancerViewModel.swift */; };
@@ -60,11 +54,9 @@
 		55AFB3E30F77713D38C86EB1 /* PlusJakartaSans-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0A0082091349EB3F0230FD3E /* PlusJakartaSans-SemiBold.ttf */; };
 		5840BC160AC2E3C5E90606A8 /* Lottie in Frameworks */ = {isa = PBXBuildFile; productRef = 082176E2E0EAD0CBBAF2AE2E /* Lottie */; };
 		595A054F57E6BEA3C8BC9A07 /* WidgetSnapshot.swift in Sources */ = {isa = PBXBuildFile; fileRef = 98D2F86CB52CBA0BFFADF316 /* WidgetSnapshot.swift */; };
-		5B11830A1374043AD7D7FACD /* PregnancyModeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9BB006EBFF6DBBCD6635A50 /* PregnancyModeService.swift */; };
 		5B7896BAC690C4B00758BB47 /* Constants.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8DE424742B6BEEC5D4F4C2A /* Constants.swift */; };
 		5BE2EA8454D15E0CBCA892A6 /* ovulate.png in Resources */ = {isa = PBXBuildFile; fileRef = C552F8B1C1A27A76264FFE27 /* ovulate.png */; };
 		5C58E2A850BA5F8656CEC7F7 /* HealthKitSyncDuplicateLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8BD63AF40D9A101F905A231B /* HealthKitSyncDuplicateLogTests.swift */; };
-		5DC75F3C0C1BBC7163EBACA8 /* PregnancyTimelineCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F960CD4DC4B114C89896FF01 /* PregnancyTimelineCalculatorTests.swift */; };
 		5F87DD6F3056ECC4718B37D6 /* LineAnalysisEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 053CCEDB73952EE9D385C9C8 /* LineAnalysisEngine.swift */; };
 		5F992D680A8C11D32E6CEB73 /* HomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24F690209B990CE64406B0AA /* HomeView.swift */; };
 		604F34619A965716A0EF1680 /* CaptureViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 00DFA70AED95B45C19CD2F07 /* CaptureViewModel.swift */; };
@@ -90,7 +82,6 @@
 		76FDEDB1FEE98BF00F0C2B1C /* CycleTrendsCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 220CC1B4D17973B2EAF46B93 /* CycleTrendsCalculatorTests.swift */; };
 		77C30C3A594DB30310C4D6B9 /* AssistantService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C16C3F5D23479760918ECF90 /* AssistantService.swift */; };
 		792E7DE6C2AA28BA70DA185A /* PlusJakartaSans-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7BE0608F049B48EA99B6222D /* PlusJakartaSans-ExtraBold.ttf */; };
-		79914D42ED31FC9480962856 /* DebugLocalModelService.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC9956E750F46D00E3707E17 /* DebugLocalModelService.swift */; };
 		7D81AC4A35373FA0DCE7B53F /* UserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD763CA5E45786D11E139D03 /* UserSettings.swift */; };
 		86CD28E236A95C75EDB9FFCC /* ScoutAvatar.svg in Resources */ = {isa = PBXBuildFile; fileRef = 4403800C4F280E22AE6F91B8 /* ScoutAvatar.svg */; };
 		8CFB5EB1847487FD274F81A7 /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = D8C088BC37777FFC4A68B175 /* Fixtures */; };
@@ -121,7 +112,6 @@
 		B759773859107305019A294C /* QuotaServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54A236FCB7CD58588005D1EF /* QuotaServiceTests.swift */; };
 		B85D182CCF1F369C6677785A /* AuthenticationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9ADA6E14F1935280DFAA91F /* AuthenticationService.swift */; };
 		B94051E850D4230148985E8E /* TestTemplateGeometry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 791E3683EB1DEB4815EB3B18 /* TestTemplateGeometry.swift */; };
-		BA7B8500970CB49ED0DD4411 /* CompareViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4028DFCA64F8858E356425F /* CompareViewModel.swift */; };
 		BAD4E10A94B53CB0FE1A2EA7 /* ImageQualityServiceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 972AE8BC12C0E0A6E780999E /* ImageQualityServiceTests.swift */; };
 		BCC14A3EF892F97A17C0656D /* check.json in Resources */ = {isa = PBXBuildFile; fileRef = 1E30D870FF71E2BE8BA1DE0B /* check.json */; };
 		BF23CD329C2135C97DA590F5 /* AdConsentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B1C8E95AE9CD075352AA56A /* AdConsentService.swift */; };
@@ -146,10 +136,8 @@
 		E8626918B27AD9CBC1A32071 /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4EE449FC0064D3F9D24C73 /* HealthKitService.swift */; };
 		ECD29AB5395EC7550ECBD1C6 /* ImageEnhancementService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C7527B7AFABB1B7BBCAC7D1 /* ImageEnhancementService.swift */; };
 		EE15B6445A64B7C862B48152 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 871B37B396F647CCC2A01561 /* Components.swift */; };
-		F102A084CF2AFE043DA68E15 /* CycleStoryViewer.swift in Sources */ = {isa = PBXBuildFile; fileRef = F44C66F011EBE63DED0C9B34 /* CycleStoryViewer.swift */; };
 		F1E528678AA6410B44CF82D8 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF512DA5B3F95DD56E89D9FE /* SettingsViewModel.swift */; };
 		F46270880885B3767103FA00 /* PlusJakartaSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 56660ECE0A87770DC95CEF9B /* PlusJakartaSans-Medium.ttf */; };
-		F508ADF07448F51AD0390725 /* OnDevicePregnancyAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 499C423B0863E443A1BC57BD /* OnDevicePregnancyAnalysisService.swift */; };
 		F677DBD08E2F80483BBF7B65 /* PredictionAndProgressionNarrativeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200461807E3E9306E463FB3 /* PredictionAndProgressionNarrativeTests.swift */; };
 		FBAE6D8F6761F8B41CC9D03F /* ScanFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FEB7444513A9CC6CD21A58E /* ScanFlowView.swift */; };
 		FBD70881C907E4C295D50FEF /* luna.png in Resources */ = {isa = PBXBuildFile; fileRef = 24A730479F4594EE2B6FDFCF /* luna.png */; };
@@ -224,11 +212,9 @@
 		3A12E7F3C89EDE831D1800C7 /* GuidedCaptureCropMathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedCaptureCropMathTests.swift; sourceTree = "<group>"; };
 		3B1C8E95AE9CD075352AA56A /* AdConsentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdConsentService.swift; sourceTree = "<group>"; };
 		3C7527B7AFABB1B7BBCAC7D1 /* ImageEnhancementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageEnhancementService.swift; sourceTree = "<group>"; };
-		3E21EB1605C03BCAE421BDF5 /* ProgressionScanPickerSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressionScanPickerSheet.swift; sourceTree = "<group>"; };
 		4091D32B3297C0CA045C0E86 /* WeeklyLunaUpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyLunaUpdateService.swift; sourceTree = "<group>"; };
 		4403800C4F280E22AE6F91B8 /* ScoutAvatar.svg */ = {isa = PBXFileReference; path = ScoutAvatar.svg; sourceTree = "<group>"; };
 		445F18E55CA5E6009B7198D6 /* CycleJourneyCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleJourneyCalculatorTests.swift; sourceTree = "<group>"; };
-		499C423B0863E443A1BC57BD /* OnDevicePregnancyAnalysisService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDevicePregnancyAnalysisService.swift; sourceTree = "<group>"; };
 		4ADCB88E3F7A236F5A86BCC2 /* WeeklyLunaUpdateViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyLunaUpdateViews.swift; sourceTree = "<group>"; };
 		4CC1BE576FD64B196500E5EF /* MetaAppConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaAppConfigurationTests.swift; sourceTree = "<group>"; };
 		4FFC9A10A58FFFDAEC3EA8FB /* LottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieView.swift; sourceTree = "<group>"; };
@@ -246,7 +232,6 @@
 		7118E89C7EEDCC84B3E7B1D1 /* CompareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareView.swift; sourceTree = "<group>"; };
 		7199AED3A1C2DD0FCC0CC905 /* Scan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scan.swift; sourceTree = "<group>"; };
 		758726AA38FCB35650B5D711 /* LineCheckApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineCheckApp.swift; sourceTree = "<group>"; };
-		76533068FCF188CB7FB58EE6 /* ProgressionGroupDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressionGroupDetailView.swift; sourceTree = "<group>"; };
 		765668D0F7D50696C383BEC7 /* PlusJakartaSans-Bold.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "PlusJakartaSans-Bold.ttf"; sourceTree = "<group>"; };
 		76705FA21590464279F910DB /* AssistantQuotaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantQuotaService.swift; sourceTree = "<group>"; };
 		791E3683EB1DEB4815EB3B18 /* TestTemplateGeometry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTemplateGeometry.swift; sourceTree = "<group>"; };
@@ -276,8 +261,6 @@
 		9E5E90150B1AB2CE9AA1CE11 /* CloudKitSchemaInitializer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CloudKitSchemaInitializer.swift; sourceTree = "<group>"; };
 		9F49F01CCD4B8F9B58494725 /* RewardedAdService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewardedAdService.swift; sourceTree = "<group>"; };
 		A3DC4259521516741881AE12 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
-		A4028DFCA64F8858E356425F /* CompareViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CompareViewModel.swift; sourceTree = "<group>"; };
-		A45C8D18F5F6904D3A2D5C27 /* ProgressionGroupTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressionGroupTests.swift; sourceTree = "<group>"; };
 		A467961CB7971F91780C60B1 /* ovulate2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ovulate2.json; sourceTree = "<group>"; };
 		A5471FAFCB650A80AF5860B1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		AC2D00B9712ADA16DFF1C7E1 /* FreshInstallCalendarReproTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreshInstallCalendarReproTests.swift; sourceTree = "<group>"; };
@@ -290,7 +273,6 @@
 		B2BA196A4D7712CF11C9DC3C /* MenoPlanWidgets.appex */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "wrapper.app-extension"; path = MenoPlanWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		B50A7A69E6FCADCA9240899A /* LineCheckOvulationPairComparator-v12-direct-guide-box.mlpackage */ = {isa = PBXFileReference; path = "LineCheckOvulationPairComparator-v12-direct-guide-box.mlpackage"; sourceTree = "<group>"; };
 		B9ABB176AD6D34629D3BC38A /* PersonalizationQuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationQuizView.swift; sourceTree = "<group>"; };
-		BC09F83D63144B4C3108B15F /* ProgressionListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressionListView.swift; sourceTree = "<group>"; };
 		C001AB9703DD2A86840B0ECE /* AdaptiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveLayout.swift; sourceTree = "<group>"; };
 		C00A1108498F058A24F4B2E4 /* WidgetTodayPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetTodayPlan.swift; sourceTree = "<group>"; };
 		C16C3F5D23479760918ECF90 /* AssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantService.swift; sourceTree = "<group>"; };
@@ -298,7 +280,6 @@
 		C308200E4F6B4674C14B850F /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OFL.txt; sourceTree = "<group>"; };
 		C33A69CE58CCE817B6D18B7C /* ScanImageSyncService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanImageSyncService.swift; sourceTree = "<group>"; };
 		C552F8B1C1A27A76264FFE27 /* ovulate.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = ovulate.png; sourceTree = "<group>"; };
-		C76AEEC20D251670C310E10E /* PregnancyTimelineCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PregnancyTimelineCalculator.swift; sourceTree = "<group>"; };
 		CADF1C2A5AC7BFEBBD4FF97A /* Enums.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Enums.swift; sourceTree = "<group>"; };
 		CB21E7782A8EA214153DEE43 /* PlusJakartaSans-Regular.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "PlusJakartaSans-Regular.ttf"; sourceTree = "<group>"; };
 		CCF8598BB5F2F10D6530BF5B /* ResultMappingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultMappingTests.swift; sourceTree = "<group>"; };
@@ -306,8 +287,6 @@
 		CE94397C3C7477E82B116B36 /* AICheckQuotaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICheckQuotaService.swift; sourceTree = "<group>"; };
 		D8C088BC37777FFC4A68B175 /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = MenoPlanTests/Fixtures; sourceTree = SOURCE_ROOT; };
 		D9ADA6E14F1935280DFAA91F /* AuthenticationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationService.swift; sourceTree = "<group>"; };
-		DC9956E750F46D00E3707E17 /* DebugLocalModelService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DebugLocalModelService.swift; sourceTree = "<group>"; };
-		DECA1FA7240D98EF3E5232F2 /* OnDevicePregnancyReconcilerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDevicePregnancyReconcilerTests.swift; sourceTree = "<group>"; };
 		E0189451BCF4AAA976904E14 /* GuidedCaptureCropMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedCaptureCropMath.swift; sourceTree = "<group>"; };
 		E335FD471B8F14297245F8FC /* ResultView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultView.swift; sourceTree = "<group>"; };
 		E73F461D2B54876F3B7C8C37 /* MenoPlanWidgets.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = MenoPlanWidgets.entitlements; sourceTree = "<group>"; };
@@ -322,9 +301,6 @@
 		F0271705E03CA4F0B2054A81 /* LineAnalysisEngineCalibrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineAnalysisEngineCalibrationTests.swift; sourceTree = "<group>"; };
 		F33AE878F8A53AC68A41989B /* AssistantView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantView.swift; sourceTree = "<group>"; };
 		F3B8336D50B66F2394FC1295 /* DateFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateFormatting.swift; sourceTree = "<group>"; };
-		F44C66F011EBE63DED0C9B34 /* CycleStoryViewer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleStoryViewer.swift; sourceTree = "<group>"; };
-		F960CD4DC4B114C89896FF01 /* PregnancyTimelineCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PregnancyTimelineCalculatorTests.swift; sourceTree = "<group>"; };
-		F9BB006EBFF6DBBCD6635A50 /* PregnancyModeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PregnancyModeService.swift; sourceTree = "<group>"; };
 		FD763CA5E45786D11E139D03 /* UserSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserSettings.swift; sourceTree = "<group>"; };
 		FF4EE449FC0064D3F9D24C73 /* HealthKitService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitService.swift; sourceTree = "<group>"; };
 		FFB34D4B89E2B12CA9C28C13 /* MenoPlanWidgetsBundle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenoPlanWidgetsBundle.swift; sourceTree = "<group>"; };
@@ -403,16 +379,6 @@
 			path = Models;
 			sourceTree = "<group>";
 		};
-		3AC9369C9787B964189354F0 /* Progression */ = {
-			isa = PBXGroup;
-			children = (
-				76533068FCF188CB7FB58EE6 /* ProgressionGroupDetailView.swift */,
-				BC09F83D63144B4C3108B15F /* ProgressionListView.swift */,
-				3E21EB1605C03BCAE421BDF5 /* ProgressionScanPickerSheet.swift */,
-			);
-			path = Progression;
-			sourceTree = "<group>";
-		};
 		3BFC2197AF96D946E28691B8 /* Utilities */ = {
 			isa = PBXGroup;
 			children = (
@@ -443,7 +409,6 @@
 				303407BD273AD2A6CBFCDAC9 /* CycleJourneyCalculator.swift */,
 				E7EFD831A84AAF0E90455F60 /* CycleSignalsEngine.swift */,
 				03AD65FB9601B905894BB934 /* CycleTrendsCalculator.swift */,
-				DC9956E750F46D00E3707E17 /* DebugLocalModelService.swift */,
 				ECE80BA94DCF754D40F86912 /* FertilityWindowCalculator.swift */,
 				FF4EE449FC0064D3F9D24C73 /* HealthKitService.swift */,
 				7F0941EDD655A1BDA6979973 /* HealthKitSyncService.swift */,
@@ -454,10 +419,7 @@
 				363A011441C33E89E7805400 /* MetaAppEventsService.swift */,
 				8916CB27AC827600DC19D7B4 /* NotificationService.swift */,
 				B0459BCD0233DC157A111F19 /* OnDeviceOvulationAnalysisService.swift */,
-				499C423B0863E443A1BC57BD /* OnDevicePregnancyAnalysisService.swift */,
 				63FBC34C44B924AC8BA43CD5 /* PeriodBulkEditService.swift */,
-				F9BB006EBFF6DBBCD6635A50 /* PregnancyModeService.swift */,
-				C76AEEC20D251670C310E10E /* PregnancyTimelineCalculator.swift */,
 				8A436C32A3A77A9CD202BF3F /* PurchaseService.swift */,
 				8F5CBAAB1F2713BC71798B82 /* ReminderAutomationService.swift */,
 				9F49F01CCD4B8F9B58494725 /* RewardedAdService.swift */,
@@ -511,7 +473,6 @@
 				51F8CC3F4B8E7C32DAAC04CC /* Home */,
 				AB4A6CACB6CA57CD91C682FE /* Onboarding */,
 				EB45855D7CE70215A75D2F4F /* Premium */,
-				3AC9369C9787B964189354F0 /* Progression */,
 				E69223E70B3E018B07B19B7B /* Results */,
 				83232363C1A54D2B46F03FA4 /* Settings */,
 			);
@@ -521,7 +482,6 @@
 		51F8CC3F4B8E7C32DAAC04CC /* Home */ = {
 			isa = PBXGroup;
 			children = (
-				F44C66F011EBE63DED0C9B34 /* CycleStoryViewer.swift */,
 				B0A4B4C21A5EB29209EC0E0E /* HomeJourneyViews.swift */,
 				24F690209B990CE64406B0AA /* HomeView.swift */,
 			);
@@ -595,7 +555,6 @@
 				809420E20F2D3A4893205EF4 /* AssistantViewModel.swift */,
 				07BBCCFD9F533766838CA76E /* CalendarViewModel.swift */,
 				00DFA70AED95B45C19CD2F07 /* CaptureViewModel.swift */,
-				A4028DFCA64F8858E356425F /* CompareViewModel.swift */,
 				283F53344EB14C92BCC13759 /* EnhancerViewModel.swift */,
 				EA2715677CFB3B0EECC3267E /* HistoryViewModel.swift */,
 				869BBD6D563314137CF659B4 /* HomeViewModel.swift */,
@@ -643,10 +602,7 @@
 				328D00171133C17EEEA26E4D /* LineAnalysisEngineTests.swift */,
 				4CC1BE576FD64B196500E5EF /* MetaAppConfigurationTests.swift */,
 				92E4A42F7723EF6560563672 /* OnDeviceModelCalibrationTests.swift */,
-				DECA1FA7240D98EF3E5232F2 /* OnDevicePregnancyReconcilerTests.swift */,
 				B200461807E3E9306E463FB3 /* PredictionAndProgressionNarrativeTests.swift */,
-				F960CD4DC4B114C89896FF01 /* PregnancyTimelineCalculatorTests.swift */,
-				A45C8D18F5F6904D3A2D5C27 /* ProgressionGroupTests.swift */,
 				54A236FCB7CD58588005D1EF /* QuotaServiceTests.swift */,
 				CCF8598BB5F2F10D6530BF5B /* ResultMappingTests.swift */,
 				AD4B08C5596A2C89E1C7D078 /* TestTemplateGeometryTests.swift */,
@@ -930,19 +886,16 @@
 				604F34619A965716A0EF1680 /* CaptureViewModel.swift in Sources */,
 				75CAF7DDE5556BFEF57999AA /* CloudKitSchemaInitializer.swift in Sources */,
 				73145119B92F8443FD5C8643 /* CompareView.swift in Sources */,
-				BA7B8500970CB49ED0DD4411 /* CompareViewModel.swift in Sources */,
 				EE15B6445A64B7C862B48152 /* Components.swift in Sources */,
 				5B7896BAC690C4B00758BB47 /* Constants.swift in Sources */,
 				67CA07A2228A66612C212619 /* CycleJourneyCalculator.swift in Sources */,
 				94CD3B2831994D0BC2BD767D /* CycleSignalsCard.swift in Sources */,
 				71188C23EB60F9EC940DBB98 /* CycleSignalsEngine.swift in Sources */,
-				F102A084CF2AFE043DA68E15 /* CycleStoryViewer.swift in Sources */,
 				2736E3BB14381CAF3E0F9544 /* CycleTrendsCalculator.swift in Sources */,
 				0A70ECC247E6A13743E6A40B /* CycleTrendsCards.swift in Sources */,
 				670C96409F966A87B4693308 /* DGChartViews.swift in Sources */,
 				5551C3DF4B594E2478D2D2E6 /* DailyFertilityLogEditor.swift in Sources */,
 				24DECA99BD10CC63BA691BCF /* DateFormatting.swift in Sources */,
-				79914D42ED31FC9480962856 /* DebugLocalModelService.swift in Sources */,
 				5105DDD79B34E735FB2A5999 /* EnhancerViewModel.swift in Sources */,
 				0489320D5A7EBC3865F27FCC /* Enums.swift in Sources */,
 				3D4BBC65A19CE9DC85EFCBA2 /* FertilityWindowCalculator.swift in Sources */,
@@ -966,20 +919,14 @@
 				B196CA956037038EF3C793F7 /* MetaAppEventsService.swift in Sources */,
 				511EA6C02BB8CFABDEDB7E51 /* NotificationService.swift in Sources */,
 				8EA1F5E5B7CE91C275A359D2 /* OnDeviceOvulationAnalysisService.swift in Sources */,
-				F508ADF07448F51AD0390725 /* OnDevicePregnancyAnalysisService.swift in Sources */,
 				E1B3466A0F2D5CCE4046570F /* OnboardingView.swift in Sources */,
 				33046CA8CC0965C1B10AEFD1 /* PDFExportHelper.swift in Sources */,
 				23EAA567CC9DA55FA66A7785 /* PeriodBulkEditService.swift in Sources */,
 				933EDFFE2A2BFCFFA62E2B37 /* PersonalizationQuizView.swift in Sources */,
 				677E6E601882E63BE1C93293 /* PredictionExplanationBuilder.swift in Sources */,
-				5B11830A1374043AD7D7FACD /* PregnancyModeService.swift in Sources */,
-				371E09BA2D49BD91E4BC58BC /* PregnancyTimelineCalculator.swift in Sources */,
 				B555BBEB7C3A07D0ACB552AC /* PremiumView.swift in Sources */,
 				BF6CD63E5A5C69D510141F93 /* PremiumViewModel.swift in Sources */,
-				157E49BC2E5E90A0EA8FBC88 /* ProgressionGroupDetailView.swift in Sources */,
-				0595741A12504D193196454B /* ProgressionListView.swift in Sources */,
 				D181D92074362B73410E650D /* ProgressionNarrativeBuilder.swift in Sources */,
-				27E04A4A17CA4E5F7A2E528E /* ProgressionScanPickerSheet.swift in Sources */,
 				31C1EAE5AE62230EE1565B18 /* PurchaseService.swift in Sources */,
 				6A227F13B4CBC3A219EAB7DE /* Reminder.swift in Sources */,
 				B39E7B3CB36139B172ABCEBB /* ReminderAutomationService.swift in Sources */,
@@ -1022,10 +969,7 @@
 				633F404C18049B9B550C8EDB /* LineAnalysisEngineTests.swift in Sources */,
 				CDE4F9A02E2B3FCF0D2918BB /* MetaAppConfigurationTests.swift in Sources */,
 				AD5334DDDF5C3E6F17BB7120 /* OnDeviceModelCalibrationTests.swift in Sources */,
-				4DC21F5FF5765C72FE9110F4 /* OnDevicePregnancyReconcilerTests.swift in Sources */,
 				F677DBD08E2F80483BBF7B65 /* PredictionAndProgressionNarrativeTests.swift in Sources */,
-				5DC75F3C0C1BBC7163EBACA8 /* PregnancyTimelineCalculatorTests.swift in Sources */,
-				4507ADC6255EE3BDF3A799D6 /* ProgressionGroupTests.swift in Sources */,
 				B759773859107305019A294C /* QuotaServiceTests.swift in Sources */,
 				A3C8EBAC03C853DEC6F0779C /* ResultMappingTests.swift in Sources */,
 				C3D62B347AF4474DF9E3A6BE /* TestTemplateGeometryTests.swift in Sources */,

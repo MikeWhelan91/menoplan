@@ -599,10 +599,7 @@ enum CycleTrackingService {
         let next = realRecords.filter { $0.startDate > start }.min(by: { $0.startDate < $1.startDate })
         if let previous {
             previous.endDate = start
-            previous.status = previous.pregnancyState == .confirmedPregnant ? .archived : .completed
-            if previous.pregnancyState == .trying || previous.pregnancyState == .possiblePositive {
-                previous.pregnancyState = .periodArrived
-            }
+            previous.status = .completed
         }
         let realPeriods = periods.filter { !$0.notes.contains("[LineCheck Screenshot Sample]") }
         let learned = learnedAverageCycleLength(from: realPeriods + [PeriodEvent(startDate: start)], fallback: settings.averageCycleLength, calendar: calendar)
@@ -618,8 +615,7 @@ enum CycleTrackingService {
             predictedOvulationDate: base?.predictedOvulationDate,
             expectedPeriodDate: base?.nextPeriodDate,
             averageCycleLengthAtStart: learned,
-            lutealPhaseLengthAtStart: learnedLuteal,
-            pregnancyState: .trying
+            lutealPhaseLengthAtStart: learnedLuteal
         )
         context.insert(cycle)
         if let existingPeriod = realPeriods.first(where: { calendar.isDate($0.startDate, inSameDayAs: start) }) {
@@ -641,7 +637,6 @@ enum CycleTrackingService {
             settings.lastPeriodStartDate = start
             settings.expectedPeriodDate = nil
             settings.knownOvulationDate = nil
-            settings.pregnancyJourneyState = .trying
         }
         try? context.save()
         return cycle
@@ -736,16 +731,4 @@ enum CycleTrackingService {
         return changed
     }
 
-    @discardableResult
-    static func applyPregnancyResult(from scan: Scan, records: [CycleRecord], settings: UserSettings?) -> CycleRecord? {
-        guard scan.testType == .pregnancy,
-              [.appearsPositive, .faintLineDetected].contains(scan.resultType),
-              !scan.excludedFromCalculations,
-              let cycle = records.first(where: { $0.id == scan.cycleRecordID }) ?? cycle(containing: scan.createdAt, records: records)
-        else { return nil }
-
-        if cycle.pregnancyState == .trying { cycle.pregnancyState = .possiblePositive }
-        if settings?.pregnancyJourneyState == .trying { settings?.pregnancyJourneyState = .possiblePositive }
-        return cycle
-    }
 }

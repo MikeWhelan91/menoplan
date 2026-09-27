@@ -29,8 +29,6 @@ struct SettingsView: View {
     @State private var iCloudStatus: ICloudAvailability = .checking
     @State private var showPersonalization = false
     @State private var hasNewHealthPermissions = false
-    @State private var pendingModeChange: LineCheckMode?
-    @Namespace private var modeSelection
     #if DEBUG
     @State private var sendNotificationPreviews = false
     @State private var generateWeeklyReportPreview = false
@@ -48,7 +46,6 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     if let settings {
                         proCard(settings: settings)
-                        modeCard(settings: settings)
                         preferencesCard(settings: settings)
                         privacyCard
                         aboutCard
@@ -139,21 +136,6 @@ struct SettingsView: View {
             }
         }
         .animation(.spring(response: 0.28, dampingFraction: 0.86), value: showStartFresh)
-        .overlay {
-            if let mode = pendingModeChange {
-                ConfirmDialog(
-                    title: "Leave pregnancy mode?",
-                    message: "Cycle predictions and reminders will pick up again from your last logged period. If this pregnancy has ended, you can say so from Home › Your pregnancy instead.",
-                    confirmTitle: "Yes, switch back",
-                    onConfirm: {
-                        if let settings { apply(mode, settings: settings) }
-                        pendingModeChange = nil
-                    },
-                    onCancel: { pendingModeChange = nil }
-                )
-                .transition(.opacity)
-            }
-        }
     }
 
     private func proCard(settings: UserSettings) -> some View {
@@ -250,101 +232,6 @@ struct SettingsView: View {
                 }
                 .tint(Color.linePurple)
                 #endif
-            }
-        }
-    }
-
-    private var activeCycle: CycleRecord? { CycleTrackingService.activeCycle(records: cycles) }
-
-    private func currentMode(_ settings: UserSettings) -> LineCheckMode {
-        if activeCycle?.pregnancyState == .confirmedPregnant { return .pregnant }
-        return settings.ovulationTrackingGoal == .trackingCycle ? .trackCycle : .getPregnant
-    }
-
-    /// Flo-style goal tiles. Switching here is the same as confirming or
-    /// leaving pregnancy mode from Home, so both routes stay consistent.
-    private func modeCard(settings: UserSettings) -> some View {
-        let current = currentMode(settings)
-        return AppCard {
-            VStack(alignment: .leading, spacing: 14) {
-                Text("Your MenoPlan mode")
-                    .font(.lineHeadline())
-                    .foregroundStyle(Color.lineNavy)
-
-                HStack(spacing: 10) {
-                    ForEach(LineCheckMode.allCases.filter { FeatureFlags.pregnancyModeEnabled || $0 != .pregnant || current == .pregnant }) { mode in
-                        Button { select(mode, settings: settings) } label: {
-                            VStack(spacing: 9) {
-                                Image(systemName: mode.symbol)
-                                    .font(.system(size: LineType.size(20), weight: .semibold))
-                                    .foregroundStyle(current == mode ? Color.white : mode.tint)
-                                    .frame(width: 46, height: 46)
-                                    .background(current == mode ? AnyShapeStyle(mode.tint.gradient) : AnyShapeStyle(mode.tint.opacity(0.12)), in: Circle())
-                                    .symbolEffect(.bounce, value: current == mode)
-                                Text(mode.title)
-                                    .font(.app(size: LineType.size(13), weight: .bold))
-                                    .foregroundStyle(Color.lineNavy)
-                                    .multilineTextAlignment(.center)
-                                    .lineLimit(2)
-                                    .minimumScaleFactor(0.85)
-                            }
-                            .frame(maxWidth: .infinity, minHeight: 112)
-                            .background {
-                                RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white)
-                                if current == mode {
-                                    RoundedRectangle(cornerRadius: 18, style: .continuous)
-                                        .stroke(mode.tint, lineWidth: 2)
-                                        .matchedGeometryEffect(id: "selectedMode", in: modeSelection)
-                                }
-                            }
-                            .overlay(alignment: .topTrailing) {
-                                if current == mode {
-                                    Image(systemName: "checkmark.circle.fill")
-                                        .font(.system(size: 17, weight: .bold))
-                                        .foregroundStyle(Color.white, mode.tint)
-                                        .padding(7)
-                                        .transition(.scale.combined(with: .opacity))
-                                }
-                            }
-                        }
-                        .buttonStyle(PressScaleButtonStyle())
-                        .opacity(mode == .pregnant && activeCycle == nil ? 0.5 : 1)
-                    }
-                }
-                .animation(.spring(response: 0.4, dampingFraction: 0.8), value: current)
-            }
-        }
-    }
-
-    private func select(_ mode: LineCheckMode, settings: UserSettings) {
-        let current = currentMode(settings)
-        guard mode != current else { return }
-        if mode == .pregnant && activeCycle == nil {
-            appState.toast = "Log your last period in Calendar first"
-            return
-        }
-        if current == .pregnant {
-            pendingModeChange = mode
-            return
-        }
-        apply(mode, settings: settings)
-    }
-
-    private func apply(_ mode: LineCheckMode, settings: UserSettings) {
-        let wasPregnant = currentMode(settings) == .pregnant
-        switch mode {
-        case .trackCycle: settings.ovulationTrackingGoal = .trackingCycle
-        case .getPregnant: settings.ovulationTrackingGoal = .tryingToConceive
-        case .pregnant: break
-        }
-        try? modelContext.save()
-        guard let cycle = activeCycle else { return }
-        Task {
-            if mode == .pregnant {
-                await PregnancyModeService.confirmPregnancy(cycle: cycle, settings: settings, context: modelContext)
-                appState.toast = "Pregnancy mode is on"
-            } else if wasPregnant {
-                await PregnancyModeService.returnToCycleTracking(cycle: cycle, settings: settings, context: modelContext)
             }
         }
     }
@@ -745,7 +632,7 @@ struct SettingsView: View {
     /// ovulation in most - one with a short luteal phase), daily logs with
     /// cycle-shaped symptoms, moods, mucus, BBT, wrist temperature and
     /// weekly weight, Apple Health-style metrics that rise after ovulation,
-    /// a few noticed signals, and a rising pregnancy-line sequence.
+    /// a few noticed signals, and saved test results.
     ///
     /// The sample cycles end at the earliest real period, so real history is
     /// left as it is; with none, a current cycle starting 12 days ago is added. Existing log fields are never
@@ -903,23 +790,6 @@ struct SettingsView: View {
             row.lastSeen = min(today, addingDays(item.days - 1, to: item.first))
             row.seenAt = row.lastSeen
             modelContext.insert(row)
-        }
-
-        let pregnancySteps: [(daysBack: Int, strength: Double, result: ScanResultType)] = [
-            (6, 0.12, .faintLineDetected), (4, 0.28, .faintLineDetected),
-            (2, 0.55, .faintLineDetected), (0, 0.82, .appearsPositive)
-        ]
-        for step in pregnancySteps {
-            modelContext.insert(Scan(
-                createdAt: daysAgo(step.daysBack),
-                testType: .pregnancy,
-                testFormat: .midstream,
-                resultType: step.result,
-                certaintyPercentage: 88,
-                lineStrength: step.strength,
-                analysisMode: .aiQuickCheck,
-                imageFilename: "debug_seed_placeholder.jpg"
-            ))
         }
 
         try? modelContext.save()
@@ -1228,11 +1098,10 @@ private struct ReminderPreferencesSheet: View {
                             preferenceToggle("Fertile peak check-in", detail: "Optional predicted-ovulation nudge. It stops once an LH peak or ovulation date is saved.", isOn: binding(\.autoFertilePeakRemindersEnabled))
                         }
 
-                        preferenceGroup("Period and pregnancy") {
+                        preferenceGroup("Period") {
                             preferenceToggle("Period heads-up", detail: "The day before your predicted period, with the estimated date explained in Calendar.", isOn: binding(\.autoPeriodExpectedRemindersEnabled))
                             preferenceToggle("Period check-in", detail: "Asks whether your period started, right on your expected day.", isOn: binding(\.autoPeriodCheckInRemindersEnabled))
                             preferenceToggle("Period late check-in", detail: "One optional follow-up 7 days after your estimated date, or 14 days if your cycles vary. The Home check-in remains available daily.", isOn: binding(\.autoPeriodLateRemindersEnabled))
-                            preferenceToggle("Retest when period is due", detail: "If the due-day check-in is also on, testing advice is included there instead of sending a second alert.", isOn: binding(\.autoPregnancyRetestRemindersEnabled))
                         }
                     }
 
@@ -1436,7 +1305,6 @@ private struct CycleRecordEditor: View {
     @State private var expectedPeriodDate: Date
     @State private var averageCycleLength: Int
     @State private var lutealPhaseLength: Int
-    @State private var pregnancyState: PregnancyJourneyState
     @State private var notes: String
 
     init(cycle: CycleRecord) {
@@ -1451,7 +1319,6 @@ private struct CycleRecordEditor: View {
         _expectedPeriodDate = State(initialValue: cycle.expectedPeriodDate ?? .now)
         _averageCycleLength = State(initialValue: cycle.averageCycleLengthAtStart)
         _lutealPhaseLength = State(initialValue: cycle.lutealPhaseLengthAtStart)
-        _pregnancyState = State(initialValue: cycle.pregnancyState)
         _notes = State(initialValue: cycle.notes)
     }
 
@@ -1510,15 +1377,7 @@ private struct CycleRecordEditor: View {
                 } footer: {
                     Text("Overrides the assumption this specific cycle started with. This only reshapes predictions while no confirmed ovulation date is set above - the confirmed date always wins.")
                 }
-                Section("Journey") {
-                    Picker("Status", selection: $pregnancyState) {
-                        ForEach(PregnancyJourneyState.allCases) { Text($0.title).tag($0) }
-                    }
-                    if pregnancyState == .ended {
-                        Text("Your saved tests and this cycle's history are kept exactly as they are. Pregnancy reminders for this cycle will stop, and you can start tracking a new cycle whenever you're ready - there's no need to log a period to reset anything.")
-                            .font(.app(.caption))
-                            .foregroundStyle(.secondary)
-                    }
+                Section("Notes") {
                     TextField("Cycle notes", text: $notes, axis: .vertical).lineLimit(2...6)
                 }
                 Button("Save Cycle") { save() }
@@ -1540,7 +1399,6 @@ private struct CycleRecordEditor: View {
     private func save() {
         guard overlapError == nil else { return }
         let oldStart = cycle.startDate
-        let previousPregnancyState = cycle.pregnancyState
         let previousConfirmedOvulationDate = cycle.confirmedOvulationDate
         let previousAverageCycleLength = cycle.averageCycleLengthAtStart
         let previousLutealPhaseLength = cycle.lutealPhaseLengthAtStart
@@ -1557,7 +1415,6 @@ private struct CycleRecordEditor: View {
         // edit would silently do nothing once two periods are logged.
         if averageCycleLength != previousAverageCycleLength { cycle.userSetCycleLength = averageCycleLength }
         cycle.lutealPhaseLengthAtStart = lutealPhaseLength
-        cycle.pregnancyState = pregnancyState
         cycle.notes = notes
         cycle.updatedAt = .now
         if let period = periods.first(where: { $0.cycleRecordID == cycle.id || Calendar.current.isDate($0.startDate, inSameDayAs: oldStart) }) {
@@ -1593,12 +1450,6 @@ private struct CycleRecordEditor: View {
             }
         }
         try? modelContext.save()
-        if previousPregnancyState != pregnancyState {
-            AppAnalytics.log("linecheck_cycle_pregnancy_state_changed", [
-                "previous_state": previousPregnancyState.rawValue,
-                "new_state": pregnancyState.rawValue
-            ])
-        }
         if previousAverageCycleLength != averageCycleLength || previousLutealPhaseLength != lutealPhaseLength {
             AppAnalytics.log("linecheck_cycle_length_edited", [
                 "average_cycle_length": averageCycleLength,
@@ -1606,10 +1457,9 @@ private struct CycleRecordEditor: View {
             ])
         }
         // Any of these changes can move fertile-peak/period-expected timing,
-        // so resync reminders whenever pregnancy state, the confirmed
-        // ovulation date, or the cycle's own length assumptions changed -
-        // not just on a pregnancy-state change as before.
-        if previousPregnancyState != pregnancyState || previousConfirmedOvulationDate != cycle.confirmedOvulationDate || lengthsChanged || startDateChanged {
+        // so resync reminders whenever the confirmed ovulation date or the
+        // cycle's own length assumptions changed.
+        if previousConfirmedOvulationDate != cycle.confirmedOvulationDate || lengthsChanged || startDateChanged {
             if let settings = UserSettings.canonical(from: settingsRows), let window = CycleTrackingService.window(records: cycles, settings: settings) {
                 Task { await ReminderAutomationService.syncPredictedReminders(cycle: cycle, window: window, settings: settings, existingReminders: reminders, context: modelContext) }
             }
@@ -1686,7 +1536,7 @@ private struct AboutLineCheckSheet: View {
                     .foregroundStyle(Color.lineNavy)
                     .multilineTextAlignment(.center)
 
-                Text("A calmer place to capture, compare, and understand home pregnancy and ovulation tests.")
+                Text("A calmer place to track perimenopause and menopause symptoms, cycles and tests.")
                     .font(.lineSubheadline(.medium))
                     .foregroundStyle(Color.lineNavy.opacity(0.66))
                     .multilineTextAlignment(.center)
@@ -1722,7 +1572,7 @@ private struct AboutLineCheckSheet: View {
             AboutFeatureRow(
                 icon: "camera.viewfinder",
                 title: "Capture tests",
-                detail: "Take or import pregnancy and ovulation test photos.",
+                detail: "Take or import FSH test photos.",
                 tint: Color.linePink
             )
             AboutFeatureRow(
@@ -1809,31 +1659,3 @@ private struct AboutFeatureRow: View {
     }
 }
 
-enum LineCheckMode: String, CaseIterable, Identifiable {
-    case trackCycle, getPregnant, pregnant
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .trackCycle: "Track my cycle"
-        case .getPregnant: "Get pregnant"
-        case .pregnant: "I’m pregnant"
-        }
-    }
-
-    var symbol: String {
-        switch self {
-        case .trackCycle: "calendar"
-        case .getPregnant: "heart.fill"
-        case .pregnant: "figure.and.child.holdinghands"
-        }
-    }
-
-    var tint: Color {
-        switch self {
-        case .trackCycle: .linePurple
-        case .getPregnant: .linePink
-        case .pregnant: Color(red: 0.93, green: 0.35, blue: 0.45)
-        }
-    }
-}

@@ -56,32 +56,4 @@ final class QuotaServiceTests: XCTestCase {
         XCTAssertNil(AICheckQuotaService().checksRemaining(settings))
     }
 
-    func testPregnancyLunaStartsWithOneFreeCheckPerWeek() {
-        let settings = UserSettings()
-        let service = AICheckQuotaService()
-
-        XCTAssertTrue(service.canUsePregnancyLuna(settings))
-        XCTAssertTrue(service.consumePregnancyLuna(settings))
-        XCTAssertEqual(settings.pregnancyFreeChecksUsedThisWeek, LineAnalysisConstants.weeklyFreePregnancyChecks)
-        XCTAssertFalse(service.canUsePregnancyLuna(settings))
-    }
-
-    func testPregnancyRewardedCheckIsSpentBeforeTheFreeQuotaResets() {
-        let settings = UserSettings()
-        let service = AICheckQuotaService()
-
-        // Free check used for the week - claim and spend a rewarded one
-        // instead of waiting for next week's reset.
-        XCTAssertTrue(service.consumePregnancyLuna(settings))
-        XCTAssertFalse(service.canUsePregnancyLuna(settings))
-
-        XCTAssertTrue(service.addPregnancyRewardedCheck(settings))
-        XCTAssertTrue(service.consumePregnancyLuna(settings))
-        XCTAssertEqual(settings.pregnancyRewardedChecksAvailable, 0)
-
-        // A second claim is correctly refused once the weekly claim cap is
-        // hit, same shape as the ovulation pool's maxRewardedChecksPerWeek.
-        XCTAssertFalse(service.canClaimPregnancyRewardedCheck(settings))
-        XCTAssertFalse(service.addPregnancyRewardedCheck(settings))
-    }
 }

@@ -60,7 +60,7 @@ struct WidgetBrandMark: View {
     }
 }
 
-/// Not set up, pregnant or ended: nothing to count down, so a centred
+/// Not set up or ended: nothing to count down, so a centred
 /// message with one clear next step instead of an empty countdown.
 struct WidgetIdleView: View {
     let state: WidgetSnapshot.CycleState
@@ -112,8 +112,6 @@ struct IdleCopy {
 
     init(state: WidgetSnapshot.CycleState) {
         switch state {
-        case .pregnant:
-            (icon, title, detail, action, tint) = ("heart.fill", "Pregnancy confirmed", "Cycle predictions are paused", nil, .wPink)
         case .ended:
             (icon, title, detail, action, tint) = ("arrow.clockwise", "This cycle has ended", "Start whenever you're ready", "Start new cycle", .wPurple)
         case .notSetUp, .tracking:

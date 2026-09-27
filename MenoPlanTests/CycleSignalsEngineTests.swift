@@ -39,8 +39,7 @@ final class CycleSignalsEngineTests: XCTestCase {
             metrics: metrics,
             scans: [],
             profile: profile,
-            tryingToConceive: true,
-            pregnancyState: .trying
+            tryingToConceive: true
         )
     }
 
@@ -98,14 +97,6 @@ final class CycleSignalsEngineTests: XCTestCase {
     }
 
     // MARK: Signals
-
-    func testSustainedHighTemperatureFlagsPossiblePregnancy() {
-        let today = day(33, from: cycleStart)
-        let signals = CycleSignalsEngine.signals(input(today: today, logs: biphasicLogs(riseOnOffset: 15, through: 33)))
-        XCTAssertTrue(signals.contains { $0.id == "sustainedHighTemperature" && $0.tone == .attention })
-        XCTAssertTrue(signals.contains { $0.id == "periodLate" })
-        XCTAssertEqual(signals.first?.tone, .attention)
-    }
 
     func testLotsOfWaterAffectsTestReadings() {
         let today = day(10, from: cycleStart)

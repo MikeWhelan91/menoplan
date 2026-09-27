@@ -207,13 +207,9 @@ struct ModeSelectionView: View {
             testDetailsCard
 
             VStack(spacing: 12) {
-                if flow.testType == .pregnancy {
-                    modeCard(.aiQuickCheck, title: "Luna Check", message: aiModeCopy, primary: true)
-                    modeCard(.manualEnhance, title: "Manual Check", message: manualModeCopy, primary: false)
-                } else {
-                    modeCard(.aiQuickCheck, title: "Luna Check", message: aiModeCopy, primary: true)
-                    modeCard(.manualEnhance, title: "Manual Check", message: manualModeCopy, primary: false)
-                }
+                modeCard(.aiQuickCheck, title: "Luna Check", message: aiModeCopy, primary: true)
+                modeCard(.manualEnhance, title: "Manual Check", message: manualModeCopy, primary: false)
+                
             }
 
         }
@@ -236,11 +232,9 @@ struct ModeSelectionView: View {
         .overlay {
             if showLunaCheckOptions {
                 LunaCheckGateOverlay(
-                    title: flow.testType == .pregnancy ? "Your free Luna Check has been used" : "No Luna Checks left right now",
-                    message: flow.testType == .pregnancy
-                        ? "Watch an ad for one extra check this week, or unlock unlimited Luna Checks with Pro."
-                        : "Watch an ad for 1 more check, or upgrade for unlimited AI reads.",
-                    adButtonTitle: flow.testType == .pregnancy ? "Watch ad for this week's check" : "Watch ad for 1 more Luna Check",
+                    title: "No Luna Checks left right now",
+                    message: "Watch an ad for 1 more check, or upgrade for unlimited AI reads.",
+                    adButtonTitle: "Watch ad for 1 more Luna Check",
                     cornerRadius: 28,
                     onWatchAd: {
                         Task { await unlockAndContinueIfPossible() }
@@ -350,26 +344,10 @@ struct ModeSelectionView: View {
         case .aiQuickCheck: "LunaCheckIcon"
         case .manualEnhance: "ManualCheckIcon"
         }
-        // Pregnancy Luna includes one complete on-device check so users can
-        // experience the value before subscribing. Ovulation keeps its
-        // existing weekly/ad-supported cloud quota.
-        let isPregnancyLuna = mode == .aiQuickCheck && flow.testType == .pregnancy
         return Button {
             if mode == .aiQuickCheck {
                 guard let settings = appState.settings else { return }
-                if isPregnancyLuna {
-                    if !quota.canUsePregnancyLuna(settings) {
-                        if quota.canClaimPregnancyRewardedCheck(settings) {
-                            showLunaCheckOptions = true
-                        } else {
-                            AppAnalytics.log("linecheck_ai_quota_exhausted", ["test_type": flow.testType.rawValue])
-                            appState.paywallSource = "luna_check_quota"
-                            appState.showPremium = true
-                            appState.toast = "This week's rewarded Luna Check has been used"
-                        }
-                        return
-                    }
-                } else if !quota.canUseAI(settings) {
+                if !quota.canUseAI(settings) {
                     showLunaCheckOptions = true
                     return
                 }
@@ -394,7 +372,7 @@ struct ModeSelectionView: View {
                             .fixedSize(horizontal: true, vertical: false)
                             .layoutPriority(1)
                         if let settings = appState.settings, !settings.proUnlocked {
-                            Text(mode == .manualEnhance ? "FREE · ADS" : (isPregnancyLuna ? pregnancyLunaBadge(settings) : shortQuotaText(settings)))
+                            Text(mode == .manualEnhance ? "FREE · ADS" : shortQuotaText(settings))
                                 .font(.app(.caption2, weight: .bold))
                                 .foregroundStyle(Color.lineBlue)
                                 .lineLimit(1)
@@ -433,41 +411,9 @@ struct ModeSelectionView: View {
         return "\(remaining) left"
     }
 
-    private func pregnancyLunaBadge(_ settings: UserSettings) -> String {
-        guard !settings.proUnlocked else { return "PRO" }
-        let remaining = (quota.isPregnancyFreeLunaAvailable(settings) ? 1 : 0)
-            + settings.pregnancyRewardedChecksAvailable
-        if remaining == 0, quota.canClaimPregnancyRewardedCheck(settings) {
-            return "WATCH AD · +1 CHECK"
-        }
-        return "\(remaining) left"
-    }
-
     private func unlockAndContinueIfPossible() async {
         guard let settings = appState.settings else { return }
         guard !isUnlockingRewardedCheck else { return }
-        if flow.testType == .pregnancy {
-            guard quota.canClaimPregnancyRewardedCheck(settings) else {
-                appState.toast = "This week's rewarded Luna Check has been used"
-                return
-            }
-            isUnlockingRewardedCheck = true
-            defer { isUnlockingRewardedCheck = false }
-            if await RewardedAdService().showRewardedAd(),
-               quota.addPregnancyRewardedCheck(settings) {
-                try? modelContext.save()
-                appState.toast = "1 Luna Check added for this week"
-                flow.suppressCompletionInterstitial = true
-                flow.mode = .aiQuickCheck
-                flow.step = .guide
-                showLunaCheckOptions = false
-            } else {
-                appState.toast = quota.canClaimPregnancyRewardedCheck(settings)
-                    ? "Rewarded ad unavailable"
-                    : "This week's rewarded Luna Check has been used"
-            }
-            return
-        }
         guard quota.canClaimRewardedCheck(settings) else {
             appState.toast = "This week's rewarded Luna Checks have been used"
             return
@@ -491,7 +437,7 @@ private struct TestPhotoPreview: View {
     var body: some View {
         TestImage(testType: testType)
             .aspectRatio(contentMode: .fit)
-            .frame(height: testType == .pregnancy ? 72 : 48)
+            .frame(height: 48)
             .frame(maxWidth: .infinity)
             .padding(.horizontal, 10)
             .accessibilityHidden(true)
@@ -506,12 +452,12 @@ private struct TestImage: View {
             Image(uiImage: image)
                 .resizable()
         } else {
-            TestIllustration(testType: testType, result: testType == .pregnancy ? .faintLineDetected : .high)
+            TestIllustration(testType: testType, result: .high)
         }
     }
 
     private var imageName: String {
-        testType == .pregnancy ? "HomePregnancyTest" : "HomeOvulationTest"
+        "HomeOvulationTest"
     }
 }
 
@@ -737,11 +683,11 @@ private struct CaptureGuidePhoto: View {
     var testType: TestType
 
     private var imageScale: CGFloat {
-        testType == .pregnancy ? 1.0 : 1.55
+        1.55
     }
 
     private var imageOffset: CGSize {
-        testType == .pregnancy ? .zero : CGSize(width: 0, height: 18)
+        CGSize(width: 0, height: 18)
     }
 
     var body: some View {
@@ -767,7 +713,7 @@ private struct CaptureGuidePhoto: View {
     }
 
     private var imageName: String {
-        testType == .pregnancy ? "capturepregnancy" : "captureov"
+        "captureov"
     }
 }
 
@@ -1466,17 +1412,6 @@ private final class CameraOverlayView: UIView {
         frameView.addSubview(controlHintLabel)
 
         var referenceImageView: UIImageView?
-        if testType == .pregnancy {
-            let imageView = UIImageView(image: UIImage(named: "TestLineReference"))
-            imageView.translatesAutoresizingMaskIntoConstraints = false
-            imageView.contentMode = .scaleAspectFit
-            imageView.layer.cornerRadius = 6
-            imageView.clipsToBounds = true
-            imageView.layer.borderColor = UIColor.white.withAlphaComponent(0.5).cgColor
-            imageView.layer.borderWidth = 1
-            frameView.addSubview(imageView)
-            referenceImageView = imageView
-        }
 
         let controls = UIView()
         controls.translatesAutoresizingMaskIntoConstraints = false
@@ -1573,7 +1508,7 @@ private final class CameraOverlayView: UIView {
 
         let title = UILabel()
         title.translatesAutoresizingMaskIntoConstraints = false
-        title.text = testType == .ovulation ? "Align ovulation test inside box" : "Align pregnancy test inside box"
+        title.text = "Align test inside box"
         title.textColor = .white
         title.font = .systemFont(ofSize: LineType.size(17), weight: .bold)
         title.textAlignment = .center
@@ -1822,15 +1757,6 @@ private struct TemplateAlignView: View {
                 .lineLimit(1)
                 .minimumScaleFactor(0.7)
                 .position(x: viewport.midX, y: viewport.minY - 128)
-            if flow.testType == .pregnancy {
-                Image("TestLineReference")
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: viewport.width)
-                    .clipShape(RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).stroke(Color.white.opacity(0.5), lineWidth: 1))
-                    .position(x: viewport.midX, y: viewport.minY - 84)
-            }
             alignmentLabel(flow.testType == .ovulation ? "MAX / DIP" : "TEST TIP", x: viewport.minX + viewport.width * 0.11, viewport: viewport)
             let lineAreaMinX = viewport.minX + viewport.width * TestTemplateGeometry.lineRegion.minX
             let lineAreaMaxX = viewport.minX + viewport.width * TestTemplateGeometry.lineRegion.maxX
@@ -1927,9 +1853,8 @@ private struct TemplateAlignView: View {
         0.35
     }
 
-    /// OPK screenshots often contain a very small strip amid a full screen of
-    /// UI. Let those imports zoom far enough to fill the fixed guide; the
-    /// tighter pregnancy limit remains unchanged.
+    /// Screenshots often contain a very small strip amid a full screen of
+    /// UI. Let those imports zoom far enough to fill the fixed guide.
     private var maximumScale: CGFloat {
         flow.testType == .ovulation ? 12 : 5
     }

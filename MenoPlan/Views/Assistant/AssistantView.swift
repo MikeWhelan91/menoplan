@@ -674,20 +674,11 @@ private struct AssistantChatScreen: View {
             close()
             appState.historyRoute = .compare
             appState.selectedTab = .history
-        case .pregnancyTiming:
-            appliedSuggestionIDs.insert(suggestion.id)
-            close()
-            appState.calendarSetupRequest = .pregnancy
-            appState.selectedTab = .calendar
         case .cycleTiming:
             appliedSuggestionIDs.insert(suggestion.id)
             close()
             appState.calendarSetupRequest = .ovulation
             appState.selectedTab = .calendar
-        case .pregnancyScan:
-            appliedSuggestionIDs.insert(suggestion.id)
-            close()
-            appState.startScan(testType: .pregnancy)
         case .ovulationScan:
             appliedSuggestionIDs.insert(suggestion.id)
             close()
@@ -853,7 +844,6 @@ private struct AssistantChatScreen: View {
         switch (key, value) {
         case (.expectedPeriodDate, .date(let date)):
             settings.expectedPeriodDate = date
-            if settings.trackingFocus == .ovulation { settings.trackingFocus = .both }
         // Cycle facts go through the same paths as the Calendar: once a cycle
         // exists, predictions read it rather than these settings, so writing
         // only the setting used to make Luna's "updated" change nothing.
@@ -862,10 +852,8 @@ private struct AssistantChatScreen: View {
             if let cycle = CycleTrackingService.cycle(containing: date, records: realCycles) {
                 CycleTrackingService.confirmOvulation(date, on: cycle)
             }
-            if settings.trackingFocus == .ovulation { settings.trackingFocus = .both }
         case (.lastPeriodStartDate, .date(let date)):
             _ = CycleTrackingService.recordPeriodStart(date, settings: settings, records: realCycles, periods: periodEvents, context: modelContext)
-            if settings.trackingFocus == .pregnancy { settings.trackingFocus = .both }
         case (.averageCycleLength, .integer(let number)):
             settings.averageCycleLength = number
             if let cycle = CycleTrackingService.activeCycle(records: realCycles) {
@@ -873,14 +861,12 @@ private struct AssistantChatScreen: View {
                 cycle.userSetCycleLength = number
                 refreshBaseline(for: cycle)
             }
-            if settings.trackingFocus == .pregnancy { settings.trackingFocus = .both }
         case (.lutealPhaseLength, .integer(let number)):
             settings.lutealPhaseLength = number
             if let cycle = CycleTrackingService.activeCycle(records: realCycles) {
                 cycle.lutealPhaseLengthAtStart = number
                 refreshBaseline(for: cycle)
             }
-            if settings.trackingFocus == .pregnancy { settings.trackingFocus = .both }
         default:
             pendingSettingSuggestion = nil
             appState.toast = "This change is no longer available"
@@ -935,7 +921,6 @@ private struct AssistantChatScreen: View {
 
     private func defaultOffset(for type: ReminderType) -> Int {
         switch type {
-        case .pregnancyRetest: 48
         case .ovulationTest, .ovulationFollowUp, .fertileWindow, .fertilePeak, .periodExpected, .periodCheckIn, .periodLate, .logTestResult, .bodyCheckIn, .cycleSetup: 12
         case .medication, .custom: 24
         }
@@ -1012,13 +997,11 @@ private struct AssistantSuggestionModifier: ViewModifier {
     private func icon(for kind: AssistantSuggestion.Kind) -> String {
         switch kind {
         case .reminder: "bell"
-        case .pregnancyScan: "camera.viewfinder"
         case .ovulationScan: "waveform.path.ecg"
         case .calendar: "calendar"
         case .settingUpdate: "calendar.badge.checkmark"
         case .history: "clock.arrow.circlepath"
         case .compare: "rectangle.split.2x1"
-        case .pregnancyTiming: "calendar.badge.plus"
         case .cycleTiming: "calendar.badge.clock"
         }
     }

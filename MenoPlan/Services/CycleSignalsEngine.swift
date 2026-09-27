@@ -106,7 +106,6 @@ struct CycleSignalInputs {
     var scans: [Scan]
     var profile: HealthProfile
     var tryingToConceive: Bool
-    var pregnancyState: PregnancyJourneyState
 }
 
 /// Turns the person's own data - cycle, daily log, Apple Health, profile and
@@ -123,11 +122,10 @@ enum CycleSignalsEngine {
         func logs(inLast count: Int) -> [DailyFertilityLog] {
             realLogs.filter { let age = days(from: $0.date, to: today); return age >= 0 && age < count }
         }
-        let isPregnant = input.pregnancyState == .confirmedPregnant
 
         // MARK: Cycle timing evidence
 
-        if let cycle = input.activeCycle, let window = input.window, !isPregnant {
+        if let cycle = input.activeCycle, let window = input.window {
             let cycleLogs = realLogs
                 .filter { calendar.startOfDay(for: $0.date) >= calendar.startOfDay(for: cycle.startDate) }
                 .sorted { $0.date < $1.date }
@@ -226,21 +224,7 @@ enum CycleSignalsEngine {
                 ))
             }
 
-            let late = days(from: window.nextPeriodDate, to: today)
-            let hasPositivePregnancyTest = input.scans.contains { scan in
-                scan.testType == .pregnancy && !scan.excludedFromCalculations
-                    && [.appearsPositive, .faintLineDetected].contains(scan.resultType)
-                    && calendar.startOfDay(for: scan.createdAt) >= calendar.startOfDay(for: cycle.startDate)
-            }
-            if late >= 2, !hasPositivePregnancyTest, input.tryingToConceive {
-                signals.append(CycleSignal(
-                    id: "periodLate", tone: .attention, symbol: "calendar.badge.exclamationmark",
-                    title: "Period \(late) days late",
-                    detail: "Your period was expected \(short(window.nextPeriodDate)) and hasn't been logged. A pregnancy test now gives a reliable answer. If it's negative and your period still doesn't come, retest in 2-3 days.",
-                    surfaces: [.luna, .weekly, .pregnancyResult]
-                ))
-            }
-            if window.cycleDay > 45, !hasPositivePregnancyTest {
+            if window.cycleDay > 45 {
                 signals.append(CycleSignal(
                     id: "longCycle", tone: .attention, symbol: "calendar.badge.clock",
                     title: "A longer cycle than usual",
@@ -335,14 +319,10 @@ enum CycleSignalsEngine {
             let rise = mean(recentHR) - median(baselineHR)
             if rise >= 3 {
                 let window = input.window
-                let pastPeriod = window.map { days(from: $0.nextPeriodDate, to: today) >= 1 } ?? false
                 let luteal = window.map { today > calendar.startOfDay(for: $0.predictedOvulationDate) && today < calendar.startOfDay(for: $0.nextPeriodDate) } ?? false
                 let detail: String
                 let tone: CycleSignal.Tone
-                if pastPeriod && input.tryingToConceive && !isPregnant {
-                    tone = .attention
-                    detail = "Your resting heart rate is about \(Int(rise.rounded())) bpm above your usual level and your period is due. A resting heart rate that stays raised after a missed period can be an early pregnancy sign. It can also mean illness, so a test is the way to know."
-                } else if luteal {
+                if luteal {
                     tone = .info
                     detail = "Your resting heart rate is about \(Int(rise.rounded())) bpm above your usual level. A small rise after ovulation is normal as progesterone increases."
                 } else {
@@ -392,17 +372,6 @@ enum CycleSignalsEngine {
 
         if let category = input.profile.bmiCategory, category.mayAffectOvulation, let note = category.fertilityNote {
             signals.append(CycleSignal(id: "bmi", tone: .info, symbol: "figure.stand", title: category.title, detail: note, surfaces: [.luna, .ovulationResult]))
-        }
-
-        if !isPregnant, let pregnancy = recentObservations.filter({ $0.1 == "Apple Health: pregnancy recorded" }).max(by: { $0.0 < $1.0 }), days(from: pregnancy.0, to: today) <= 300 {
-            signals.append(CycleSignal(
-                id: "healthPregnancy", tone: .info, symbol: "heart.text.square",
-                title: "Pregnancy recorded in Apple Health",
-                detail: FeatureFlags.pregnancyModeEnabled
-                    ? "Apple Health has a pregnancy recorded from \(short(pregnancy.0)). If that's current, you can switch MenoPlan to pregnancy mode. If it has ended, cycles can take a while to settle."
-                    : "Apple Health has a pregnancy recorded from \(short(pregnancy.0)). If it has ended, cycles can take a while to settle, so predictions may shift for a few months.",
-                surfaces: [.luna, .weekly, .home]
-            ))
         }
 
         return caveatedForContraception(signals).sorted { $0.tone > $1.tone }

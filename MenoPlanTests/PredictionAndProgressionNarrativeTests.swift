@@ -33,31 +33,6 @@ final class PredictionExplanationBuilderTests: XCTestCase {
 }
 
 final class ProgressionNarrativeBuilderTests: XCTestCase {
-    func testWeakComparisonNoteFlagsDifferentBrands() {
-        let earlier = Scan(createdAt: .now.addingTimeInterval(-86_400), testType: .pregnancy, testFormat: .unspecified, resultType: .faintLineDetected, analysisMode: .aiQuickCheck, imageFilename: "a.jpg", brandName: "BrandA")
-        let later = Scan(createdAt: .now, testType: .pregnancy, testFormat: .unspecified, resultType: .appearsPositive, analysisMode: .aiQuickCheck, imageFilename: "b.jpg", brandName: "BrandB")
-
-        let note = ProgressionNarrativeBuilder.weakComparisonNote(scans: [earlier, later])
-
-        XCTAssertNotNil(note)
-        XCTAssertTrue(note!.localizedCaseInsensitiveContains("brand"))
-    }
-
-    func testWeakComparisonNoteIsNilForAConsistentPair() {
-        let earlier = Scan(createdAt: .now.addingTimeInterval(-86_400), testType: .pregnancy, testFormat: .unspecified, resultType: .faintLineDetected, analysisMode: .aiQuickCheck, imageFilename: "a.jpg", brandName: "BrandA")
-        let later = Scan(createdAt: .now, testType: .pregnancy, testFormat: .unspecified, resultType: .appearsPositive, analysisMode: .aiQuickCheck, imageFilename: "b.jpg", brandName: "BrandA")
-
-        XCTAssertNil(ProgressionNarrativeBuilder.weakComparisonNote(scans: [earlier, later]))
-    }
-
-    func testPregnancyNarrativeDescribesAStrongerLine() {
-        let earlier = Scan(createdAt: .now.addingTimeInterval(-86_400), testType: .pregnancy, testFormat: .unspecified, resultType: .faintLineDetected, confidencePercentage: 0, certaintyPercentage: 0, controlLineDetected: true, testLineDetected: true, testControlRatio: 0, lineStrength: 0.2, analysisMode: .aiQuickCheck, imageFilename: "a.jpg")
-        let later = Scan(createdAt: .now, testType: .pregnancy, testFormat: .unspecified, resultType: .faintLineDetected, confidencePercentage: 0, certaintyPercentage: 0, controlLineDetected: true, testLineDetected: true, testControlRatio: 0, lineStrength: 0.4, analysisMode: .aiQuickCheck, imageFilename: "b.jpg")
-
-        let narrative = try? XCTUnwrap(ProgressionNarrativeBuilder.pregnancyNarrative(scans: [earlier, later]))
-
-        XCTAssertEqual(narrative, "Line appears stronger. The later pregnancy test has a higher saved line-strength value.")
-    }
 }
 
 final class HomeGreetingTests: XCTestCase {

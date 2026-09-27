@@ -109,7 +109,7 @@ struct LineCheckApp: App {
     /// Every synced model, in one place so the app's store and the Debug
     /// iCloud schema tool can't drift apart.
     nonisolated static let persistentModelTypes: [any PersistentModel.Type] = [
-        Scan.self, ScanComparison.self, ProgressionGroup.self, CycleRecord.self, PeriodEvent.self,
+        Scan.self, ScanComparison.self, CycleRecord.self, PeriodEvent.self,
         DailyFertilityLog.self, DailyHealthMetrics.self, NoticedSignal.self, Reminder.self,
         UserSettings.self, AssistantConversation.self, WeeklyLunaUpdate.self
     ]
@@ -224,11 +224,11 @@ final class AppState {
 }
 
 enum LunaHistoryRoute: Equatable {
-    case recent, compare, progression
+    case recent, compare
 }
 
 enum LunaCalendarSetupRequest: Equatable {
-    case pregnancy, ovulation
+    case ovulation
 }
 
 enum PostScanPrompt {
@@ -274,7 +274,6 @@ final class ScanFlow: Identifiable {
     var importedImageHasBeenCropped = false
     var adjustedImage: UIImage?
     var analysisResult: LineAnalysisResult?
-    var localPregnancyDiagnostics: LocalPregnancyDiagnostics?
     var localOvulationDiagnostics: LocalOvulationDiagnostics?
     var autoSummary = ""
     /// Short, text-only Luna guidance produced after a Pro or included free
@@ -319,7 +318,6 @@ final class ScanFlow: Identifiable {
     func resetForNewCapture(keepingStep step: ScanStep) {
         adjustedImage = nil
         analysisResult = nil
-        localPregnancyDiagnostics = nil
         autoSummary = ""
         personalisedGuidance = nil
         persistedScan = nil
@@ -498,9 +496,7 @@ struct RootView: View {
                 settings?.autoPeriodExpectedRemindersEnabled ?? false,
                 settings?.autoPeriodCheckInRemindersEnabled ?? false,
                 settings?.autoPeriodLateRemindersEnabled ?? false,
-                settings?.autoPregnancyRetestRemindersEnabled ?? false,
-                window?.isIrregular ?? false,
-                cycle?.pregnancyState == .ended
+                window?.isIrregular ?? false
             ]
         )
     }
@@ -530,8 +526,6 @@ struct RootView: View {
         case .setupCycle:
             appState.calendarSetupRequest = .ovulation
             appState.selectedTab = .calendar
-        case .scanPregnancy:
-            appState.startScan(testType: .pregnancy)
         case .scanOvulation:
             appState.startScan(testType: .ovulation)
         }
@@ -584,13 +578,11 @@ struct RootView: View {
                 ovulationSource: settings.knownOvulationDate == nil ? nil : .migrated,
                 expectedPeriodDate: settings.expectedPeriodDate ?? window?.nextPeriodDate,
                 averageCycleLengthAtStart: settings.averageCycleLength,
-                lutealPhaseLengthAtStart: settings.lutealPhaseLength,
-                pregnancyState: settings.pregnancyJourneyState
+                lutealPhaseLengthAtStart: settings.lutealPhaseLength
             )
             modelContext.insert(cycle)
             for scan in scans {
                 CycleTrackingService.attach(scan, to: [cycle])
-                _ = CycleTrackingService.applyPregnancyResult(from: scan, records: [cycle], settings: settings)
             }
             CycleTrackingService.reconcileOvulationEstimates(records: [cycle], scans: scans)
             if periodEvents.isEmpty {
@@ -605,7 +597,6 @@ struct RootView: View {
         guard !cycleRecords.isEmpty else { return }
         for scan in scans {
             CycleTrackingService.attach(scan, to: cycleRecords)
-            _ = CycleTrackingService.applyPregnancyResult(from: scan, records: cycleRecords, settings: appState.settings)
         }
         CycleTrackingService.reconcileOvulationEstimates(records: cycleRecords, scans: scans)
         // Existing temperature logs can already show a post-ovulation rise;
@@ -655,7 +646,7 @@ struct RootView: View {
                 icon: "bell.badge.fill",
                 imageName: "CalendarReminderIcon",
                 title: "Never miss a retest",
-                message: "Get reminders for pregnancy and ovulation tests.",
+                message: "Get reminders for your check-ins and tests.",
                 primaryTitle: "Enable notifications",
                 secondaryTitle: "Not now",
                 primaryAction: {

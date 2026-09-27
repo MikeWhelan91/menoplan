@@ -4,7 +4,7 @@ import SwiftData
 @Model
 final class UserSettings {
     var id: UUID = UUID()
-    var defaultTestTypeRaw: String = TestType.pregnancy.rawValue
+    var defaultTestTypeRaw: String = TestType.ovulation.rawValue
     var defaultTestFormatRaw: String = TestFormat.unspecified.rawValue
     var useFaceID: Bool = false
     var localStorageOnly: Bool = false
@@ -25,13 +25,6 @@ final class UserSettings {
     @Attribute(originalName: "hasSeenCalendarIntro") private var hasSeenCalendarIntroValue: Bool?
     @Attribute(originalName: "hasSeenPostUseNotificationPrompt") private var hasSeenPostUseNotificationPromptValue: Bool?
     @Attribute(originalName: "hasSeenRatingPrompt") private var hasSeenRatingPromptValue: Bool?
-    /// Pregnancy's Luna Check quota shares AICheckQuotaService.refreshIfNeeded's
-    /// weekly reset with the ovulation pool below - same shape as
-    /// freeAIChecksUsedToday/rewardedChecksClaimedThisWeek, just its own
-    /// smaller weekly allowance (LineAnalysisConstants.weeklyFreePregnancyChecks).
-    @Attribute(originalName: "pregnancyFreeChecksUsedThisWeek") private var pregnancyFreeChecksUsedThisWeekValue: Int?
-    @Attribute(originalName: "pregnancyRewardedChecksAvailable") private var pregnancyRewardedChecksAvailableValue: Int?
-    @Attribute(originalName: "pregnancyRewardedChecksClaimedThisWeek") private var pregnancyRewardedChecksClaimedThisWeekValue: Int?
     @Attribute(originalName: "dismissedCycleVariabilityDays") private var dismissedCycleVariabilityDaysValue: Int?
     var hasCompletedOnboarding: Bool = false
     var preferredAnalysisModeRaw: String = AnalysisMode.aiQuickCheck.rawValue
@@ -41,9 +34,7 @@ final class UserSettings {
     var ovulationTrackingGoalRaw: String?
     var expectedPeriodDate: Date?
     var knownOvulationDate: Date?
-    var pregnancyTrackingGoalRaw: String?
     var trackingFocusRaw: String?
-    var pregnancyJourneyStateRaw: String?
     var hasMigratedCycleHistoryValue: Bool?
     var userNameValue: String?
     var autoRemindersEnabled: Bool = false
@@ -53,7 +44,6 @@ final class UserSettings {
     @Attribute(originalName: "autoPeriodExpectedRemindersEnabled") private var autoPeriodExpectedRemindersEnabledValue: Bool?
     @Attribute(originalName: "autoPeriodCheckInRemindersEnabled") private var autoPeriodCheckInRemindersEnabledValue: Bool?
     @Attribute(originalName: "autoPeriodLateRemindersEnabled") private var autoPeriodLateRemindersEnabledValue: Bool?
-    @Attribute(originalName: "autoPregnancyRetestRemindersEnabled") private var autoPregnancyRetestRemindersEnabledValue: Bool?
     var temperatureUnitRaw: String?
     @Attribute(originalName: "healthKitSyncEnabled") private var healthKitSyncEnabledValue: Bool?
     @Attribute(originalName: "healthKitAdvancedSignalsEnabled") private var healthKitAdvancedSignalsEnabledValue: Bool?
@@ -70,7 +60,6 @@ final class UserSettings {
     var hasCompletedPersonalizationValue: Bool?
     var dismissedPersonalizationPromptValue: Bool?
     var dismissedDoctorSuggestionValue: Bool?
-    var pregnancyConfirmedDateValue: Date?
     /// What the person typed for "Something else" on the conditions question.
     var otherConditionTextValue: String?
     /// Body measurements from onboarding / the daily log / Apple Health.
@@ -103,7 +92,7 @@ final class UserSettings {
 
     init() {
         self.id = UUID()
-        self.defaultTestTypeRaw = TestType.pregnancy.rawValue
+        self.defaultTestTypeRaw = TestType.ovulation.rawValue
         self.defaultTestFormatRaw = TestFormat.unspecified.rawValue
         self.useFaceID = false
         self.localStorageOnly = false
@@ -121,9 +110,6 @@ final class UserSettings {
         self.hasSeenCalendarIntroValue = false
         self.hasSeenPostUseNotificationPromptValue = false
         self.hasSeenRatingPromptValue = false
-        self.pregnancyFreeChecksUsedThisWeekValue = 0
-        self.pregnancyRewardedChecksAvailableValue = 0
-        self.pregnancyRewardedChecksClaimedThisWeekValue = 0
         self.hasCompletedOnboarding = false
         self.preferredAnalysisModeRaw = AnalysisMode.aiQuickCheck.rawValue
         self.lastPeriodStartDate = nil
@@ -132,9 +118,7 @@ final class UserSettings {
         self.ovulationTrackingGoalRaw = OvulationTrackingGoal.tryingToConceive.rawValue
         self.expectedPeriodDate = nil
         self.knownOvulationDate = nil
-        self.pregnancyTrackingGoalRaw = PregnancyTrackingGoal.tryingToConceive.rawValue
-        self.trackingFocusRaw = TrackingFocus.both.rawValue
-        self.pregnancyJourneyStateRaw = PregnancyJourneyState.trying.rawValue
+        self.trackingFocusRaw = TrackingFocus.ovulation.rawValue
         self.hasMigratedCycleHistoryValue = false
         self.userNameValue = nil
         self.autoRemindersEnabled = false
@@ -144,7 +128,6 @@ final class UserSettings {
         self.autoPeriodExpectedRemindersEnabledValue = true
         self.autoPeriodCheckInRemindersEnabledValue = true
         self.autoPeriodLateRemindersEnabledValue = true
-        self.autoPregnancyRetestRemindersEnabledValue = true
         self.temperatureUnitRaw = nil
         self.healthKitSyncEnabledValue = false
         self.healthKitAdvancedSignalsEnabledValue = false
@@ -152,7 +135,7 @@ final class UserSettings {
     }
 
     var defaultTestType: TestType {
-        get { TestType(rawValue: defaultTestTypeRaw) ?? .pregnancy }
+        get { TestType(rawValue: defaultTestTypeRaw) ?? .ovulation }
         set { defaultTestTypeRaw = newValue.rawValue }
     }
     var defaultTestFormat: TestFormat {
@@ -207,18 +190,6 @@ final class UserSettings {
         get { hasSeenRatingPromptValue ?? false }
         set { hasSeenRatingPromptValue = newValue }
     }
-    var pregnancyFreeChecksUsedThisWeek: Int {
-        get { pregnancyFreeChecksUsedThisWeekValue ?? 0 }
-        set { pregnancyFreeChecksUsedThisWeekValue = newValue }
-    }
-    var pregnancyRewardedChecksAvailable: Int {
-        get { pregnancyRewardedChecksAvailableValue ?? 0 }
-        set { pregnancyRewardedChecksAvailableValue = newValue }
-    }
-    var pregnancyRewardedChecksClaimedThisWeek: Int {
-        get { pregnancyRewardedChecksClaimedThisWeekValue ?? 0 }
-        set { pregnancyRewardedChecksClaimedThisWeekValue = newValue }
-    }
     var averageCycleLength: Int {
         get { averageCycleLengthValue ?? 28 }
         set { averageCycleLengthValue = newValue }
@@ -264,20 +235,12 @@ final class UserSettings {
         get { OvulationTrackingGoal(rawValue: ovulationTrackingGoalRaw ?? "") ?? .tryingToConceive }
         set { ovulationTrackingGoalRaw = newValue.rawValue }
     }
-    var pregnancyTrackingGoal: PregnancyTrackingGoal {
-        get { PregnancyTrackingGoal(rawValue: pregnancyTrackingGoalRaw ?? "") ?? .tryingToConceive }
-        set { pregnancyTrackingGoalRaw = newValue.rawValue }
-    }
     var trackingFocus: TrackingFocus {
-        get { TrackingFocus(rawValue: trackingFocusRaw ?? "") ?? .both }
+        get { TrackingFocus(rawValue: trackingFocusRaw ?? "") ?? .ovulation }
         set {
             trackingFocusRaw = newValue.rawValue
             defaultTestType = newValue.defaultTestType
         }
-    }
-    var pregnancyJourneyState: PregnancyJourneyState {
-        get { PregnancyJourneyState(rawValue: pregnancyJourneyStateRaw ?? "") ?? .trying }
-        set { pregnancyJourneyStateRaw = newValue.rawValue }
     }
     var hasMigratedCycleHistory: Bool {
         get { hasMigratedCycleHistoryValue ?? false }
@@ -312,10 +275,6 @@ final class UserSettings {
     var autoPeriodLateRemindersEnabled: Bool {
         get { autoPeriodLateRemindersEnabledValue ?? false }
         set { autoPeriodLateRemindersEnabledValue = newValue }
-    }
-    var autoPregnancyRetestRemindersEnabled: Bool {
-        get { autoPregnancyRetestRemindersEnabledValue ?? true }
-        set { autoPregnancyRetestRemindersEnabledValue = newValue }
     }
     var healthKitSyncEnabled: Bool {
         get { healthKitSyncEnabledValue ?? false }

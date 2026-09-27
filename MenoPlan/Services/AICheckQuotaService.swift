@@ -1,60 +1,8 @@
 import Foundation
 
 final class AICheckQuotaService {
-    func canUsePregnancyLuna(_ settings: UserSettings) -> Bool {
-        refreshIfNeeded(settings)
-        if settings.proUnlocked { return true }
-        return isPregnancyFreeLunaAvailable(settings) || settings.pregnancyRewardedChecksAvailable > 0
-    }
-
-    /// Just the free-check slot specifically, ignoring any banked rewarded
-    /// check - used where the UI needs to know "is the free one open" (e.g.
-    /// the "1 left" badge, or whether a consumption should count as the
-    /// included free one) rather than "can they check at all."
-    func isPregnancyFreeLunaAvailable(_ settings: UserSettings) -> Bool {
-        refreshIfNeeded(settings)
-        return settings.pregnancyFreeChecksUsedThisWeek < LineAnalysisConstants.weeklyFreePregnancyChecks
-    }
-
-    func canClaimPregnancyRewardedCheck(_ settings: UserSettings) -> Bool {
-        refreshIfNeeded(settings)
-        if settings.proUnlocked { return false }
-        return settings.pregnancyRewardedChecksClaimedThisWeek < LineAnalysisConstants.maxPregnancyRewardedChecksPerWeek
-    }
-
-    @discardableResult
-    func addPregnancyRewardedCheck(_ settings: UserSettings) -> Bool {
-        refreshIfNeeded(settings)
-        guard canClaimPregnancyRewardedCheck(settings) else { return false }
-        settings.pregnancyRewardedChecksAvailable += LineAnalysisConstants.rewardedChecks
-        settings.pregnancyRewardedChecksClaimedThisWeek += 1
-        return true
-    }
-
-    @discardableResult
-    func consumePregnancyLuna(_ settings: UserSettings) -> Bool {
-        refreshIfNeeded(settings)
-        if settings.proUnlocked {
-            AppAnalytics.log("linecheck_luna_check_used", ["test_type": "pregnancy", "source": "pro"])
-            return true
-        }
-        if settings.pregnancyRewardedChecksAvailable > 0 {
-            settings.pregnancyRewardedChecksAvailable -= 1
-            AppAnalytics.log("linecheck_luna_check_used", ["test_type": "pregnancy", "source": "rewarded"])
-            return true
-        }
-        if settings.pregnancyFreeChecksUsedThisWeek < LineAnalysisConstants.weeklyFreePregnancyChecks {
-            settings.pregnancyFreeChecksUsedThisWeek += 1
-            AppAnalytics.log("linecheck_luna_check_used", ["test_type": "pregnancy", "source": "free"])
-            return true
-        }
-        return false
-    }
-
-    /// Weekly reset shared by both Luna Check pools - ovulation's free
-    /// checks/rewarded bank/claims, and pregnancy's, all reset together on
-    /// the same calendar-week cycle, so "your free checks reset every week"
-    /// is one story instead of two different mechanics.
+    /// Weekly reset for the Luna Check pool - free checks, rewarded bank
+    /// and claims all reset together each calendar week.
     func refreshIfNeeded(_ settings: UserSettings) {
         let calendar = Calendar.current
         let lastWeek = calendar.component(.weekOfYear, from: settings.lastAICheckResetDate)
@@ -65,9 +13,6 @@ final class AICheckQuotaService {
         settings.freeAIChecksUsedToday = 0
         settings.rewardedChecksAvailable = 0
         settings.rewardedChecksClaimedThisWeek = 0
-        settings.pregnancyFreeChecksUsedThisWeek = 0
-        settings.pregnancyRewardedChecksAvailable = 0
-        settings.pregnancyRewardedChecksClaimedThisWeek = 0
         settings.lastAICheckResetDate = .now
     }
 

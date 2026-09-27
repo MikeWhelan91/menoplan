@@ -19,7 +19,6 @@ enum CalendarReminderTitle {
         case .periodExpected: return "Period may start soon"
         case .periodCheckIn: return "Did your period start?"
         case .periodLate: return "Still waiting for your period?"
-        case .pregnancyRetest: return "Consider a pregnancy test"
         case .ovulationTest: return OvulationReminderCopy.startTitle
         case .fertileWindow: return OvulationReminderCopy.fertileTitle
         case .fertilePeak: return OvulationReminderCopy.peakTitle
@@ -50,8 +49,6 @@ enum CalendarReminderTitle {
         case .periodExpected:
             guard let predictedDate = calendar.date(byAdding: .day, value: 1, to: reminder.scheduledDate) else { return nil }
             return "Estimated for \(DateFormatting.shortDate.string(from: predictedDate)) · not confirmed"
-        case .periodCheckIn where reminder.title == PeriodCheckInCopy.titleWithTest:
-            return "If not, consider a pregnancy test"
         default:
             return nil
         }
@@ -70,11 +67,11 @@ struct CalendarView: View {
     @Query(sort: \DailyFertilityLog.date) private var dailyLogs: [DailyFertilityLog]
     @Query(sort: \DailyHealthMetrics.date) private var healthMetrics: [DailyHealthMetrics]
     @Query(sort: \NoticedSignal.firstSeen) private var noticedSignals: [NoticedSignal]
-    @State private var selectedTrackingType: TestType = .pregnancy
+    @State private var selectedTrackingType: TestType = .ovulation
     @State private var showAdd = false
     @State private var showAllReminders = false
     @State private var activeSetup: CalendarSetupSheet?
-    @State private var reminderDraftType: ReminderType = .pregnancyRetest
+    @State private var reminderDraftType: ReminderType = .periodExpected
     @State private var reminderDraftDate = Calendar.current.date(byAdding: .hour, value: 48, to: .now) ?? .now
     @State private var selectedScan: Scan?
     @State private var selectedDate: Date?
@@ -100,7 +97,7 @@ struct CalendarView: View {
     @State private var showPredictionWhy = false
     @State private var showTrendsExportOptions = false
     @State private var pendingExportScope: TrendsExportScope?
-    @State private var exportScope: TrendsExportScope = .both
+    @State private var exportScope: TrendsExportScope = .ovulation
     @State private var exportDateFilter: ChartDateFilter = .allTime
     @State private var isEditingPeriods = false
     @State private var periodEditSelection: Set<Date> = []
@@ -113,7 +110,6 @@ struct CalendarView: View {
         periodEvents.filter { !$0.notes.contains("[LineCheck Screenshot Sample]") }
     }
     private var ovulationScans: [Scan] { scans.filter { $0.testType == .ovulation } }
-    private var pregnancyScans: [Scan] { scans.filter { $0.testType == .pregnancy } }
     private var fertilityWindow: FertilityWindow? {
         CycleTrackingService.window(records: calendarCycleRecords, periods: calendarPeriodEvents, settings: settings)
     }
@@ -147,18 +143,6 @@ struct CalendarView: View {
             return nil
         }
     }
-    private var pregnancyTimeline: PregnancyTimeline? {
-        // A cycle marked "ended" (including pregnancy loss) should not keep
-        // producing a due-date/DPO timeline - that would misrepresent the
-        // journey as still ongoing and could resurface week-by-week
-        // pregnancy content that no longer applies.
-        guard activeCycle?.pregnancyState != .ended else { return nil }
-        return PregnancyTimelineCalculator.timeline(
-            expectedPeriodDate: activeCycle?.expectedPeriodDate ?? settings?.expectedPeriodDate,
-            knownOvulationDate: activeCycle?.effectiveOvulationDate ?? settings?.knownOvulationDate,
-            fertilityWindow: fertilityWindow
-        )
-    }
     private var displayedReminders: [Reminder] {
         reminders.filter { !$0.isCompleted }
     }
@@ -180,9 +164,6 @@ struct CalendarView: View {
                     }
                     inlineFullCalendar
                     quickCalendarActions
-                    if fertilityWindow != nil && pregnancyTimeline == nil {
-                        compactSetupPrompt
-                    }
                     remindersPanel
                         .padding(.top, -10)
                 }
@@ -257,8 +238,6 @@ struct CalendarView: View {
             .sheet(item: $activeSetup) { setup in
                 if let settings {
                     switch setup {
-                    case .pregnancy:
-                        PregnancyTimelineSetupView(settings: settings)
                     case .ovulation:
                         CycleSetupView(settings: settings)
                     }
@@ -290,7 +269,7 @@ struct CalendarView: View {
                     }
                     return nil
                 }()
-                let dayContext = CalendarCycleSettings(settings: settings, cycleRecords: calendarCycleRecords, periodEvents: calendarPeriodEvents).dayContext(for: day.date, trackingType: .pregnancy)
+                let dayContext = CalendarCycleSettings(settings: settings, cycleRecords: calendarCycleRecords, periodEvents: calendarPeriodEvents).dayContext(for: day.date, trackingType: .ovulation)
                 // The predicted-period window is a planning estimate, not a
                 // fact - once its start day has come and gone with nothing
                 // logged, keep showing it (predictions don't self-delete) but
@@ -368,9 +347,6 @@ struct CalendarView: View {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) {
                             activeSetup = .ovulation
                         }
-                    },
-                    startPregnancyScan: {
-                        beginScanFromCalendar(.pregnancy, on: selectedDay, today: today)
                     },
                     startOvulationScan: {
                         beginScanFromCalendar(.ovulation, on: selectedDay, today: today)
@@ -481,9 +457,6 @@ struct CalendarView: View {
         appState.calendarSetupRequest = nil
         showCalendarIntro = false
         switch request {
-        case .pregnancy:
-            selectedTrackingType = .pregnancy
-            activeSetup = .pregnancy
         case .ovulation:
             selectedTrackingType = .ovulation
             activeSetup = .ovulation
@@ -598,14 +571,12 @@ struct CalendarView: View {
             metrics: healthMetrics,
             scans: scans,
             profile: settings.healthProfile,
-            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive,
-            pregnancyState: settings.pregnancyJourneyState
+            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive
         ))
     }
 
     private var trackingPicker: some View {
         Picker("Tracking", selection: $selectedTrackingType) {
-            Text("Pregnancy tests").tag(TestType.pregnancy)
             Text("Ovulation tests").tag(TestType.ovulation)
         }
         .pickerStyle(.segmented)
@@ -963,9 +934,6 @@ struct CalendarView: View {
             .frame(maxWidth: .infinity)
 
             HStack(spacing: 10) {
-                calendarAction("Pregnancy\ntest", imageName: "CalendarPregnancyTestIcon", tint: .linePink) {
-                    appState.startScan(testType: .pregnancy)
-                }
                 calendarAction("Ovulation\ntest", imageName: "CalendarOvulationTestIcon", tint: .linePurple) {
                     appState.startScan(testType: .ovulation)
                 }
@@ -1039,53 +1007,13 @@ struct CalendarView: View {
         .buttonStyle(.plain)
     }
 
-    private var compactSetupPrompt: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "slider.horizontal.3")
-                .font(.system(size: LineType.size(16), weight: .bold))
-                .foregroundStyle(Color.linePurple)
-                .frame(width: 38, height: 38)
-                .background(Color.linePurple.opacity(0.10), in: Circle())
-
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Personalise your calendar")
-                    .font(.lineSubheadline(.semibold))
-                    .foregroundStyle(Color.lineNavy)
-                Text("Add timing details for more accurate dates.")
-                    .font(.app(.caption))
-                    .foregroundStyle(Color.lineNavy.opacity(0.58))
-            }
-
-            Spacer(minLength: 4)
-
-            Menu {
-                Button("Set cycle details") { activeSetup = .ovulation }
-                Button("Set pregnancy timing") { activeSetup = .pregnancy }
-            } label: {
-                Text("Set up")
-                    .font(.app(.caption, weight: .bold))
-                    .foregroundStyle(Color.linePurple)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 9)
-                    .background(Color.linePurple.opacity(0.10), in: Capsule())
-            }
-        }
-        .padding(13)
-        .background(Color.white.opacity(0.9), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).stroke(Color.linePurple.opacity(0.08)))
-    }
-
     private var trendsSheet: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 trackingPicker
                 chartDateFilterPicker
                 cycleSignalsCard
-                if selectedTrackingType == .pregnancy {
-                    pregnancyTabContent
-                } else {
-                    ovulationTabContent
-                }
+                ovulationTabContent
             }
             .padding(.horizontal, layout.horizontalPadding)
             .padding(.vertical, 16)
@@ -1166,15 +1094,9 @@ struct CalendarView: View {
     }
 
     private enum TrendsExportScope: String, CaseIterable, Identifiable {
-        case pregnancy, ovulation, both
+        case ovulation
         var id: String { rawValue }
-        var title: String {
-            switch self {
-            case .pregnancy: "Pregnancy Only"
-            case .ovulation: "Ovulation Only"
-            case .both: "Both"
-            }
-        }
+        var title: String { "Ovulation" }
     }
 
     /// Pro-only, mirroring the same gate/toast pattern ResultView uses for
@@ -1189,7 +1111,7 @@ struct CalendarView: View {
             appState.toast = "Doctor visit reports are included with MenoPlan Pro"
             return
         }
-        exportScope = selectedTrackingType == .pregnancy ? .pregnancy : .ovulation
+        exportScope = .ovulation
         exportDateFilter = chartDateFilter
         showTrendsExportOptions = true
     }
@@ -1235,22 +1157,13 @@ struct CalendarView: View {
             lines.append(("Predicted ovulation", DateFormatting.shortDate.string(from: window.predictedOvulationDate)))
             lines.append(("Next expected period", DateFormatting.shortDate.string(from: window.nextPeriodDate)))
         }
-        if scope != .pregnancy {
+        do {
             let peaks = scans
                 .filter { $0.testType == .ovulation && ($0.resultType == .peak || $0.resultType == .high) }
                 .sorted { $0.createdAt > $1.createdAt }
                 .prefix(3)
             if !peaks.isEmpty {
                 lines.append(("Recent peak/high OPK", peaks.map { DateFormatting.shortDate.string(from: $0.createdAt) }.joined(separator: ", ")))
-            }
-        }
-        if scope != .ovulation {
-            let positives = scans
-                .filter { $0.testType == .pregnancy && ($0.resultType == .appearsPositive || $0.resultType == .faintLineDetected) }
-                .sorted { $0.createdAt > $1.createdAt }
-                .prefix(3)
-            if !positives.isEmpty {
-                lines.append(("Recent positive/faint tests", positives.map { DateFormatting.shortDate.string(from: $0.createdAt) }.joined(separator: ", ")))
             }
         }
         return lines
@@ -1285,14 +1198,7 @@ struct CalendarView: View {
         // on-screen narrative caption is carried into the report too - a
         // doctor visit report of unlabeled chart images with no context is
         // far less useful than what the app itself already tells the user.
-        if scope != .ovulation, var chart = pregnancyProgressionChart() {
-            chart.isZoomable = false
-            if let image = chart.renderedImage(size: chartSize) {
-                let caption = ProgressionNarrativeBuilder.pregnancyNarrative(scans: pregnancyProgressionScans)
-                sections.append(("Pregnancy Line Progression", .linePink, image, caption))
-            }
-        }
-        if scope != .pregnancy {
+        do {
             if var chart = ovulationTrendChart() {
                 chart.isZoomable = false
                 if let image = chart.renderedImage(size: chartSize) {
@@ -1851,12 +1757,6 @@ struct CalendarView: View {
                 }
 
                 HStack(spacing: 10) {
-                    Button(pregnancyTimeline == nil ? "Set pregnancy timing" : "Edit pregnancy timing") {
-                        activeSetup = .pregnancy
-                    }
-                    .buttonStyle(.secondaryLine)
-                    .frame(maxWidth: .infinity)
-
                     Button(fertilityWindow == nil ? "Set cycle" : "Edit cycle") {
                         activeSetup = .ovulation
                     }
@@ -1868,7 +1768,7 @@ struct CalendarView: View {
     }
 
     private var calendarSetupCopy: String {
-        "Keep cycle timing and pregnancy-test timing together so every saved test has useful context."
+        "Add your cycle details so every saved test and symptom has useful context."
     }
 
     private static let cycleHistoryTab = ChartTabItem(id: "cycleHistory", title: "Cycle History", icon: "chart.bar.doc.horizontal")
@@ -1877,19 +1777,6 @@ struct CalendarView: View {
     private static let bodyTab = ChartTabItem(id: "body", title: "Body Rhythms", icon: "heart.text.square")
     private static let symptomTimingTab = ChartTabItem(id: "symptomTiming", title: "Symptom Timing", icon: "clock.arrow.circlepath")
     private static let noticedTab = ChartTabItem(id: "noticed", title: "Noticed Signals", icon: "eye")
-
-    private static let pregnancyChartTabs: [ChartTabItem] = [
-        ChartTabItem(id: "progression", title: "Line Progression", icon: "chart.line.uptrend.xyaxis", iconAssetName: "HomeTrendsIcon"),
-        cycleHistoryTab,
-        lutealTab,
-        accuracyTab,
-        ChartTabItem(id: "cycleLength", title: "Cycle & Period Length", icon: "arrow.triangle.2.circlepath"),
-        bodyTab,
-        ChartTabItem(id: "symptoms", title: "Symptoms", icon: "waveform.path.ecg"),
-        symptomTimingTab,
-        ChartTabItem(id: "moods", title: "Moods", icon: "face.smiling"),
-        noticedTab
-    ]
 
     private static let ovulationChartTabs: [ChartTabItem] = [
         ChartTabItem(id: "opk", title: "OPK Trend", icon: "testtube.2"),
@@ -1942,8 +1829,7 @@ struct CalendarView: View {
             metrics: healthMetrics,
             scans: scans,
             profile: settings.healthProfile,
-            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive,
-            pregnancyState: settings.pregnancyJourneyState
+            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive
         ))
     }
 
@@ -2002,25 +1888,6 @@ struct CalendarView: View {
     }
 
     @ViewBuilder
-    private var pregnancyTabContent: some View {
-        ForEach(Self.pregnancyChartTabs) { tab in
-            ChartSectionCard(
-                title: tab.title,
-                icon: tab.icon,
-                iconAssetName: tab.iconAssetName,
-                tint: Color.linePink,
-                helpTerm: tab.title,
-                helpExplanation: chartHelpExplanation(for: tab.id),
-                contentHeight: chartContentHeight(for: tab.id),
-                isLocked: isPremiumGatedTab(tab.id),
-                allowsFullScreen: !Self.compactTabIDs.contains(tab.id)
-            ) {
-                sharedChartBody(for: tab.id, pregnancyProgression: true)
-            }
-        }
-    }
-
-    @ViewBuilder
     private var ovulationTabContent: some View {
         ForEach(Self.ovulationChartTabs) { tab in
             ChartSectionCard(
@@ -2035,7 +1902,7 @@ struct CalendarView: View {
                 titleAccessory: tab.id == "bbt" ? { AnyView(bbtDisplayModePicker) } : { AnyView(EmptyView()) },
                 allowsFullScreen: !Self.compactTabIDs.contains(tab.id)
             ) {
-                sharedChartBody(for: tab.id, pregnancyProgression: false)
+                sharedChartBody(for: tab.id)
             }
         }
     }
@@ -2045,7 +1912,7 @@ struct CalendarView: View {
     private func isPremiumGatedTab(_ tab: String) -> Bool {
         guard settings?.proUnlocked != true else { return false }
         return switch tab {
-        case "progression", "opk", "bbt", "cycleHistory", "luteal", "accuracy", "body", "symptomTiming", "noticed": true
+        case "opk", "bbt", "cycleHistory", "luteal", "accuracy", "body", "symptomTiming", "noticed": true
         default: false
         }
     }
@@ -2057,14 +1924,13 @@ struct CalendarView: View {
         case let id where Self.compactTabIDs.contains(id): nil
         // Slightly taller than the base 300pt chart height to leave room for
         // the auto-generated progression narrative shown underneath.
-        case "progression", "opk": 340
+        case "opk": 340
         default: 300
         }
     }
 
     private func chartHelpExplanation(for tab: String) -> String {
         switch tab {
-        case "progression": "How your pregnancy test line strength has changed across your recent tests."
         case "opk": "Your OPK test-to-control line ratio across your recent ovulation tests."
         case "bbt": "Your basal body temperature logged each morning this cycle."
         case "cycleLength": "The number of days between the start of each of your recent periods, with your average period length from periods where you logged an end date."
@@ -2081,9 +1947,8 @@ struct CalendarView: View {
     }
 
     @ViewBuilder
-    private func sharedChartBody(for tab: String, pregnancyProgression: Bool) -> some View {
+    private func sharedChartBody(for tab: String) -> some View {
         switch tab {
-        case "progression": premiumGatedChart(tint: .linePink) { pregnancyProgressionChartBody }
         case "opk": premiumGatedChart(tint: .linePurple) { ovulationTrendChartBody }
         case "bbt": premiumGatedChart(tint: .linePurple) { bbtChartBody }
         case "cycleLength": cycleLengthChartBody
@@ -2188,44 +2053,7 @@ struct CalendarView: View {
         Array(filteredByChartDate(scans.filter { !$0.excludedFromCalculations }, date: \.createdAt).sorted { $0.createdAt < $1.createdAt }.suffix(40))
     }
 
-    private var pregnancyProgressionScans: [Scan] { progressionScans(pregnancyScans) }
     private var ovulationProgressionScans: [Scan] { progressionScans(ovulationScans) }
-
-    private func pregnancyProgressionChart() -> DGLineChart? {
-        let scans = pregnancyProgressionScans
-        guard !scans.isEmpty else { return nil }
-        let points = scans.enumerated().map { index, scan in
-            ChartPoint(
-                x: Double(index),
-                y: pregnancyWeeklySignedValue(for: scan),
-                label: DateFormatting.axisDate.string(from: scan.createdAt),
-                markerColor: UIColor(scan.resultType.calendarTint(for: .pregnancy)),
-                markerText: "\(DateFormatting.shortDate.string(from: scan.createdAt))\n\(scan.resultType.title) · \(scan.lineStrength.formatted(.percent.precision(.fractionLength(0))))"
-            )
-        }
-        return DGLineChart(points: points, color: LineCheckChartColor.pink, yAxisMin: -112, yAxisMax: 112, zeroLine: true, isZoomable: true)
-    }
-
-    @ViewBuilder
-    private var pregnancyProgressionChartBody: some View {
-        if let chart = pregnancyProgressionChart() {
-            VStack(alignment: .leading, spacing: 8) {
-                chart
-                progressionNarrativeCaption(
-                    ProgressionNarrativeBuilder.pregnancyNarrative(scans: pregnancyProgressionScans),
-                    weakNote: ProgressionNarrativeBuilder.weakComparisonNote(scans: pregnancyProgressionScans)
-                )
-            }
-        } else {
-            chartEmptyState(
-                icon: "camera.viewfinder",
-                title: "No pregnancy tests yet",
-                message: "Save a pregnancy test to see your line progression here.",
-                tint: .linePink,
-                buttonTitle: "Scan now"
-            ) { appState.startScan(testType: .pregnancy) }
-        }
-    }
 
     @ViewBuilder
     private func progressionNarrativeCaption(_ narrative: String?, weakNote: String?) -> some View {
@@ -2920,23 +2748,9 @@ struct CalendarView: View {
         (settings?.temperatureUnit ?? .localeDefault) == .fahrenheit ? celsius * 9 / 5 + 32 : celsius
     }
 
-    private func pregnancyWeeklySignedValue(for scan: Scan) -> Double {
-        let lineValue = min(100, max(0, scan.lineStrength * 100))
-        switch scan.resultType {
-        case .appearsPositive, .faintLineDetected:
-            return max(8, lineValue)
-        case .appearsNegative:
-            return -max(8, 100 - lineValue)
-        case .invalid, .unclear:
-            return 0
-        default:
-            return lineValue
-        }
-    }
-
     private func prepareReminder(type: ReminderType, date: Date? = nil) {
         reminderDraftType = type
-        reminderDraftDate = date ?? (Calendar.current.date(byAdding: .hour, value: type == .pregnancyRetest ? 48 : 24, to: .now) ?? .now)
+        reminderDraftDate = date ?? (Calendar.current.date(byAdding: .hour, value: 24, to: .now) ?? .now)
         showAdd = true
     }
 
@@ -2968,7 +2782,7 @@ struct CalendarView: View {
     }
 
     private var reminderEmptyCopy: String {
-        "Add a pregnancy retest, ovulation test, fertile-days, or custom reminder."
+        "Add a check-in, test, medication or custom reminder."
     }
 
     private var shouldPromptForNotifications: Bool {
@@ -3086,10 +2900,6 @@ struct CalendarView: View {
 
     private func scan(on date: Date) -> Scan? {
         ovulationScans.last { Calendar.current.isDate($0.createdAt, inSameDayAs: date) }
-    }
-
-    private func pregnancyScan(on date: Date) -> Scan? {
-        pregnancyScans.last { Calendar.current.isDate($0.createdAt, inSameDayAs: date) }
     }
 
     private func scansForDay(_ date: Date) -> [Scan] {
@@ -3293,7 +3103,7 @@ struct CalendarView: View {
 }
 
 private enum CalendarSetupSheet: String, Identifiable {
-    case pregnancy, ovulation
+    case ovulation
     var id: String { rawValue }
 }
 
@@ -3733,7 +3543,7 @@ private struct CalendarIntroPopup: View {
         .init(
             symbol: "testtube.2",
             title: "Review saved tests",
-            detail: "Pregnancy and ovulation tests appear on the day you logged them.",
+            detail: "Your tests appear on the day you logged them.",
             tint: .linePink
         ),
         .init(
@@ -3746,7 +3556,7 @@ private struct CalendarIntroPopup: View {
             symbol: "chart.xyaxis.line",
             imageName: "HomeTrendsIcon",
             title: "See how test lines change",
-            detail: "Review daily and weekly pregnancy test changes over time.",
+            detail: "Review how your tests and symptoms change over time.",
             tint: .linePurple
         )
     ]
@@ -4125,19 +3935,6 @@ private struct CalendarCycleSettings {
         let cycleDay = FertilityWindowCalculator.cycleDay(for: day, cycleStart: window.cycleStart)
         let phase = projected.map { CalendarDayPhase(CycleCalendarPhaseResolver.projectedPhase(for: day, window: $0)) }
             ?? dayPhase(for: day, window: window)
-        let explicitExpectedPeriod = expectedPeriodDate.flatMap {
-            dateBelongsToCycle($0, window: window, graceDays: 7) ? $0 : nil
-        }
-        let explicitOvulation = knownOvulationDate.flatMap {
-            dateBelongsToCycle($0, window: window) ? $0 : nil
-        }
-        let timeline = PregnancyTimelineCalculator.timeline(
-            for: day,
-            expectedPeriodDate: explicitExpectedPeriod,
-            knownOvulationDate: explicitOvulation,
-            fertilityWindow: window
-        )
-
         let startFormat = Calendar.current.isDate(window.fertileStartDate, equalTo: window.fertileEndDate, toGranularity: .month) ? "d" : "d MMM"
         let startFormatter = DateFormatter()
         startFormatter.dateFormat = startFormat
@@ -4161,9 +3958,6 @@ private struct CalendarCycleSettings {
             ]
         case .luteal:
             lines = [CalendarDayDetailLine(label: "Next period", value: DateFormatting.shortDate.string(from: window.nextPeriodDate))]
-            if trackingType == .pregnancy, let dpo = timeline?.daysPastOvulation, dpo >= 0 {
-                lines.append(CalendarDayDetailLine(label: "Days past ovulation", value: "\(dpo)"))
-            }
         }
 
         let ovulationSource: TrackingDataSource? = {
@@ -4199,16 +3993,6 @@ private struct CalendarCycleSettings {
         ))
     }
 
-    private func pregnancyTestingCopy(for day: Date, timeline: PregnancyTimeline) -> String {
-        if timeline.isExpectedPeriodDay { return "Expected period day" }
-        if timeline.isAfterExpectedPeriod {
-            return "\(abs(timeline.daysUntilExpectedPeriod)) day\(abs(timeline.daysUntilExpectedPeriod) == 1 ? "" : "s") after expected period"
-        }
-        if timeline.isTestingWindowDay(day) {
-            return "In the estimated testing window"
-        }
-        return "Usually clearer closer to \(DateFormatting.shortDate.string(from: timeline.testingWindowStartDate)) or later"
-    }
 }
 
 private struct CalendarTerminologyView: View {
@@ -4267,13 +4051,6 @@ private struct CalendarTerminologyView: View {
                     labelRow("Reminder", "A small orange dot means a reminder is scheduled on that date.")
                     labelRow("Sex Logged", "A small pink heart means sex was logged in Symptoms & Activities for that date. Tap the day to edit it.")
                     labelRow("Today", "A bold navy ring marks today while keeping its cycle-phase colour visible.")
-                }
-
-                Section("Pregnancy Terms") {
-                    term("DPO", "Days past ovulation. This helps place pregnancy tests on your timeline after the likely ovulation date.")
-                    term("Expected period", "The date your period is expected to start. Testing before this date can be too early for a clear result.")
-                    term("Testing window", "The earliest date MenoPlan suggests starting pregnancy tests based on your cycle details.")
-                    term("Line progression", "How the pregnancy test line changes across saved photos over time.")
                 }
 
                 Section("Ovulation Terms") {
@@ -4686,7 +4463,6 @@ private struct CycleSetupView: View {
         settings.lutealPhaseLength = lutealPhaseLength
         settings.periodLength = periodLength
         settings.ovulationTrackingGoal = goal
-        settings.trackingFocus = settings.trackingFocus == .pregnancy ? .both : settings.trackingFocus
         settings.autoRemindersEnabled = autoReminders
         let cycle = CycleTrackingService.recordPeriodStart(lastPeriodStart, settings: settings, records: cycleRecords, periods: periodEvents, context: modelContext)
         // recordPeriodStart re-learns settings.averageCycleLength from history;
@@ -4724,97 +4500,6 @@ private struct CycleSetupView: View {
             }
         }
         appState.toast = "Cycle details saved"
-        dismiss()
-    }
-}
-
-private struct PregnancyTimelineSetupView: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(AppState.self) private var appState
-    let settings: UserSettings
-    @State private var expectedPeriodDate: Date
-    @State private var useKnownOvulationDate: Bool
-    @State private var knownOvulationDate: Date
-    @State private var goal: PregnancyTrackingGoal
-
-    init(settings: UserSettings) {
-        self.settings = settings
-        let fertilityWindow = FertilityWindowCalculator.window(
-            lastPeriodStart: settings.lastPeriodStartDate,
-            averageCycleLength: settings.averageCycleLength,
-            lutealPhaseLength: settings.lutealPhaseLength
-        )
-        _expectedPeriodDate = State(initialValue: settings.expectedPeriodDate ?? fertilityWindow?.nextPeriodDate ?? .now)
-        _useKnownOvulationDate = State(initialValue: settings.knownOvulationDate != nil)
-        _knownOvulationDate = State(initialValue: settings.knownOvulationDate ?? fertilityWindow?.predictedOvulationDate ?? .now)
-        _goal = State(initialValue: settings.pregnancyTrackingGoal)
-    }
-
-    private var preview: PregnancyTimeline? {
-        PregnancyTimelineCalculator.timeline(
-            expectedPeriodDate: expectedPeriodDate,
-            knownOvulationDate: useKnownOvulationDate ? knownOvulationDate : nil,
-            fertilityWindow: FertilityWindowCalculator.window(
-                lastPeriodStart: settings.lastPeriodStartDate,
-                averageCycleLength: settings.averageCycleLength,
-                lutealPhaseLength: settings.lutealPhaseLength
-            )
-        )
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section {
-                    DatePicker(
-                        "Expected period",
-                        selection: $expectedPeriodDate,
-                        in: earliestReasonableCycleDate...(Calendar.current.date(byAdding: .day, value: 60, to: .now) ?? .now),
-                        displayedComponents: .date
-                    )
-                    Toggle("Known ovulation date", isOn: $useKnownOvulationDate)
-                    if useKnownOvulationDate {
-                        // A "known" ovulation date is something that already
-                        // happened, so it can't be in the future.
-                        DatePicker("Ovulation date", selection: $knownOvulationDate, in: earliestReasonableCycleDate...Date.now, displayedComponents: .date)
-                    }
-                    Picker("Goal", selection: $goal) {
-                        ForEach(PregnancyTrackingGoal.allCases) { Text($0.title).tag($0) }
-                    }
-                } footer: {
-                    Text("This helps MenoPlan explain when a test was taken and when another check may be useful.")
-                }
-                if let preview {
-                    Section("Preview") {
-                        if let dpo = preview.daysPastOvulation {
-                            detail("Days since ovulation", "\(max(0, dpo))")
-                        }
-                        detail("Expected period", DateFormatting.shortDate.string(from: preview.expectedPeriodDate))
-                        detail("Testing window", DateFormatting.shortDate.string(from: preview.testingWindowStartDate))
-                    }
-                }
-                Button("Save Pregnancy Timeline") { save() }
-                    .buttonStyle(.primaryLine)
-                    .listRowBackground(Color.clear)
-            }
-            .navigationTitle("Pregnancy Timeline")
-            .scrollContentBackground(.hidden)
-            .background { LineCheckBrandBackdrop() }
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
-        }
-        .tint(Color.lineBlue)
-    }
-
-    private func detail(_ title: String, _ value: String) -> some View {
-        HStack { Text(title); Spacer(); Text(value).foregroundStyle(.secondary) }
-    }
-
-    private func save() {
-        settings.expectedPeriodDate = expectedPeriodDate
-        settings.knownOvulationDate = useKnownOvulationDate ? knownOvulationDate : nil
-        settings.pregnancyTrackingGoal = goal
-        settings.trackingFocus = settings.trackingFocus == .ovulation ? .both : settings.trackingFocus
-        appState.toast = "Pregnancy timeline saved"
         dismiss()
     }
 }
@@ -4945,22 +4630,6 @@ private struct AppleHealthTestRecord: Identifiable {
             case "negative": result = .low
             default: result = .unclear
             }
-        } else if let value = observation.split(separator: ":", maxSplits: 1).last?.trimmingCharacters(in: .whitespaces), observation.hasPrefix("Apple Health pregnancy test:") {
-            title = "Pregnancy Test"
-            illustrationType = .pregnancy
-            switch value.lowercased() {
-            case "positive": result = .appearsPositive
-            case "negative": result = .appearsNegative
-            default: result = .unclear
-            }
-        } else if let value = observation.split(separator: ":", maxSplits: 1).last?.trimmingCharacters(in: .whitespaces), observation.hasPrefix("Apple Health progesterone test:") {
-            title = "Progesterone Test"
-            illustrationType = .ovulation
-            switch value.lowercased() {
-            case "positive": result = .appearsPositive
-            case "negative": result = .appearsNegative
-            default: result = .unclear
-            }
         } else {
             return nil
         }
@@ -5039,7 +4708,6 @@ private struct CalendarDayDetailView: View {
     var editPeriod: () -> Void
     var deletePeriod: () -> Void
     var setUpCycle: () -> Void
-    var startPregnancyScan: () -> Void
     var startOvulationScan: () -> Void
     var confirmOvulation: () -> Void
     var removeConfirmedOvulation: () -> Void
@@ -5317,11 +4985,6 @@ private struct CalendarDayDetailView: View {
                         }
                         .foregroundStyle(Color.linePurple)
                     }
-                    Button(date < Calendar.current.startOfDay(for: .now) ? "Add Pregnancy Test" : "Start Pregnancy Scan") {
-                        dismiss()
-                        startPregnancyScan()
-                    }
-                    .disabled(!canStartScan)
                     Button(date < Calendar.current.startOfDay(for: .now) ? "Add Ovulation Test" : "Start Ovulation Scan") {
                         dismiss()
                         startOvulationScan()
@@ -5824,7 +5487,7 @@ struct ReminderEditorView: View {
     @State private var date: Date
     private let existing: Reminder?
 
-    init(initialType: ReminderType = .pregnancyRetest, initialDate: Date? = nil, initialTitle: String? = nil) {
+    init(initialType: ReminderType = .periodExpected, initialDate: Date? = nil, initialTitle: String? = nil) {
         existing = nil
         _type = State(initialValue: initialType)
         _title = State(initialValue: initialTitle ?? initialType.title)
@@ -5930,8 +5593,6 @@ struct ReminderEditorView: View {
 
     private static func defaultDate(for type: ReminderType) -> Date {
         switch type {
-        case .pregnancyRetest:
-            Calendar.current.date(byAdding: .hour, value: 48, to: .now) ?? .now
         case .ovulationTest, .ovulationFollowUp, .fertileWindow, .fertilePeak, .periodExpected, .periodCheckIn, .periodLate, .logTestResult, .bodyCheckIn, .cycleSetup:
             Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now
         case .medication, .custom:
@@ -5981,18 +5642,7 @@ struct ReminderEditorView: View {
 
 private extension ScanResultType {
     func calendarTint(for testType: TestType) -> Color {
-        testType == .ovulation ? ovulationCalendarTint : pregnancyCalendarTint
-    }
-
-    var pregnancyCalendarTint: Color {
-        switch self {
-        case .appearsPositive, .faintLineDetected:
-            Color.linePink
-        case .invalid:
-            Color(red: 1.0, green: 0.42, blue: 0.0)
-        default:
-            Color.lineNavy
-        }
+        ovulationCalendarTint
     }
 
     var ovulationCalendarTint: Color {
@@ -6024,14 +5674,4 @@ private extension ScanResultType {
         }
     }
 
-    var calendarPregnancyStage: String {
-        switch self {
-        case .appearsPositive: "Positive"
-        case .appearsNegative: "Negative"
-        case .faintLineDetected: "Faint"
-        case .invalid: "Invalid"
-        case .unclear: "Unclear"
-        default: badgeTitle
-        }
-    }
 }

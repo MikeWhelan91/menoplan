@@ -526,7 +526,7 @@ struct ResultBadge: View {
 
 struct TestIllustration: View {
     var testType: TestType
-    var result: ScanResultType = .faintLineDetected
+    var result: ScanResultType = .high
     var compact = false
 
     var body: some View {
@@ -571,8 +571,8 @@ struct TestIllustration: View {
     private var controlAlpha: Double { result == .invalid ? 0.08 : 0.95 }
     private var testAlpha: Double {
         switch result {
-        case .appearsPositive, .peak: 0.95
-        case .faintLineDetected, .high: 0.55
+        case .peak: 0.95
+        case .high: 0.55
         case .rising: 0.34
         case .low: 0.16
         default: 0.06
@@ -596,10 +596,10 @@ struct ActionPanel: View {
                     Text(subtitle).font(.lineSubheadline()).foregroundStyle(Color.lineNavy)
                 }
                 Spacer()
-                TestIllustration(testType: testType, result: testType == .pregnancy ? .faintLineDetected : .high, compact: true)
+                TestIllustration(testType: testType, result: .high, compact: true)
             }
             .padding(16)
-            .background(testType == .pregnancy ? Color.linePinkSoft : Color.linePurpleSoft, in: RoundedRectangle(cornerRadius: 12))
+            .background(Color.linePurpleSoft, in: RoundedRectangle(cornerRadius: 12))
         }
         .buttonStyle(.plain)
     }
@@ -798,7 +798,7 @@ struct EmptyStateView: View {
         case .none:
             EmptyView()
         case .generic:
-            TestIllustration(testType: .pregnancy, result: .faintLineDetected)
+            TestIllustration(testType: .ovulation, result: .high)
         case .homeTile(let testType):
             CalendarEmptyStateTestImage(testType: testType)
         case .icon(let name, let tint):
@@ -818,7 +818,7 @@ private struct CalendarEmptyStateTestImage: View {
     var testType: TestType
 
     private var assetName: String {
-        testType == .pregnancy ? "HomePregnancyTest" : "HomeOvulationTest"
+        "HomeOvulationTest"
     }
 
     var body: some View {
@@ -828,11 +828,11 @@ private struct CalendarEmptyStateTestImage: View {
                     .resizable()
                     .scaledToFit()
             } else {
-                TestIllustration(testType: testType, result: testType == .pregnancy ? .faintLineDetected : .high)
+                TestIllustration(testType: testType, result: .high)
             }
         }
         .frame(maxWidth: 320)
-        .frame(height: testType == .pregnancy ? 120 : 94)
+        .frame(height: 94)
         .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
         .allowsHitTesting(false)
         .accessibilityHidden(true)

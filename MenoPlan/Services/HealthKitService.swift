@@ -33,7 +33,6 @@ final class HealthKitService: @unchecked Sendable {
     private let cervicalMucusType = HKCategoryType(.cervicalMucusQuality)
     private let sexualActivityType = HKCategoryType(.sexualActivity)
     private let ovulationTestType = HKCategoryType(.ovulationTestResult)
-    private let pregnancyTestType = HKCategoryType(.pregnancyTestResult)
     private let progesteroneTestType = HKCategoryType(.progesteroneTestResult)
     private let spottingType = HKCategoryType(.intermenstrualBleeding)
     private let breastPainType = HKCategoryType(.breastPain)
@@ -41,7 +40,6 @@ final class HealthKitService: @unchecked Sendable {
     private let vaginalDrynessType = HKCategoryType(.vaginalDryness)
     private let contraceptiveType = HKCategoryType(.contraceptive)
     private let lactationType = HKCategoryType(.lactation)
-    private let pregnancyType = HKCategoryType(.pregnancy)
     private let sleepType = HKCategoryType(.sleepAnalysis)
     private let weightType = HKQuantityType(.bodyMass)
     private let heightType = HKQuantityType(.height)
@@ -62,7 +60,6 @@ final class HealthKitService: @unchecked Sendable {
             cervicalMucusType,
             sexualActivityType,
             ovulationTestType,
-            pregnancyTestType,
             progesteroneTestType,
             spottingType
         ]
@@ -76,9 +73,9 @@ final class HealthKitService: @unchecked Sendable {
     private var readTypes: Set<HKObjectType> {
         [
             bbtType, wristTemperatureType, flowType, cervicalMucusType, sexualActivityType,
-            ovulationTestType, pregnancyTestType, progesteroneTestType,
+            ovulationTestType, progesteroneTestType,
             spottingType, breastPainType, pelvicPainType, vaginalDrynessType,
-            contraceptiveType, lactationType, pregnancyType, sleepType,
+            contraceptiveType, lactationType, sleepType,
             weightType, heightType, waterType,
             stepsType, walkingRunningType, activeEnergyType, exerciseTimeType,
             restingHeartRateType, hrvType,
@@ -281,7 +278,6 @@ final class HealthKitService: @unchecked Sendable {
         // Keep these sequential. NSPredicate is Objective-C reference data and Swift 6
         // correctly refuses to send one shared instance into concurrent tasks.
         let ovulation = try await categorySamples(type: ovulationTestType, predicate: predicate)
-        let pregnancy = try await categorySamples(type: pregnancyTestType, predicate: predicate)
         let progesterone = try await categorySamples(type: progesteroneTestType, predicate: predicate)
         return ovulation.compactMap { sample in
             guard let value = HKCategoryValueOvulationTestResult(rawValue: sample.value) else { return nil }
@@ -294,16 +290,6 @@ final class HealthKitService: @unchecked Sendable {
             @unknown default: return nil
             }
             return TestObservation(date: sample.startDate, label: "Apple Health OPK: \(result)")
-        } + pregnancy.compactMap { sample in
-            guard let value = HKCategoryValuePregnancyTestResult(rawValue: sample.value) else { return nil }
-            let result: String
-            switch value {
-            case .positive: result = "Positive"
-            case .negative: result = "Negative"
-            case .indeterminate: result = "Not clear"
-            @unknown default: return nil
-            }
-            return TestObservation(date: sample.startDate, label: "Apple Health pregnancy test: \(result)")
         } + progesterone.compactMap { sample in
             guard let value = HKCategoryValueProgesteroneTestResult(rawValue: sample.value) else { return nil }
             let result: String
@@ -349,14 +335,13 @@ final class HealthKitService: @unchecked Sendable {
         return results
     }
 
-    /// Contraception, lactation and pregnancy entries. These describe spans of
+    /// Contraception and lactation entries. These describe spans of
     /// time rather than a single day, so each is noted on the day it starts.
     func fetchContextObservations(since startDate: Date) async throws -> [TestObservation] {
         guard isAvailable else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: .now)
         let contraceptives = try await categorySamples(type: contraceptiveType, predicate: predicate)
         let lactation = try await categorySamples(type: lactationType, predicate: predicate)
-        let pregnancies = try await categorySamples(type: pregnancyType, predicate: predicate)
         return contraceptives.map { sample in
             let method: String
             switch HKCategoryValueContraceptive(rawValue: sample.value) {
@@ -371,7 +356,6 @@ final class HealthKitService: @unchecked Sendable {
             return TestObservation(date: sample.startDate, label: "Apple Health contraceptive: \(method)")
         }
         + lactation.map { TestObservation(date: $0.startDate, label: "Apple Health: lactation recorded") }
-        + pregnancies.map { TestObservation(date: $0.startDate, label: "Apple Health: pregnancy recorded") }
     }
 
     // MARK: Body measurements

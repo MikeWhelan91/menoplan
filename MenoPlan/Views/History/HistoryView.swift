@@ -2,14 +2,11 @@ import SwiftData
 import SwiftUI
 
 enum HistoryFilter: String, CaseIterable, Identifiable {
-    case pregnancy = "Pregnancy"
     case ovulation = "Ovulation"
 
     var id: String { rawValue }
 
-    var testType: TestType {
-        self == .pregnancy ? .pregnancy : .ovulation
-    }
+    var testType: TestType { .ovulation }
 }
 
 enum HistoryCycleFilter: Equatable, Identifiable {
@@ -86,9 +83,7 @@ private struct ScanTrackingEditor: View {
     }
 
     private var validResults: [ScanResultType] {
-        scan.testType == .pregnancy
-            ? [.appearsNegative, .faintLineDetected, .appearsPositive, .unclear, .invalid, .manualSaved]
-            : [.low, .rising, .high, .peak, .unclear, .invalid, .manualSaved]
+        [.low, .rising, .high, .peak, .unclear, .invalid, .manualSaved]
     }
 
     private func save() {
@@ -117,7 +112,6 @@ private struct ScanTrackingEditor: View {
             ])
         }
         CycleTrackingService.reconcileOvulationEstimates(records: cycles, scans: allScans)
-        _ = CycleTrackingService.applyPregnancyResult(from: scan, records: cycles, settings: UserSettings.canonical(from: settings))
         try? modelContext.save()
         resyncRemindersIfNeeded()
         dismiss()
@@ -165,7 +159,7 @@ struct HistoryView: View {
     @Query(sort: \CycleRecord.startDate) private var cycles: [CycleRecord]
     @Query private var settings: [UserSettings]
     @Query(sort: \Reminder.scheduledDate) private var reminders: [Reminder]
-    @State private var filter: HistoryFilter = .pregnancy
+    @State private var filter: HistoryFilter = .ovulation
     @State private var search = ""
     @State private var cycleFilter: HistoryCycleFilter = .all
     @State private var dateRange: ClosedRange<Date>?
@@ -177,12 +171,10 @@ struct HistoryView: View {
     @State private var compareRoute: CompareRoute?
     @State private var selectedComparison: ScanComparison?
     @State private var showCompareHelp = false
-    @State private var showProgressionList = false
 
     var filtered: [Scan] {
         scans.filter { scan in
             let byFilter = switch filter {
-            case .pregnancy: scan.testType == .pregnancy
             case .ovulation: scan.testType == .ovulation
             }
             let bySearch = search.isEmpty || scan.resultType.title.localizedCaseInsensitiveContains(search) || scan.notes.localizedCaseInsensitiveContains(search)
@@ -202,7 +194,6 @@ struct HistoryView: View {
     private var cyclesWithScans: [CycleRecord] {
         let typedScans = scans.filter { scan in
             switch filter {
-            case .pregnancy: scan.testType == .pregnancy
             case .ovulation: scan.testType == .ovulation
             }
         }
@@ -213,7 +204,6 @@ struct HistoryView: View {
     private var hasUnassignedScans: Bool {
         scans.contains { scan in
             let matchesType = switch filter {
-            case .pregnancy: scan.testType == .pregnancy
             case .ovulation: scan.testType == .ovulation
             }
             return matchesType && cycle(for: scan) == nil
@@ -254,7 +244,6 @@ struct HistoryView: View {
         guard !isCompareMode else { return [] }
         return comparisons.filter { comparison in
             let byFilter = switch filter {
-            case .pregnancy: comparison.testType == .pregnancy
             case .ovulation: comparison.testType == .ovulation
             }
             let searchable = [
@@ -334,7 +323,6 @@ struct HistoryView: View {
             .sheet(item: $selectedComparison) { comparison in
                 ComparisonHistoryDetailView(comparison: comparison)
             }
-            .sheet(isPresented: $showProgressionList) { ProgressionListView() }
             .sheet(isPresented: $showDateRangeFilter) { dateRangeFilterSheet }
             .overlay {
                 if showCompareHelp {
@@ -360,7 +348,7 @@ struct HistoryView: View {
         guard let route = appState.historyRoute else { return }
         appState.historyRoute = nil
         search = ""
-        filter = .pregnancy
+        filter = .ovulation
         cycleFilter = .all
         dateRange = nil
         switch route {
@@ -371,10 +359,6 @@ struct HistoryView: View {
             isCompareMode = true
             compareBaseScan = nil
             showCompareHelp = true
-        case .progression:
-            isCompareMode = false
-            compareBaseScan = nil
-            showProgressionList = true
         }
     }
 
@@ -584,7 +568,7 @@ struct HistoryView: View {
     }
 
     private func cycleSection(_ group: HistoryCycleGroup) -> some View {
-        let tint: Color = filter == .pregnancy ? .linePink : .linePurple
+        let tint: Color = .linePurple
         return VStack(alignment: .leading, spacing: 10) {
             cycleDividerCard(group)
 
@@ -829,7 +813,7 @@ struct HistoryView: View {
     }
 
     private func cycleSummary(for group: HistoryCycleGroup) -> String {
-        let testLabel = "\(group.scans.count) \(filter == .ovulation ? "ovulation" : "pregnancy") test\(group.scans.count == 1 ? "" : "s")"
+        let testLabel = "\(group.scans.count) ovulation test\(group.scans.count == 1 ? "" : "s")"
         let peakSuffix = (filter == .ovulation && group.scans.contains(where: { $0.resultType == .peak })) ? " · Peak recorded" : ""
 
         guard let cycle = group.cycle else {

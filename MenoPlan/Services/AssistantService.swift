@@ -23,14 +23,12 @@ struct AssistantReminderContext: Encodable, Sendable {
 struct AssistantUserContext: Encodable, Sendable {
     var userName: String?
     var trackingFocus: String
-    var pregnancyTrackingGoal: String
     var ovulationTrackingGoal: String
     var expectedPeriodDate: String?
     var knownOvulationDate: String?
     var lastPeriodStartDate: String?
     var averageCycleLength: Int?
     var lutealPhaseLength: Int?
-    var pregnancyJourneyState: String? = nil
     var cycleSummaries: [String] = []
     var dailyTrackingSummaries: [String] = []
     var cycleLengthVariabilityDays: Int? = nil
@@ -79,13 +77,11 @@ struct AssistantResponse: Decodable, Sendable {
 struct AssistantSuggestion: Codable, Hashable, Identifiable, Sendable {
     enum Kind: String, Codable, Sendable {
         case reminder
-        case pregnancyScan
         case ovulationScan
         case calendar
         case settingUpdate
         case history
         case compare
-        case pregnancyTiming
         case cycleTiming
     }
 
@@ -180,24 +176,21 @@ enum AssistantContextBuilder {
             metrics: healthMetrics,
             scans: scans,
             profile: settings.healthProfile,
-            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive,
-            pregnancyState: settings.pregnancyJourneyState
+            tryingToConceive: settings.ovulationTrackingGoal == .tryingToConceive
         ))
         return AssistantUserContext(
             userName: settings.userName.isEmpty ? nil : settings.userName,
             trackingFocus: settings.trackingFocus.rawValue,
-            pregnancyTrackingGoal: settings.pregnancyTrackingGoal.rawValue,
             ovulationTrackingGoal: settings.ovulationTrackingGoal.rawValue,
             expectedPeriodDate: settings.expectedPeriodDate.map { formatter.string(from: $0) },
             knownOvulationDate: settings.knownOvulationDate.map { formatter.string(from: $0) },
             lastPeriodStartDate: settings.lastPeriodStartDate.map { formatter.string(from: $0) },
             averageCycleLength: settings.averageCycleLengthValue,
             lutealPhaseLength: settings.lutealPhaseLengthValue,
-            pregnancyJourneyState: settings.pregnancyJourneyState.rawValue,
             cycleSummaries: cycles.filter { !$0.notes.contains("[LineCheck Screenshot Sample]") }.prefix(maximumCycleSummaries).map { cycle in
                 let end = cycle.endDate.map { formatter.string(from: $0) } ?? "active"
                 let ovulation = cycle.effectiveOvulationDate.map { formatter.string(from: $0) } ?? "unconfirmed"
-                return "start=\(formatter.string(from: cycle.startDate)); end=\(end); ovulation=\(ovulation); source=\(cycle.startSource.rawValue); pregnancyState=\(cycle.pregnancyState.rawValue)"
+                return "start=\(formatter.string(from: cycle.startDate)); end=\(end); ovulation=\(ovulation); source=\(cycle.startSource.rawValue)"
             },
             dailyTrackingSummaries: dailyLogs
                 .filter { !$0.notes.contains("[LineCheck Screenshot Sample]") && $0.hasContent }

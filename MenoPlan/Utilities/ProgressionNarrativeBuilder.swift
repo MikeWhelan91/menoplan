@@ -1,11 +1,11 @@
 import Foundation
 
-/// Generates the auto-comparison sentence shown under the Line Progression
-/// (pregnancy) and OPK Trend (ovulation) charts, turning a whole saved
+/// Generates the auto-comparison sentence shown under the test trend
+/// chart, turning a whole saved
 /// sequence into a "your line is trending X" statement instead of leaving
 /// the user to read a raw chart themselves. Reuses the exact wording
 /// already used elsewhere in the app (OnDeviceOvulationReconciler's trend
-/// summary, CompareViewModel's pregnancy assessment) so the language a user
+/// summary) so the language a user
 /// sees here always matches what they'd see from a single AI check or a
 /// manual compare.
 enum ProgressionNarrativeBuilder {
@@ -15,12 +15,6 @@ enum ProgressionNarrativeBuilder {
         guard let latest = scans.last, scans.count >= 2 else { return nil }
         let priorRatiosMostRecentFirst = scans.dropLast().reversed().map(\.testControlRatio)
         return OnDeviceOvulationReconciler.trendSummary(currentRatio: latest.testControlRatio, recentRatios: Array(priorRatiosMostRecentFirst))
-    }
-
-    static func pregnancyNarrative(scans: [Scan]) -> String? {
-        guard scans.count >= 2 else { return nil }
-        let assessment = CompareViewModel().pregnancyAssessment(from: scans[scans.count - 2], to: scans[scans.count - 1])
-        return "\(assessment.title). \(assessment.detail)"
     }
 
     /// A different brand, an unusually long gap, or a poor-quality photo

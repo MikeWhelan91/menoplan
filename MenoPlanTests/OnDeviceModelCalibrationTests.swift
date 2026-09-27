@@ -55,49 +55,6 @@ final class OnDeviceModelCalibrationTests: XCTestCase {
         return UIImage(data: data)
     }
 
-    func testPregnancyModelAgainstHeldOutTestSplit() async throws {
-        let rows = loadCSV(subdirectory: "Fixtures/pregnancy-model-test").compactMap { cols -> PregnancyRow? in
-            guard cols.count >= 5 else { return nil }
-            return PregnancyRow(file: cols[0], id: cols[1], controlPresent: cols[2] == "1", testPresent: cols[3] == "1", strength: Double(cols[4]) ?? 0)
-        }
-        try XCTSkipIf(rows.isEmpty, "Pregnancy model test fixtures not found - skipping.")
-
-        let service = OnDevicePregnancyAnalysisService()
-        var truePositive = 0, trueNegative = 0, falsePositive = 0, falseNegative = 0, errors = 0
-        var fnDetails: [String] = []
-        var fpDetails: [String] = []
-
-        for row in rows {
-            guard let image = loadImage(file: row.file, subdirectory: "Fixtures/pregnancy-model-test") else { continue }
-            do {
-                let analysis = try await service.analyseWithDiagnostics(image)
-                let detected = analysis.result.testLineDetected
-                switch (row.testPresent, detected) {
-                case (true, true): truePositive += 1
-                case (false, false): trueNegative += 1
-                case (false, true):
-                    falsePositive += 1
-                    fpDetails.append("\(row.file) (\(row.id)): got \(analysis.result.resultType.rawValue) testLinePresent=\(String(format: "%.3f", analysis.diagnostics.testLinePresent))")
-                case (true, false):
-                    falseNegative += 1
-                    fnDetails.append("\(row.file) (\(row.id)): strength=\(row.strength) got \(analysis.result.resultType.rawValue) testLinePresent=\(String(format: "%.3f", analysis.diagnostics.testLinePresent)) control=\(String(format: "%.3f", analysis.diagnostics.controlLinePresent))")
-                }
-            } catch {
-                errors += 1
-                print("Pregnancy model error on \(row.file): \(error)")
-            }
-        }
-
-        let total = truePositive + trueNegative + falsePositive + falseNegative
-        print("=== Pregnancy on-device model (v9-reddit-150) vs its own held-out test split (n=\(total), errors=\(errors)) ===")
-        print("TP=\(truePositive) TN=\(trueNegative) FP=\(falsePositive) FN=\(falseNegative)")
-        print("accuracy=\(total > 0 ? Double(truePositive + trueNegative) / Double(total) : 0)")
-        print("--- false negatives (real line missed), \(fnDetails.count) ---")
-        for m in fnDetails { print(m) }
-        print("--- false positives (phantom line on a negative), \(fpDetails.count) ---")
-        for m in fpDetails { print(m) }
-    }
-
     func testOvulationModelAgainstHeldOutTestSplit() async throws {
         let rows = loadCSV(subdirectory: "Fixtures/ovulation-model-test").compactMap { cols -> OvulationRow? in
             guard cols.count >= 6 else { return nil }

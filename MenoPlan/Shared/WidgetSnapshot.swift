@@ -14,7 +14,7 @@ enum WidgetShared {
 /// Deep links the widgets open. Kept here so the widget and RootView's
 /// onOpenURL agree on the same hosts.
 enum WidgetDeepLink: String {
-    case calendar, setupCycle = "setup-cycle", scanPregnancy = "scan-pregnancy", scanOvulation = "scan-ovulation"
+    case calendar, setupCycle = "setup-cycle", scanOvulation = "scan-ovulation"
 
     var url: URL { URL(string: "\(WidgetShared.urlScheme)://\(rawValue)")! }
 
@@ -26,7 +26,7 @@ enum WidgetDeepLink: String {
 
 struct WidgetSnapshot: Codable, Hashable {
     enum CycleState: String, Codable {
-        case notSetUp, tracking, pregnant, ended
+        case notSetUp, tracking, ended
     }
 
     /// Mirrors CycleCalendarPhase without depending on app-only types.
@@ -58,14 +58,12 @@ struct WidgetSnapshot: Codable, Hashable {
     var dayPhases: [String: DayPhase]
     /// `dayKey`s of days with a saved (readable) test over the last ~60 days,
     /// so the widget can tell whether today's test is done.
-    var pregnancyTestDays: Set<String>
     var ovulationTestDays: Set<String>
-    var latestPregnancyTest: LatestTest?
     var latestOvulationTest: LatestTest?
 
     static let empty = WidgetSnapshot(
         cycleState: .notSetUp, cycle: nil,
-        dayPhases: [:], pregnancyTestDays: [], ovulationTestDays: [], latestPregnancyTest: nil, latestOvulationTest: nil
+        dayPhases: [:], ovulationTestDays: [], latestOvulationTest: nil
     )
 
     static func dayKey(_ date: Date, calendar: Calendar = .current) -> String {

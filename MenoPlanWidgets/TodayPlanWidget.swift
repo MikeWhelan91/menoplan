@@ -51,11 +51,11 @@ extension WidgetTodayPlan {
     }
 
     var actionLink: WidgetDeepLink {
-        action == .pregnancyTest ? .scanPregnancy : .scanOvulation
+        .scanOvulation
     }
 
     var actionTitle: String {
-        action == .pregnancyTest ? "Check Pregnancy Test" : "Check Ovulation Test"
+        "Check Ovulation Test"
     }
 }
 

@@ -46,7 +46,7 @@
 	<key>LineCheckAIEndpoint</key>
 	<string>https://menoplan.vercel.app/api/analyse-fsh</string>
 	<key>NSCameraUsageDescription</key>
-	<string>MenoPlan uses the camera so you can photograph pregnancy and ovulation tests for line analysis.</string>
+	<string>MenoPlan uses the camera so you can photograph home FSH tests for line analysis.</string>
 	<key>NSFaceIDUsageDescription</key>
 	<string>MenoPlan uses Face ID to help keep your test history private.</string>
 	<key>NSHealthShareUsageDescription</key>

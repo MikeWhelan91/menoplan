@@ -24,11 +24,9 @@ enum TestTemplateGeometry {
         ImageHelpers.cropped(alignedTestImage, normalizedRect: localReaderRegion) ?? alignedTestImage
     }
 
-    /// Pregnancy's fixed-window heuristic wants the tight T/C crop. The
-    /// ovulation analyser deliberately scans the complete strip to locate
-    /// its own T/C pair, so it must retain the legacy full-strip input.
+    /// The ovulation analyser deliberately scans the complete strip to
+    /// locate its own T/C pair, so it keeps the full-strip input.
     static func analysisImage(from alignedTestImage: UIImage, testType: TestType) -> UIImage {
-        guard testType == .pregnancy else { return alignedTestImage }
-        return lineAnalysisImage(from: alignedTestImage) ?? alignedTestImage
+        alignedTestImage
     }
 }

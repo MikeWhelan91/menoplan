@@ -5,7 +5,7 @@ import SwiftData
 final class Scan {
     var id: UUID = UUID()
     var createdAt: Date = Date.now
-    var testTypeRaw: String = TestType.pregnancy.rawValue
+    var testTypeRaw: String = TestType.ovulation.rawValue
     var testFormatRaw: String = TestFormat.unspecified.rawValue
     var resultTypeRaw: String = ScanResultType.unclear.rawValue
     var confidencePercentage: Int = 0
@@ -96,7 +96,7 @@ final class Scan {
         self.resultWasManuallyAdjusted = resultWasManuallyAdjusted
     }
 
-    var testType: TestType { TestType(rawValue: testTypeRaw) ?? .pregnancy }
+    var testType: TestType { TestType(rawValue: testTypeRaw) ?? .ovulation }
     var testFormat: TestFormat { TestFormat(rawValue: testFormatRaw) ?? .unspecified }
     var resultType: ScanResultType { ScanResultType(rawValue: resultTypeRaw) ?? .unclear }
     var resultSource: ScanResultSource {
@@ -121,15 +121,10 @@ final class CycleRecord {
     var expectedPeriodDate: Date?
     var averageCycleLengthAtStart: Int = 28
     var lutealPhaseLengthAtStart: Int = 14
-    var manualDueDateOverride: Date?
     /// A cycle length the person set by hand for this cycle (Calendar setup,
     /// Settings, Luna). Wins over the learned median until the next period
     /// starts a new cycle, which goes back to learning from history.
     var userSetCycleLength: Int?
-    /// Titles of pregnancy milestones (from CycleJourneyCalculator.milestones)
-    /// the user has ticked off themselves - these are user-reported, not date-derived.
-    var completedMilestonesRaw: String = ""
-    var pregnancyStateRaw: String = PregnancyJourneyState.trying.rawValue
     var notes: String = ""
     var createdAt: Date = Date.now
     var updatedAt: Date = Date.now
@@ -146,7 +141,6 @@ final class CycleRecord {
         expectedPeriodDate: Date? = nil,
         averageCycleLengthAtStart: Int = 28,
         lutealPhaseLengthAtStart: Int = 14,
-        pregnancyState: PregnancyJourneyState = .trying,
         notes: String = ""
     ) {
         self.id = id
@@ -160,7 +154,6 @@ final class CycleRecord {
         self.expectedPeriodDate = expectedPeriodDate
         self.averageCycleLengthAtStart = averageCycleLengthAtStart
         self.lutealPhaseLengthAtStart = lutealPhaseLengthAtStart
-        self.pregnancyStateRaw = pregnancyState.rawValue
         self.notes = notes
         self.createdAt = .now
         self.updatedAt = .now
@@ -175,20 +168,7 @@ final class CycleRecord {
         get { ovulationSourceRaw.flatMap(TrackingDataSource.init(rawValue:)) }
         set { ovulationSourceRaw = newValue?.rawValue; updatedAt = .now }
     }
-    var pregnancyState: PregnancyJourneyState {
-        get { PregnancyJourneyState(rawValue: pregnancyStateRaw) ?? .trying }
-        set { pregnancyStateRaw = newValue.rawValue; updatedAt = .now }
-    }
     var effectiveOvulationDate: Date? { confirmedOvulationDate ?? predictedOvulationDate }
-    var completedMilestones: Set<String> {
-        get { Set(completedMilestonesRaw.split(separator: "|").map(String.init)) }
-        set { completedMilestonesRaw = newValue.joined(separator: "|"); updatedAt = .now }
-    }
-    func toggleMilestone(_ title: String) {
-        var current = completedMilestones
-        if current.contains(title) { current.remove(title) } else { current.insert(title) }
-        completedMilestones = current
-    }
 }
 
 @Model
@@ -358,7 +338,7 @@ final class NoticedSignal {
 final class ScanComparison {
     var id: UUID = UUID()
     var createdAt: Date = Date.now
-    var testTypeRaw: String = TestType.pregnancy.rawValue
+    var testTypeRaw: String = TestType.ovulation.rawValue
     var earlierScanID: UUID = UUID()
     var laterScanID: UUID = UUID()
     var earlierDate: Date = Date.now
@@ -409,42 +389,8 @@ final class ScanComparison {
         self.aiSummary = aiSummary
     }
 
-    var testType: TestType { TestType(rawValue: testTypeRaw) ?? .pregnancy }
+    var testType: TestType { TestType(rawValue: testTypeRaw) ?? .ovulation }
     var earlierResult: ScanResultType { ScanResultType(rawValue: earlierResultRaw) ?? .unclear }
     var laterResult: ScanResultType { ScanResultType(rawValue: laterResultRaw) ?? .unclear }
 }
 
-/// A user-named, ordered collection of 1+ saved scans of the same test type,
-/// analyzed together as a sequence (Pro). Unlike ScanComparison (an
-/// auto-saved snapshot of exactly two scans' scalars), this only stores scan
-/// references - per-scan metrics are always read live off the current Scan,
-/// so the group can't go stale relative to a later manual correction.
-@Model
-final class ProgressionGroup {
-    var id: UUID = UUID()
-    var name: String = ""
-    var testTypeRaw: String = TestType.pregnancy.rawValue
-    /// Ordered, "|"-joined Scan.id UUID strings. A plain string join (rather
-    /// than a SwiftData relationship) matches the lightweight-array
-    /// convention already used elsewhere (e.g. DailyFertilityLog.symptomsRaw).
-    var scanIDsRaw: String = ""
-    var createdAt: Date = Date.now
-    var updatedAt: Date = Date.now
-    var aiSummary: String?
-
-    init(id: UUID = UUID(), name: String, testType: TestType, scanIDs: [UUID] = []) {
-        self.id = id
-        self.name = name
-        self.testTypeRaw = testType.rawValue
-        self.scanIDsRaw = scanIDs.map(\.uuidString).joined(separator: "|")
-        self.createdAt = .now
-        self.updatedAt = .now
-    }
-
-    var testType: TestType { TestType(rawValue: testTypeRaw) ?? .pregnancy }
-
-    var scanIDs: [UUID] {
-        get { scanIDsRaw.split(separator: "|").compactMap { UUID(uuidString: String($0)) } }
-        set { scanIDsRaw = newValue.map(\.uuidString).joined(separator: "|"); updatedAt = .now }
-    }
-}

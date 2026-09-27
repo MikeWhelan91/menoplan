@@ -325,3 +325,20 @@ private extension UIImage {
         return renderer.image { _ in draw(in: CGRect(origin: .zero, size: size)) }
     }
 }
+
+enum LocalModelError: LocalizedError {
+    case modelMissing
+    case imagePreparationFailed
+    case unexpectedOutput
+
+    var errorDescription: String? {
+        switch self {
+        case .modelMissing:
+            "The on-device MenoPlan model is not bundled in this build."
+        case .imagePreparationFailed:
+            "The selected image could not be prepared for the local model."
+        case .unexpectedOutput:
+            "The local model returned an unexpected output."
+        }
+    }
+}

@@ -11,49 +11,32 @@ struct MedicalSource: Identifiable {
 }
 
 enum AppConstants {
-    static let safetyCopy = "MenoPlan is not a medical device and does not diagnose pregnancy, infertility, ovulation, or any medical condition. Results are for reference only. Follow your test instructions and seek a doctor's advice in addition to using this app and before making medical decisions."
+    static let safetyCopy = "MenoPlan is not a medical device and does not diagnose perimenopause, menopause, or any medical condition. FSH test readings and symptom patterns are for reference only. Follow your test instructions and talk to a doctor before making decisions about your health or treatment."
     static let certaintyCopy = "Image readability reflects how clearly the app could compare the visible lines in the photo. It is not medical certainty."
-    static let localPrivacyCopy = "Your test images and scan history stay on this device unless you choose Luna Check or Luna chat, which securely send the photo or relevant result context for analysis."
+    static let localPrivacyCopy = "Your test images and records stay on this device unless you choose Luna Check or Luna chat, which securely send the photo or relevant context for analysis."
     static let medicalSources: [MedicalSource] = [
         MedicalSource(
-            title: "Home-use pregnancy tests",
+            title: "Menopause: identification and management (NG23)",
+            publisher: "National Institute for Health and Care Excellence",
+            detail: "Diagnosing perimenopause and menopause from symptoms, when FSH testing is and isn't useful, and treatment options including HRT.",
+            url: URL(string: "https://www.nice.org.uk/guidance/ng23")!
+        ),
+        MedicalSource(
+            title: "Menopause",
+            publisher: "NHS",
+            detail: "Symptoms of perimenopause and menopause, when to see a GP, and treatments.",
+            url: URL(string: "https://www.nhs.uk/conditions/menopause/")!
+        ),
+        MedicalSource(
+            title: "Home-use tests: menopause",
             publisher: "U.S. Food and Drug Administration",
-            detail: "hCG detection, pregnancy test timing, false negatives, repeat testing, and following the test instructions.",
-            url: URL(string: "https://www.fda.gov/medical-devices/home-use-tests/pregnancy")!
-        ),
-        MedicalSource(
-            title: "Home-use test precautions",
-            publisher: "U.S. Food and Drug Administration",
-            detail: "Home tests support health care but do not replace a clinician's evaluation or regular care.",
-            url: URL(string: "https://www.fda.gov/medical-devices/in-vitro-diagnostics/home-use-tests")!
-        ),
-        MedicalSource(
-            title: "Home pregnancy tests",
-            publisher: "Mayo Clinic",
-            detail: "Practical guidance on test timing, false negatives, repeat testing, and when to contact a healthcare professional.",
-            url: URL(string: "https://www.mayoclinic.org/healthy-lifestyle/getting-pregnant/in-depth/home-pregnancy-tests/art-20047940")!
-        ),
-        MedicalSource(
-            title: "Ovulation urine tests",
-            publisher: "U.S. Food and Drug Administration",
-            detail: "LH surge basics, ovulation predictor kit limits, and the need to follow kit instructions carefully.",
-            url: URL(string: "https://www.fda.gov/medical-devices/home-use-tests/ovulation-urine-test")!
-        ),
-        MedicalSource(
-            title: "Fertility window basics",
-            publisher: "Johns Hopkins Medicine",
-            detail: "Cycle length, estimated fertile windows, ovulation timing, and ovulation predictor kit context.",
-            url: URL(string: "https://www.hopkinsmedicine.org/health/wellness-and-prevention/calculating-your-monthly-fertility-window")!
+            detail: "What home FSH tests measure, their limits, and why a result should be discussed with a clinician.",
+            url: URL(string: "https://www.fda.gov/medical-devices/home-use-tests/menopause")!
         )
     ]
 }
 
 enum FeatureFlags {
-    /// The "I'm pregnant" mode: the Settings option, Home's "You saved a
-    /// positive test" prompt, and any copy that suggests switching. People
-    /// already in pregnancy mode keep seeing it so they can switch back.
-    static let pregnancyModeEnabled = false
-
     #if DEBUG
     static let enableRewardedAds = true
     static let enableBannerAds = true
@@ -77,15 +60,10 @@ enum LineAnalysisConstants {
     static let ovulationLowUpper = 0.40
     static let ovulationRisingUpper = 0.75
     static let ovulationHighUpper = 0.95
-    static let pregnancyFaintThreshold = 0.20
-    static let pregnancyPositiveThreshold = 0.42
     static let controlThreshold = 0.18
     static let minCertainty = 40
     static let maxCertainty = 95
-    // Despite the generic name, every call site that reads this quota
-    // (AICheckQuotaService.canUseAI/consumeAI) branches pregnancy off to its
-    // own separate canUsePregnancyLuna/Pro-gated path first - in practice
-    // this pool is exclusively the ovulation Luna Check quota. Free users
+    // The Luna Check quota (AICheckQuotaService.canUseAI/consumeAI). Free users
     // already have an unlimited, ad-supported fallback in "Manual Check"
     // (the on-device heuristic scanner, not this model), so Luna
     // Check itself - the trained model - stays deliberately scarce to
@@ -99,15 +77,6 @@ enum LineAnalysisConstants {
     static let weeklyFreeAIChecks = 2
     static let rewardedChecks = 1
     static let maxRewardedChecksPerWeek = 2
-    // Pregnancy used to run on its own rolling cooldown (1 free check every
-    // N days) rather than a weekly counter - two different mental models for
-    // what was meant to be the same "free allowance" idea, which made the
-    // pregnancy side harder to reason about and to explain in the UI. Unified
-    // onto the same weekly-counter shape as weeklyFreeAIChecks above (shares
-    // AICheckQuotaService.refreshIfNeeded's weekly reset), just with its own
-    // smaller allowance since pregnancy testing is naturally lower-frequency.
-    static let weeklyFreePregnancyChecks = 1
-    static let maxPregnancyRewardedChecksPerWeek = 1
     static let premiumAIComparesPerDay = 10
 }
 

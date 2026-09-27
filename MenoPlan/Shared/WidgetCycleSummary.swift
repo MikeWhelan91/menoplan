@@ -20,9 +20,6 @@ struct WidgetCycleSummary: Equatable {
         case .notSetUp:
             return WidgetCycleSummary(label: "Your cycle", headline: "Set Up", detail: "Add your last period to see your timing",
                                       tone: .neutral, inline: "Set up your cycle in MenoPlan")
-        case .pregnant:
-            return WidgetCycleSummary(label: "Pregnancy", headline: "Confirmed", detail: "Cycle predictions are paused",
-                                      tone: .period, inline: "Pregnancy confirmed")
         case .ended:
             return WidgetCycleSummary(label: "This cycle", headline: "Has Ended", detail: "Tap to start tracking a new cycle",
                                       tone: .neutral, inline: "Start tracking a new cycle")
@@ -60,15 +57,15 @@ struct WidgetCycleSummary: Equatable {
         } else if toPeriod > 0 {
             let dpoText = dpo.map { "\($0) DPO" } ?? "After ovulation"
             summary = WidgetCycleSummary(label: "Period", headline: titled(toPeriod),
-                                         detail: toPeriod <= 4 ? "\(dpoText) · you can test now" : dpoText,
+                                         detail: dpoText,
                                          tone: .period, inline: "Period \(countdown(toPeriod))")
         } else if toPeriod == 0 {
-            summary = WidgetCycleSummary(label: "Period", headline: "Due Today", detail: "A pregnancy test today gives a reliable result",
+            summary = WidgetCycleSummary(label: "Period", headline: "Due Today", detail: "Log your period when it starts",
                                          tone: .period, inline: "Period due today")
         } else {
             let late = -toPeriod
             let lateText = late == 1 ? "1 day late" : "\(late) days late"
-            summary = WidgetCycleSummary(label: "Period", headline: late == 1 ? "1 Day Late" : "\(late) Days Late", detail: "Consider taking a pregnancy test",
+            summary = WidgetCycleSummary(label: "Period", headline: late == 1 ? "1 Day Late" : "\(late) Days Late", detail: "Cycles often vary more in perimenopause",
                                          tone: .period, inline: "Period \(lateText)")
         }
         summary.cycleDay = cycleDay > 0 ? cycleDay : nil

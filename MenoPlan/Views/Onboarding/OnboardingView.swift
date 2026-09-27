@@ -143,11 +143,7 @@ struct OnboardingView: View {
         case .aboutYou:
             aboutYouPage
         case .cycleDetails:
-            if trackingGoal == .tryingToConceive {
-                pregnancyContextPage
-            } else {
-                ovulationContextPage
-            }
+            ovulationContextPage
         case .reminders:
             remindersPage
         case .appleHealth:
@@ -238,7 +234,7 @@ struct OnboardingView: View {
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
 
-            Text("Scan, save, and compare pregnancy and ovulation tests in one place.")
+            Text("Track symptoms, cycle changes and FSH tests in one place.")
                 .font(.app(size: LineType.size(metrics.subtitleSize), weight: .semibold))
                 .lineSpacing(metrics.subtitleLineSpacing)
                 .foregroundStyle(Color.lineNavy.opacity(0.64))
@@ -250,7 +246,7 @@ struct OnboardingView: View {
 
     private var welcomeHighlights: some View {
         VStack(alignment: .leading, spacing: LineType.size(8)) {
-            welcomeHighlight(0, "camera.viewfinder", "Scan pregnancy & ovulation tests", tint: .linePink)
+            welcomeHighlight(0, "camera.viewfinder", "Scan home FSH tests", tint: .linePink)
             welcomeHighlight(1, "rectangle.on.rectangle", "Save results & compare changes", tint: .linePurple)
             welcomeHighlight(2, "calendar", "Track timing & reminders", tint: .linePink)
             welcomeHighlight(3, "moon.fill", "Ask Luna for a second look", tint: .linePurple)
@@ -465,99 +461,6 @@ struct OnboardingView: View {
         quizMovingForward = delta > 0
         withAnimation(.interactiveSpring(response: 0.4, dampingFraction: 0.88)) {
             quizIndex = min(max(0, quizIndex + delta), quizQuestions.count - 1)
-        }
-    }
-
-    private var pregnancyContextPage: some View {
-        ScrollView(.vertical, showsIndicators: false) {
-            VStack(alignment: .leading, spacing: 18) {
-                LottieView(name: "calendar - woman")
-                    .loopMode(.loop)
-                    .frame(width: heroSize(270), height: heroSize(160))
-                    .clipped()
-                    .frame(maxWidth: .infinity)
-
-                stageIntro(
-                    step: "CYCLE BASICS",
-                    title: "Where are you in your cycle?",
-                    subtitle: "Enter the first day of your last period."
-                )
-
-                VStack(alignment: .leading, spacing: 14) {
-                    Label("YOUR STARTING POINT", systemImage: "calendar")
-                        .font(.app(size: LineType.size(11), weight: .heavy))
-                        .tracking(1.2)
-                        .foregroundStyle(Color.linePurple)
-
-                    HStack {
-                        Text("First day of your last period")
-                            .font(.app(size: LineType.size(15), weight: .bold))
-                            .foregroundStyle(Color.lineNavy)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.85)
-                            .fixedSize(horizontal: true, vertical: false)
-                        Spacer(minLength: 12)
-                        DatePicker(
-                            "First day of your last period",
-                            selection: $lastPeriodStartDate,
-                            in: earliestReasonableOnboardingCycleDate...Date.now,
-                            displayedComponents: .date
-                        )
-                        .labelsHidden()
-                        .fixedSize()
-                        .tint(Color.linePurple)
-                    }
-
-                    Text("This sets cycle day 1. Future dates are estimates and can change as you log more.")
-                        .font(.app(size: LineType.size(12)))
-                        .foregroundStyle(Color.lineNavy.opacity(0.62))
-                        .fixedSize(horizontal: false, vertical: true)
-
-                    Rectangle().fill(Color.lineNavy.opacity(0.08)).frame(height: 1)
-
-                    cycleLengthSteppers
-
-                    Rectangle().fill(Color.lineNavy.opacity(0.08)).frame(height: 1)
-
-                    previousPeriodsDisclosure
-
-                    Rectangle().fill(Color.lineNavy.opacity(0.08)).frame(height: 1)
-
-                    Toggle(isOn: $includeKnownOvulationDate) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("I know my ovulation date")
-                                .font(.app(size: LineType.size(15), weight: .bold))
-                            Text("Optional · only add a date you confirmed")
-                                .font(.app(size: LineType.size(11)))
-                                .foregroundStyle(Color.lineNavy.opacity(0.55))
-                        }
-                    }
-                    .tint(Color.linePurple)
-
-                    if includeKnownOvulationDate {
-                        DatePicker("Ovulation date", selection: $knownOvulationDate, in: lastPeriodStartDate...Date.now, displayedComponents: .date)
-                            .font(.app(size: LineType.size(14), weight: .semibold))
-                            .tint(Color.linePurple)
-                    }
-                }
-                .padding(18)
-                .background(.white, in: RoundedRectangle(cornerRadius: 24, style: .continuous))
-                .overlay { RoundedRectangle(cornerRadius: 24).stroke(Color.linePurple.opacity(0.16), lineWidth: 1) }
-
-                terminologyButton(title: "DPO & expected period, explained") {
-                    activeTerminologyTopic = .pregnancy
-                }
-                .padding(.leading, 4)
-            }
-            .frame(maxWidth: 640)
-            .padding(.top, 18)
-            .padding(.bottom, 24)
-        }
-        .onAppear {
-            includeCycleDetails = true
-        }
-        .onChange(of: lastPeriodStartDate) { _, newStart in
-            if knownOvulationDate < newStart { knownOvulationDate = newStart }
         }
     }
 
@@ -1176,7 +1079,7 @@ struct OnboardingView: View {
             settings.lastPeriodStartDate = nil
             settings.autoRemindersEnabled = false
         }
-        settings.trackingFocus = includeCycleDetails ? .both : .pregnancy
+        settings.trackingFocus = .ovulation
         try? modelContext.save()
     }
 
@@ -1281,15 +1184,9 @@ private struct WelcomeLayoutMetrics {
 }
 
 private enum OnboardingTerminologyTopic: Identifiable {
-    case pregnancy
     case ovulation
 
-    var id: String {
-        switch self {
-        case .pregnancy: "pregnancy"
-        case .ovulation: "ovulation"
-        }
-    }
+    var id: String { "ovulation" }
 }
 
 private struct OnboardingTerminologyView: View {
@@ -1300,12 +1197,6 @@ private struct OnboardingTerminologyView: View {
         NavigationStack {
             List {
                 switch topic {
-                case .pregnancy:
-                    Section("Pregnancy Timing") {
-                        term("DPO", "Days past ovulation. This helps place a pregnancy test on your timeline.")
-                        term("Expected period", "The date your period is due. Testing before this date can be too early for a clear result.")
-                        term("Ovulation date", "The day you think ovulation happened. If you know it, MenoPlan can use it for more accurate timing.")
-                    }
                 case .ovulation:
                     Section("Cycle Timing") {
                         term("LH", "Luteinizing hormone. A rise in LH often happens before ovulation.")

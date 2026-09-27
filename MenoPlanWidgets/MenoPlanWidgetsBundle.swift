@@ -35,9 +35,7 @@ extension WidgetSnapshot {
             cycleState: .tracking,
             cycle: cycle,
             dayPhases: phases,
-            pregnancyTestDays: [],
             ovulationTestDays: Set(((start + 7)...(start + 14)).map { dayKey(day($0)) }),
-            latestPregnancyTest: nil,
             latestOvulationTest: LatestTest(date: day(start + 14), resultRaw: "peak")
         )
     }

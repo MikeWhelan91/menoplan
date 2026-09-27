@@ -37,26 +37,9 @@ final class ImageQualityServiceTests: XCTestCase {
         XCTAssertEqual(result.status, .good)
     }
 
-    func testPregnancyTestSurfaceGateRequiresBroadBrightNeutralMaterial() {
-        XCTAssertTrue(service.hasPlausiblePregnancyTestSurface(solidColorImage(white: 220)))
-        XCTAssertFalse(service.hasPlausiblePregnancyTestSurface(checkerboardImage(averageWhite: 58, delta: 38)))
-    }
-
     func testOvulationTestSurfaceGateUsesTheSameNonTestProtection() {
         XCTAssertTrue(service.hasPlausibleOvulationTestSurface(solidColorImage(white: 220)))
         XCTAssertFalse(service.hasPlausibleOvulationTestSurface(checkerboardImage(averageWhite: 58, delta: 38)))
-    }
-
-    func testWarmSkinLikeSurfaceCannotPassAsATest() {
-        let warmSurface = solidColorImage(red: 0.76, green: 0.68, blue: 0.60)
-        XCTAssertFalse(service.hasPlausiblePregnancyTestSurface(warmSurface))
-        XCTAssertFalse(service.hasPlausibleOvulationTestSurface(warmSurface))
-    }
-
-    func testBroadPinkTestMembranePassesTheSurfaceGate() {
-        let pinkMembrane = solidColorImage(red: 0.92, green: 0.58, blue: 0.58)
-        XCTAssertTrue(service.hasPlausiblePregnancyTestSurface(pinkMembrane))
-        XCTAssertTrue(service.hasPlausibleOvulationTestSurface(pinkMembrane))
     }
 
 

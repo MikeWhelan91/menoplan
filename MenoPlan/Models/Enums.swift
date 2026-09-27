@@ -2,11 +2,11 @@ import Foundation
 import SwiftUI
 
 enum TestType: String, CaseIterable, Codable, Identifiable {
-    case pregnancy, ovulation
+    case ovulation
     var id: String { rawValue }
-    var title: String { self == .pregnancy ? "Pregnancy Test" : "Ovulation Test" }
-    var shortTitle: String { self == .pregnancy ? "Pregnancy" : "Ovulation" }
-    var tint: Color { self == .pregnancy ? .linePink : .linePurple }
+    var title: String { "Ovulation Test" }
+    var shortTitle: String { "Ovulation" }
+    var tint: Color { .linePurple }
 }
 
 enum TestFormat: String, CaseIterable, Codable, Identifiable {
@@ -15,22 +15,15 @@ enum TestFormat: String, CaseIterable, Codable, Identifiable {
     var title: String { rawValue.capitalized }
 }
 
-enum PregnancyResult: String, CaseIterable, Codable {
-    case appearsPositive, appearsNegative, faintLineDetected, unclear, invalid
-}
-
 enum OvulationResult: String, CaseIterable, Codable {
     case low, rising, high, peak, unclear, invalid
 }
 
 enum ScanResultType: String, CaseIterable, Codable, Identifiable {
-    case appearsPositive, appearsNegative, faintLineDetected, low, rising, high, peak, unclear, invalid, manualSaved
+    case low, rising, high, peak, unclear, invalid, manualSaved
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .appearsPositive: "Appears Positive"
-        case .appearsNegative: "Appears Negative"
-        case .faintLineDetected: "Faint Line Detected"
         case .low: "Low"
         case .rising: "Rising"
         case .high: "High"
@@ -42,19 +35,15 @@ enum ScanResultType: String, CaseIterable, Codable, Identifiable {
     }
     var badgeTitle: String {
         switch self {
-        case .appearsPositive: "Positive"
-        case .appearsNegative: "Negative"
-        case .faintLineDetected: "Faint"
         case .manualSaved: "Manual"
         default: title
         }
     }
     var tint: Color {
         switch self {
-        case .appearsPositive, .faintLineDetected: .linePink
         case .low, .rising: .lineTeal
         case .high, .peak: .linePurple
-        case .invalid, .unclear, .manualSaved, .appearsNegative: .lineNavy
+        case .invalid, .unclear, .manualSaved: .lineNavy
         }
     }
 }
@@ -70,13 +59,12 @@ enum ScanResultSource: String, Codable {
 }
 
 enum ReminderType: String, CaseIterable, Codable, Identifiable {
-    case pregnancyRetest, ovulationTest, fertileWindow, fertilePeak
+    case ovulationTest, fertileWindow, fertilePeak
     case periodExpected, periodCheckIn, periodLate, logTestResult, ovulationFollowUp
     case medication, bodyCheckIn, cycleSetup, custom
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .pregnancyRetest: "Pregnancy retest"
         case .ovulationTest: "Ovulation test"
         case .fertileWindow: "Fertile window"
         case .fertilePeak: "Fertile peak check-in"
@@ -144,33 +132,11 @@ enum OvulationTrackingGoal: String, CaseIterable, Codable, Identifiable {
     }
 }
 
-enum PregnancyTrackingGoal: String, CaseIterable, Codable, Identifiable {
-    case tryingToConceive, trackingProgression
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .tryingToConceive: "Trying for a pregnancy"
-        case .trackingProgression: "Comparing pregnancy tests"
-        }
-    }
-}
-
 enum TrackingFocus: String, CaseIterable, Codable, Identifiable {
-    case both, pregnancy, ovulation
+    case ovulation
     var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .both: "Both"
-        case .pregnancy: "Pregnancy Tests"
-        case .ovulation: "Ovulation Tests"
-        }
-    }
-    var defaultTestType: TestType {
-        switch self {
-        case .both, .pregnancy: .pregnancy
-        case .ovulation: .ovulation
-        }
-    }
+    var title: String { "Ovulation Tests" }
+    var defaultTestType: TestType { .ovulation }
 }
 
 enum CycleRecordStatus: String, CaseIterable, Codable {
@@ -298,16 +264,3 @@ enum WeightUnit: String, CaseIterable, Codable, Identifiable {
     }
 }
 
-enum PregnancyJourneyState: String, CaseIterable, Codable, Identifiable {
-    case trying, possiblePositive, confirmedPregnant, periodArrived, ended
-    var id: String { rawValue }
-    var title: String {
-        switch self {
-        case .trying: "Trying to conceive"
-        case .possiblePositive: "Possible positive"
-        case .confirmedPregnant: "Pregnancy confirmed"
-        case .periodArrived: "Period arrived"
-        case .ended: "Pregnancy ended"
-        }
-    }
-}

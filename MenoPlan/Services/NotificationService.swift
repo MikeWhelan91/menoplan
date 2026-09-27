@@ -26,12 +26,6 @@ struct ReminderNotification: Sendable {
     /// repeat the delay that was selected when the reminder was created.
     var copy: NotificationCopy {
         switch reminderType {
-        case .pregnancyRetest:
-            NotificationCopy(
-                title: "Your retest is due",
-                subtitle: "Pregnancy check-in",
-                body: "A fresh test today can make any change easier to see."
-            )
         case .ovulationTest:
             NotificationCopy(
                 title: OvulationReminderCopy.startTitle,
@@ -72,15 +66,13 @@ struct ReminderNotification: Sendable {
             NotificationCopy(
                 title: "Did your period start today?",
                 subtitle: "Cycle check-in",
-                body: title == PeriodCheckInCopy.titleWithTest
-                    ? "If it started, log the actual first day. If not, your cycle stays open; you can consider a pregnancy test."
-                    : "If it started, log the actual first day. If not, there's nothing to confirm."
+                body: "If it started, log the actual first day. If not, there's nothing to confirm."
             )
         case .periodLate:
             NotificationCopy(
                 title: "Still waiting for your period?",
                 subtitle: "Cycle check-in",
-                body: "Your predicted date was only an estimate; your cycle stays open. You can log the actual first day whenever bleeding starts. If a pregnancy test is negative and your period still hasn't arrived, consider testing again or contacting a clinician."
+                body: "Your predicted date was only an estimate; your cycle stays open. You can log the actual first day whenever bleeding starts. Longer gaps between periods are common in perimenopause."
             )
         case .logTestResult:
             NotificationCopy(
@@ -129,7 +121,6 @@ final class NotificationService {
     /// prevents preview alerts from appearing in a user's calendar.
     func scheduleDebugPreviews() async throws {
         let previews: [(UUID, String, ReminderType)] = [
-            (UUID(uuidString: "A82F4EE5-8142-46F3-8F79-ABC544921901")!, "Retest in 48 hours", .pregnancyRetest),
             (UUID(uuidString: "A82F4EE5-8142-46F3-8F79-ABC544921902")!, "Take an ovulation test", .ovulationTest),
             (UUID(uuidString: "A82F4EE5-8142-46F3-8F79-ABC544921903")!, "Your fertile window", .fertileWindow),
             (UUID(uuidString: "A82F4EE5-8142-46F3-8F79-ABC544921904")!, "Take vitamins", .custom)
@@ -184,7 +175,7 @@ final class NotificationService {
         content.body = copy.body
         content.sound = .default
         content.threadIdentifier = "linecheck.reminders"
-        content.relevanceScore = notification.reminderType == .pregnancyRetest ? 0.9 : 0.7
+        content.relevanceScore = 0.7
         let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: notification.scheduledDate)
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         let request = UNNotificationRequest(identifier: notification.id.uuidString, content: content, trigger: trigger)
