@@ -50,9 +50,9 @@
 	<key>NSFaceIDUsageDescription</key>
 	<string>MenoPlan uses Face ID to help keep your test history private.</string>
 	<key>NSHealthShareUsageDescription</key>
-	<string>MenoPlan can read the cycle, temperature, fertility-sign, symptom, test-result, body-measurement, sleep, activity and heart data you choose from Apple Health, so your calendar, predictions and trends fill in automatically. You choose each category.</string>
+	<string>MenoPlan can read the period, symptom (such as hot flushes and night sweats), wrist temperature, body-measurement, sleep, activity and heart data you choose from Apple Health, so your calendar and trends fill in automatically. You choose each category.</string>
 	<key>NSHealthUpdateUsageDescription</key>
-	<string>MenoPlan saves the basal body temperature, weight and water you log in the app to Apple Health, so your records stay in one place. You choose each category.</string>
+	<string>MenoPlan saves the weight and water you log in the app to Apple Health, so your records stay in one place. You choose each category.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
 	<string>MenoPlan can save exported scan or comparison images to your photo library if you choose.</string>
 	<key>NSPhotoLibraryUsageDescription</key>

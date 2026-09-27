@@ -223,6 +223,14 @@ final class DailyFertilityLog {
     /// Water drunk that day, in millilitres.
     var waterMl: Double?
     var waterSourceRaw: String?
+    /// Hot flushes and night sweats counted that day. nil is "not logged";
+    /// a day with other entries and no count reads as none on the trends.
+    var hotFlushCount: Int?
+    var nightSweatCount: Int?
+    var vasomotorSeverityRaw: String?
+    var sleepQualityRaw: String?
+    /// HRT ticked off as taken that day, by name (see HRTOptions).
+    var hrtTakenRaw: String = ""
     var notes: String = ""
     var updatedAt: Date = Date.now
 
@@ -254,12 +262,30 @@ final class DailyFertilityLog {
     var symptoms: [String] { get { split(symptomsRaw) } set { symptomsRaw = newValue.joined(separator: "|"); updatedAt = .now } }
     var moods: [String] { get { split(moodsRaw) } set { moodsRaw = newValue.joined(separator: "|"); updatedAt = .now } }
     var supplements: [String] { get { split(supplementsRaw) } set { supplementsRaw = newValue.joined(separator: "|"); updatedAt = .now } }
+    var hrtTaken: [String] { get { split(hrtTakenRaw) } set { hrtTakenRaw = newValue.joined(separator: "|"); updatedAt = .now } }
+    var vasomotorSeverity: SymptomSeverity? {
+        get { vasomotorSeverityRaw.flatMap(SymptomSeverity.init(rawValue:)) }
+        set { vasomotorSeverityRaw = newValue?.rawValue; updatedAt = .now }
+    }
+    var sleepQuality: SleepQuality? {
+        get { sleepQualityRaw.flatMap(SleepQuality.init(rawValue:)) }
+        set { sleepQualityRaw = newValue?.rawValue; updatedAt = .now }
+    }
+    /// "3 hot flushes · 1 night sweat · Moderate", or nil if none were counted.
+    var vasomotorSummary: String? {
+        var parts: [String] = []
+        if let hot = hotFlushCount, hot > 0 { parts.append("\(hot) hot \(hot == 1 ? "flush" : "flushes")") }
+        if let sweats = nightSweatCount, sweats > 0 { parts.append("\(sweats) night \(sweats == 1 ? "sweat" : "sweats")") }
+        guard !parts.isEmpty else { return nil }
+        if let severity = vasomotorSeverity { parts.append(severity.title) }
+        return parts.joined(separator: " · ")
+    }
     var healthKitObservations: [String] { get { split(healthKitObservationsRaw) } set { healthKitObservationsRaw = newValue.joined(separator: "|"); updatedAt = .now } }
     var flowIntensity: FlowIntensity? {
         get { flowIntensityRaw.flatMap(FlowIntensity.init(rawValue:)) }
         set { flowIntensityRaw = newValue?.rawValue; updatedAt = .now }
     }
-    var hasContent: Bool { !symptoms.isEmpty || !moods.isEmpty || !supplements.isEmpty || flowIntensityRaw != nil || basalBodyTemperatureCelsius != nil || wristTemperatureCelsius != nil || weightKg != nil || waterMl != nil || !healthKitObservations.isEmpty || !notes.isEmpty }
+    var hasContent: Bool { !symptoms.isEmpty || !moods.isEmpty || !supplements.isEmpty || flowIntensityRaw != nil || basalBodyTemperatureCelsius != nil || wristTemperatureCelsius != nil || weightKg != nil || waterMl != nil || !healthKitObservations.isEmpty || !notes.isEmpty || hotFlushCount != nil || nightSweatCount != nil || vasomotorSeverityRaw != nil || sleepQualityRaw != nil || !hrtTakenRaw.isEmpty }
     private func split(_ value: String) -> [String] { value.split(separator: "|").map(String.init) }
 }
 

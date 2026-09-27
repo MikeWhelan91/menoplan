@@ -24,10 +24,9 @@ final class HealthKitService: @unchecked Sendable {
 
     /// Bump when `readTypes` / `shareTypes` grow, so people who connected
     /// before are offered the new categories once (see Settings).
-    static let permissionsVersion = 3
+    static let permissionsVersion = 4
 
     private let store = HKHealthStore()
-    private let bbtType = HKQuantityType(.basalBodyTemperature)
     private let wristTemperatureType = HKQuantityType(.appleSleepingWristTemperature)
     private let flowType = HKCategoryType(.menstrualFlow)
     private let spottingType = HKCategoryType(.intermenstrualBleeding)
@@ -35,7 +34,22 @@ final class HealthKitService: @unchecked Sendable {
     private let pelvicPainType = HKCategoryType(.pelvicPain)
     private let vaginalDrynessType = HKCategoryType(.vaginalDryness)
     private let contraceptiveType = HKCategoryType(.contraceptive)
-    private let lactationType = HKCategoryType(.lactation)
+    private let hotFlashType = HKCategoryType(.hotFlashes)
+    private let nightSweatType = HKCategoryType(.nightSweats)
+    /// Menopause symptoms Health can hold, with the daily log's name for each.
+    private var menopauseSymptomTypes: [(HKCategoryType, String)] {
+        [
+            (HKCategoryType(.memoryLapse), "Brain Fog"),
+            (HKCategoryType(.fatigue), "Fatigue"),
+            (HKCategoryType(.headache), "Headache"),
+            (HKCategoryType(.rapidPoundingOrFlutteringHeartbeat), "Palpitations"),
+            (HKCategoryType(.bladderIncontinence), "Bladder Leaks"),
+            (HKCategoryType(.bloating), "Bloating"),
+            (HKCategoryType(.dizziness), "Dizziness"),
+            (HKCategoryType(.drySkin), "Dry Skin"),
+            (HKCategoryType(.hairLoss), "Hair Thinning")
+        ]
+    }
     private let sleepType = HKCategoryType(.sleepAnalysis)
     private let weightType = HKQuantityType(.bodyMass)
     private let heightType = HKQuantityType(.height)
@@ -50,10 +64,11 @@ final class HealthKitService: @unchecked Sendable {
 
     private var backgroundDeliveryTypes: [HKSampleType] {
         [
-            bbtType,
             wristTemperatureType,
             flowType,
-            spottingType
+            spottingType,
+            hotFlashType,
+            nightSweatType
         ]
     }
 
@@ -63,16 +78,18 @@ final class HealthKitService: @unchecked Sendable {
     private var shareTypes: Set<HKSampleType> { [weightType, waterType] }
 
     private var readTypes: Set<HKObjectType> {
-        [
-            bbtType, wristTemperatureType, flowType,
+        let base: Set<HKObjectType> = [
+            wristTemperatureType, flowType,
             spottingType, breastPainType, pelvicPainType, vaginalDrynessType,
-            contraceptiveType, lactationType, sleepType,
+            hotFlashType, nightSweatType,
+            contraceptiveType, sleepType,
             weightType, heightType, waterType,
             stepsType, walkingRunningType, activeEnergyType, exerciseTimeType,
             restingHeartRateType, hrvType,
             HKObjectType.workoutType(),
             HKCharacteristicType(.dateOfBirth)
         ]
+        return base.union(menopauseSymptomTypes.map(\.0))
     }
 
     var isAvailable: Bool { HKHealthStore.isHealthDataAvailable() }
@@ -186,19 +203,15 @@ final class HealthKitService: @unchecked Sendable {
         guard isAvailable else { return [] }
         // LineCheck writes typed temperatures back to Health; reading those
         // again would just echo the person's own entry back as an "import".
+        // MenoPlan only reads Apple Watch wrist temperature now; basal body
+        // temperature was a fertility signal.
         let predicate = Self.excludingLineCheck(HKQuery.predicateForSamples(withStart: startDate, end: .now))
-        let descriptor = HKSampleQueryDescriptor(
-            predicates: [.quantitySample(type: bbtType, predicate: predicate)],
-            sortDescriptors: [SortDescriptor(\.startDate)]
-        )
-        let basalSamples = try await descriptor.result(for: store)
         let wristDescriptor = HKSampleQueryDescriptor(
             predicates: [.quantitySample(type: wristTemperatureType, predicate: predicate)],
             sortDescriptors: [SortDescriptor(\.startDate)]
         )
         let wristSamples = try await wristDescriptor.result(for: store)
-        return basalSamples.map { BBTSample(date: $0.startDate, celsius: $0.quantity.doubleValue(for: .degreeCelsius()), isBasalBodyTemperature: true) }
-            + wristSamples.map { BBTSample(date: $0.startDate, celsius: $0.quantity.doubleValue(for: .degreeCelsius()), isBasalBodyTemperature: false) }
+        return wristSamples.map { BBTSample(date: $0.startDate, celsius: $0.quantity.doubleValue(for: .degreeCelsius()), isBasalBodyTemperature: false) }
     }
 
     func fetchMenstrualFlow(since startDate: Date) async throws -> [FlowSample] {
@@ -216,13 +229,17 @@ final class HealthKitService: @unchecked Sendable {
 
     struct SymptomSample {
         let date: Date
-        /// The LineCheck symptom name this maps to, e.g. "Tender Breasts".
+        /// The daily log's symptom name this maps to, e.g. "Breast Tenderness",
+        /// or `hotFlushSymptom` / `nightSweatSymptom`, which become counts.
         let symptom: String
     }
 
-    /// Spotting, breast pain, pelvic pain and vaginal dryness, mapped onto the
-    /// daily log's symptom names. A severity of "not present" is an explicit
-    /// "I didn't have this" and is skipped rather than logged.
+    static let hotFlushSymptom = "Hot Flush"
+    static let nightSweatSymptom = "Night Sweat"
+
+    /// Menopause symptoms, spotting, breast and pelvic pain and vaginal
+    /// dryness, mapped onto the daily log's names. A severity of "not
+    /// present" is an explicit "I didn't have this" and is skipped.
     func fetchSymptoms(since startDate: Date) async throws -> [SymptomSample] {
         guard isAvailable else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: .now)
@@ -230,10 +247,12 @@ final class HealthKitService: @unchecked Sendable {
         var results: [SymptomSample] = []
         let mapped: [(HKCategoryType, String, Bool)] = [
             (spottingType, "Spotting", false),
-            (breastPainType, "Tender Breasts", true),
+            (breastPainType, "Breast Tenderness", true),
             (pelvicPainType, "Pelvic Pain", true),
-            (vaginalDrynessType, "Vaginal Dryness", true)
-        ]
+            (vaginalDrynessType, "Vaginal Dryness", true),
+            (hotFlashType, Self.hotFlushSymptom, true),
+            (nightSweatType, Self.nightSweatSymptom, true)
+        ] + menopauseSymptomTypes.map { ($0.0, $0.1, true) }
         for (type, symptom, hasSeverity) in mapped {
             let samples = try await categorySamples(type: type, predicate: predicate)
             results += samples.compactMap { sample in
@@ -244,13 +263,12 @@ final class HealthKitService: @unchecked Sendable {
         return results
     }
 
-    /// Contraception and lactation entries. These describe spans of
+    /// Contraception entries. These describe spans of
     /// time rather than a single day, so each is noted on the day it starts.
     func fetchContextObservations(since startDate: Date) async throws -> [TestObservation] {
         guard isAvailable else { return [] }
         let predicate = HKQuery.predicateForSamples(withStart: startDate, end: .now)
         let contraceptives = try await categorySamples(type: contraceptiveType, predicate: predicate)
-        let lactation = try await categorySamples(type: lactationType, predicate: predicate)
         return contraceptives.map { sample in
             let method: String
             switch HKCategoryValueContraceptive(rawValue: sample.value) {
@@ -264,7 +282,6 @@ final class HealthKitService: @unchecked Sendable {
             }
             return TestObservation(date: sample.startDate, label: "Apple Health contraceptive: \(method)")
         }
-        + lactation.map { TestObservation(date: $0.startDate, label: "Apple Health: lactation recorded") }
     }
 
     // MARK: Body measurements

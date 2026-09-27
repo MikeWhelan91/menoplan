@@ -181,7 +181,29 @@ enum HealthKitSyncService {
         guard !samples.isEmpty else { return 0 }
         var logs = try logsByDay(calendar: calendar, context: context)
         var count = 0
+        // Hot flushes and night sweats become the day's counts, but only on
+        // days the person hasn't counted themselves.
+        var flushes: [Date: Int] = [:], sweats: [Date: Int] = [:]
         for sample in samples {
+            let day = calendar.startOfDay(for: sample.date)
+            if sample.symptom == HealthKitService.hotFlushSymptom { flushes[day, default: 0] += 1; continue }
+            if sample.symptom == HealthKitService.nightSweatSymptom { sweats[day, default: 0] += 1; continue }
+        }
+        for (day, total) in flushes {
+            let log = logs[day] ?? DailyFertilityLog(date: day)
+            guard log.hotFlushCount == nil else { continue }
+            log.hotFlushCount = total
+            if logs[day] == nil { context.insert(log); logs[day] = log }
+            count += 1
+        }
+        for (day, total) in sweats {
+            let log = logs[day] ?? DailyFertilityLog(date: day)
+            guard log.nightSweatCount == nil else { continue }
+            log.nightSweatCount = total
+            if logs[day] == nil { context.insert(log); logs[day] = log }
+            count += 1
+        }
+        for sample in samples where sample.symptom != HealthKitService.hotFlushSymptom && sample.symptom != HealthKitService.nightSweatSymptom {
             let day = calendar.startOfDay(for: sample.date)
             let log = logs[day] ?? DailyFertilityLog(date: day)
             guard !log.symptoms.contains(sample.symptom) else { continue }

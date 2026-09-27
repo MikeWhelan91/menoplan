@@ -163,6 +163,36 @@ enum MenopauseStage: String, CaseIterable, Codable, Identifiable {
     var tracksCycle: Bool { self == .perimenopause }
 }
 
+/// How much the day's hot flushes and night sweats got in the way. Named
+/// steps rather than a number: "2" means nothing to a clinician reading the
+/// summary weeks later.
+enum SymptomSeverity: String, CaseIterable, Codable, Identifiable {
+    case mild, moderate, severe
+    var id: String { rawValue }
+    var title: String { rawValue.capitalized }
+}
+
+enum SleepQuality: String, CaseIterable, Codable, Identifiable {
+    case good, broken, poor
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .good: "Slept Well"
+        case .broken: "Broken Sleep"
+        case .poor: "Poor Sleep"
+        }
+    }
+}
+
+/// Common kinds of HRT, for picking a regimen and ticking off the day's doses.
+/// Names only - MenoPlan never records or suggests doses.
+enum HRTOptions {
+    static let common = [
+        "Oestrogen Gel", "Oestrogen Patch", "Oestrogen Spray", "Oestrogen Tablet",
+        "Progesterone", "Combined Tablet", "Vaginal Oestrogen", "Testosterone"
+    ]
+}
+
 enum TrackingFocus: String, CaseIterable, Codable, Identifiable {
     case ovulation
     var id: String { rawValue }

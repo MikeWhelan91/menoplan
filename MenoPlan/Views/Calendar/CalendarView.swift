@@ -1418,8 +1418,8 @@ struct CalendarView: View {
     }
 
     private var todayLogSummary: String {
-        guard let log = log(for: .now), log.hasContent else { return "Track symptoms, flow, mood and more" }
-        let items = [log.flowIntensity?.title, log.weightKg.map((settings?.weightUnit ?? .localeDefault).formatted)].compactMap { $0 }
+        guard let log = log(for: .now), log.hasContent else { return "Track flushes, sleep, mood and more" }
+        let items = [log.vasomotorSummary, log.flowIntensity?.title, log.sleepQuality?.title, log.weightKg.map((settings?.weightUnit ?? .localeDefault).formatted)].compactMap { $0 }
             + log.symptoms
             + log.healthKitObservations
         return items.isEmpty ? "Daily observations saved" : items.prefix(3).joined(separator: " · ")
@@ -4296,6 +4296,9 @@ private struct CalendarDayDetailView: View {
     private func logLines(_ log: DailyFertilityLog) -> [(String, String, String)] {
         var rows: [(String, String, String)] = []
         if let flow = log.flowIntensity { rows.append(("Flow", flow.title, "drop.circle.fill")) }
+        if let vasomotor = log.vasomotorSummary { rows.append(("Flushes & sweats", vasomotor, "thermometer.sun.fill")) }
+        if let sleep = log.sleepQuality { rows.append(("Sleep", sleep.title, "bed.double.fill")) }
+        if !log.hrtTaken.isEmpty { rows.append(("HRT", log.hrtTaken.joined(separator: ", "), "cross.vial.fill")) }
         if let wrist = log.wristTemperatureCelsius { rows.append(("Apple Watch wrist temperature", temperatureText(wrist), "applewatch")) }
         if let weight = log.weightKg { rows.append(("Weight", weightUnit.formatted(weight), "scalemass.fill")) }
         if let water = log.waterMl { rows.append(("Water", bodyUnit.formattedWater(water), "drop.fill")) }

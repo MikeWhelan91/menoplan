@@ -93,6 +93,7 @@
 		9343AD832B98CC409CDFDFC4 /* RevenueCat in Frameworks */ = {isa = PBXBuildFile; productRef = 37B6AB1D558AAC4BCC96D653 /* RevenueCat */; };
 		93AECD5BC1221B892268782D /* HealthProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50EC628BBC4F825DEFE65954 /* HealthProfile.swift */; };
 		9473D0DFB365C9D1A887317B /* WidgetTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8F056B87D41BE8B92C8FBAD5 /* WidgetTheme.swift */; };
+		94779A1D49AB5FE8E2A25CA0 /* MenopauseDailyLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AADA1A9D8D31E556A9F8FE2 /* MenopauseDailyLogTests.swift */; };
 		94CD3B2831994D0BC2BD767D /* CycleSignalsCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D3CBE3A167905A426FA5242 /* CycleSignalsCard.swift */; };
 		9520F003BD07A9AC9F494732 /* WidgetCycleSummary.swift in Sources */ = {isa = PBXBuildFile; fileRef = 32B96F1C2ABC11FD23AB3100 /* WidgetCycleSummary.swift */; };
 		97BF73B7365BBA34197157D8 /* HealthKitSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7F0941EDD655A1BDA6979973 /* HealthKitSyncService.swift */; };
@@ -247,6 +248,7 @@
 		871B37B396F647CCC2A01561 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
 		8916CB27AC827600DC19D7B4 /* NotificationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationService.swift; sourceTree = "<group>"; };
 		8A436C32A3A77A9CD202BF3F /* PurchaseService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PurchaseService.swift; sourceTree = "<group>"; };
+		8AADA1A9D8D31E556A9F8FE2 /* MenopauseDailyLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenopauseDailyLogTests.swift; sourceTree = "<group>"; };
 		8BD63AF40D9A101F905A231B /* HealthKitSyncDuplicateLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HealthKitSyncDuplicateLogTests.swift; sourceTree = "<group>"; };
 		8F056B87D41BE8B92C8FBAD5 /* WidgetTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetTheme.swift; sourceTree = "<group>"; };
 		8F5CBAAB1F2713BC71798B82 /* ReminderAutomationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderAutomationService.swift; sourceTree = "<group>"; };
@@ -600,6 +602,7 @@
 				972AE8BC12C0E0A6E780999E /* ImageQualityServiceTests.swift */,
 				F0271705E03CA4F0B2054A81 /* LineAnalysisEngineCalibrationTests.swift */,
 				328D00171133C17EEEA26E4D /* LineAnalysisEngineTests.swift */,
+				8AADA1A9D8D31E556A9F8FE2 /* MenopauseDailyLogTests.swift */,
 				4CC1BE576FD64B196500E5EF /* MetaAppConfigurationTests.swift */,
 				92E4A42F7723EF6560563672 /* OnDeviceModelCalibrationTests.swift */,
 				B200461807E3E9306E463FB3 /* PredictionAndProgressionNarrativeTests.swift */,
@@ -967,6 +970,7 @@
 				BAD4E10A94B53CB0FE1A2EA7 /* ImageQualityServiceTests.swift in Sources */,
 				91BE576FBC3985C1558658E6 /* LineAnalysisEngineCalibrationTests.swift in Sources */,
 				633F404C18049B9B550C8EDB /* LineAnalysisEngineTests.swift in Sources */,
+				94779A1D49AB5FE8E2A25CA0 /* MenopauseDailyLogTests.swift in Sources */,
 				CDE4F9A02E2B3FCF0D2918BB /* MetaAppConfigurationTests.swift in Sources */,
 				AD5334DDDF5C3E6F17BB7120 /* OnDeviceModelCalibrationTests.swift in Sources */,
 				F677DBD08E2F80483BBF7B65 /* PredictionAndProgressionNarrativeTests.swift in Sources */,

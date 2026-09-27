@@ -27,15 +27,18 @@ struct FlowLayout: Layout {
 /// Sections of the daily log, so callers (e.g. Home's quick actions) can open
 /// the sheet already scrolled to the part they care about.
 enum DailyLogSection: String, CaseIterable, Identifiable {
-    case flow, body, symptoms, mood, supplements, notes
+    case flushes, sleep, symptoms, mood, hrt, flow, body, supplements, notes
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .flow: "Period Flow"
+        case .flushes: "Flushes & Sweats"
+        case .sleep: "Sleep"
+        case .flow: "Period & Bleeding"
         case .body: "Weight & Body"
         case .symptoms: "Symptoms"
         case .mood: "Mood"
+        case .hrt: "HRT"
         case .supplements: "Supplements"
         case .notes: "Notes"
         }
@@ -43,10 +46,13 @@ enum DailyLogSection: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
+        case .flushes: "thermometer.sun.fill"
+        case .sleep: "bed.double.fill"
         case .flow: "drop.circle.fill"
         case .body: "scalemass.fill"
         case .symptoms: "waveform.path.ecg"
         case .mood: "face.smiling"
+        case .hrt: "cross.vial.fill"
         case .supplements: "pills.fill"
         case .notes: "square.and.pencil"
         }
@@ -54,19 +60,29 @@ enum DailyLogSection: String, CaseIterable, Identifiable {
 
     var tint: Color {
         switch self {
+        case .flushes: .orange
         case .flow, .symptoms: .linePink
         case .supplements, .body: .lineBlue
+        case .sleep, .hrt: .linePurple
         case .mood: .orange
         case .notes: .lineNavy
         }
+    }
+
+    /// The order sections appear in. Bleeding leads while periods are still
+    /// being tracked; otherwise it sits after the symptoms.
+    static func ordered(for stage: MenopauseStage) -> [DailyLogSection] {
+        stage.tracksCycle
+            ? [.flow, .flushes, .sleep, .symptoms, .mood, .hrt, .body, .supplements, .notes]
+            : [.flushes, .sleep, .symptoms, .mood, .hrt, .flow, .body, .supplements, .notes]
     }
 }
 
 /// Everything the editor lets you change for one day, as a value so the sheet
 /// can move between days and tell whether anything was edited.
 private struct DailyLogForm: Equatable {
-    static let suggestedSymptoms = ["Cramps", "Headache", "Tender Breasts", "Bloating", "Nausea", "Fatigue", "Backache", "Spotting", "Cravings", "Dizziness", "Acne", "Insomnia", "Pelvic Pain", "Vaginal Dryness"]
-    static let moodOptions = ["Happy", "Calm", "Energetic", "Relaxed", "Focused", "Tired", "Irritable", "Anxious", "Sad", "Mood Swings"]
+    static let suggestedSymptoms = ["Brain Fog", "Joint Pain", "Fatigue", "Headache", "Palpitations", "Vaginal Dryness", "Low Libido", "Bladder Leaks", "Breast Tenderness", "Pelvic Pain", "Bloating", "Dizziness", "Dry Skin", "Hair Thinning"]
+    static let moodOptions = ["Calm", "Happy", "Energetic", "Low", "Anxious", "Irritable", "Tearful", "Overwhelmed", "Mood Swings", "Low Confidence"]
     static let supplementOptions = ["Vitamin D", "Calcium", "Magnesium", "Omega-3", "Iron", "Vitamin B12", "Probiotic"]
 
     var symptoms: Set<String> = []
@@ -74,6 +90,11 @@ private struct DailyLogForm: Equatable {
     var moods: Set<String> = []
     var supplements: Set<String> = []
     var flow: FlowIntensity?
+    var hotFlushes: Int?
+    var nightSweats: Int?
+    var severity: SymptomSeverity?
+    var sleep: SleepQuality?
+    var hrtTaken: Set<String> = []
     var weightKg: Double?
     var waterMl: Double?
     var notes = ""
@@ -85,6 +106,11 @@ private struct DailyLogForm: Equatable {
         moods = Set(log.moods)
         supplements = Set(log.supplements)
         flow = log.flowIntensity
+        hotFlushes = log.hotFlushCount
+        nightSweats = log.nightSweatCount
+        severity = log.vasomotorSeverity
+        sleep = log.sleepQuality
+        hrtTaken = Set(log.hrtTaken)
         weightKg = log.weightKg
         waterMl = log.waterMl
         notes = log.notes
@@ -293,55 +319,27 @@ struct DailyFertilityLogEditor: View {
         return section.title.lowercased().contains(query) || !visible(options, in: section).isEmpty
     }
 
+    private var stage: MenopauseStage { settings?.menopauseStage ?? .perimenopause }
+
+    /// The person's own HRT if they've set it up in Settings, otherwise the
+    /// common kinds, plus anything already ticked on this day.
+    private var hrtOptions: [String] {
+        let regimen = settings?.hrtRegimen ?? []
+        let base = regimen.isEmpty ? HRTOptions.common : regimen
+        return base + form.hrtTaken.filter { !base.contains($0) }.sorted()
+    }
+
     private var sections: some View {
-        let flowOptions = FlowIntensity.allCases.map(\.title)
-        return VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 18) {
             if query.isEmpty, !healthBannerDismissed, HealthKitConnection.canOffer(settings) {
                 healthConnectBanner
             }
-            if sectionVisible(.flow, options: flowOptions) {
-                LogSection(.flow) {
-                    singleChips(visible(flowOptions, in: .flow), selection: flowTitleBinding, tint: DailyLogSection.flow.tint)
+            ForEach(DailyLogSection.ordered(for: stage)) { section in
+                if sectionVisible(section, options: optionsFor(section)) {
+                    sectionView(section)
                 }
-            }
-            if sectionVisible(.body, options: Self.bodySearchTerms) {
-                LogSection(.body) { bodyContent }
-            }
-            if query.isEmpty, let metricsForDay {
-                HealthMetricsCard(metrics: metricsForDay, unit: weightUnit.distanceSystem)
-            }
-            if sectionVisible(.symptoms, options: DailyLogForm.suggestedSymptoms) {
-                LogSection(.symptoms) {
-                    multiChips(visible(DailyLogForm.suggestedSymptoms, in: .symptoms), selection: $form.symptoms, tint: DailyLogSection.symptoms.tint)
-                    if query.isEmpty {
-                        TextField("Other symptoms, separated by commas", text: $form.customSymptomsText, axis: .vertical)
-                            .focused($isInputFocused)
-                            .lineLimit(1...3)
-                            .padding(12)
-                            .background(Color.lineBackground, in: RoundedRectangle(cornerRadius: 12))
-                        Text("Use this for anything not covered by the suggested symptoms above.")
-                            .font(.app(.caption2))
-                            .foregroundStyle(Color.lineNavy.opacity(0.5))
-                            .fixedSize(horizontal: false, vertical: true)
-                    }
-                }
-            }
-            if sectionVisible(.mood, options: DailyLogForm.moodOptions) {
-                LogSection(.mood) {
-                    multiChips(visible(DailyLogForm.moodOptions, in: .mood), selection: $form.moods, tint: DailyLogSection.mood.tint)
-                }
-            }
-            if sectionVisible(.supplements, options: DailyLogForm.supplementOptions) {
-                LogSection(.supplements) {
-                    multiChips(visible(DailyLogForm.supplementOptions, in: .supplements), selection: $form.supplements, tint: DailyLogSection.supplements.tint)
-                }
-            }
-            if sectionVisible(.notes) {
-                LogSection(.notes) {
-                    TextField("Anything else you noticed today…", text: $form.notes, axis: .vertical)
-                        .focused($isInputFocused)
-                        .lineLimit(3...7).padding(14)
-                        .background(Color.lineBackground, in: RoundedRectangle(cornerRadius: 15))
+                if section == .body, query.isEmpty, let metricsForDay {
+                    HealthMetricsCard(metrics: metricsForDay, unit: weightUnit.distanceSystem)
                 }
             }
             if !query.isEmpty && !DailyLogSection.allCases.contains(where: { sectionVisible($0, options: optionsFor($0)) }) {
@@ -353,12 +351,169 @@ struct DailyFertilityLogEditor: View {
         .animation(.spring(response: 0.3, dampingFraction: 0.8), value: form)
     }
 
+    @ViewBuilder
+    private func sectionView(_ section: DailyLogSection) -> some View {
+        switch section {
+        case .flushes:
+            LogSection(.flushes) { flushesContent }
+        case .sleep:
+            LogSection(.sleep) { sleepContent }
+        case .flow:
+            LogSection(.flow) {
+                singleChips(visible(optionsFor(.flow), in: .flow), selection: flowTitleBinding, tint: DailyLogSection.flow.tint)
+                if form.flow != nil, !stage.tracksCycle {
+                    bleedingNotice
+                }
+            }
+        case .body:
+            LogSection(.body) { bodyContent }
+        case .symptoms:
+            LogSection(.symptoms) {
+                multiChips(visible(DailyLogForm.suggestedSymptoms, in: .symptoms), selection: $form.symptoms, tint: DailyLogSection.symptoms.tint)
+                if query.isEmpty {
+                    TextField("Other symptoms, separated by commas", text: $form.customSymptomsText, axis: .vertical)
+                        .focused($isInputFocused)
+                        .lineLimit(1...3)
+                        .padding(12)
+                        .background(Color.lineBackground, in: RoundedRectangle(cornerRadius: 12))
+                    Text("Use this for anything not covered by the suggested symptoms above.")
+                        .font(.app(.caption2))
+                        .foregroundStyle(Color.lineNavy.opacity(0.5))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        case .mood:
+            LogSection(.mood) {
+                multiChips(visible(DailyLogForm.moodOptions, in: .mood), selection: $form.moods, tint: DailyLogSection.mood.tint)
+            }
+        case .hrt:
+            LogSection(.hrt) {
+                multiChips(visible(hrtOptions, in: .hrt), selection: $form.hrtTaken, tint: DailyLogSection.hrt.tint)
+                if query.isEmpty {
+                    Text(settings?.hrtRegimen.isEmpty ?? true
+                         ? "Tick what you took today. Add your usual HRT in Settings to see just yours here."
+                         : "Tick what you took today. Change your usual HRT in Settings.")
+                        .font(.app(.caption2))
+                        .foregroundStyle(Color.lineNavy.opacity(0.5))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+            }
+        case .supplements:
+            LogSection(.supplements) {
+                multiChips(visible(DailyLogForm.supplementOptions, in: .supplements), selection: $form.supplements, tint: DailyLogSection.supplements.tint)
+            }
+        case .notes:
+            LogSection(.notes) {
+                TextField("Anything else you noticed today…", text: $form.notes, axis: .vertical)
+                    .focused($isInputFocused)
+                    .lineLimit(3...7).padding(14)
+                    .background(Color.lineBackground, in: RoundedRectangle(cornerRadius: 15))
+            }
+        }
+    }
+
+    private var flushesContent: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            counterRow("Hot flushes", symbol: "flame.fill", value: $form.hotFlushes)
+            counterRow("Night sweats", symbol: "moon.stars.fill", value: $form.nightSweats)
+            if (form.hotFlushes ?? 0) + (form.nightSweats ?? 0) > 0 {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("How much did they bother you?")
+                        .font(.app(.caption, weight: .semibold))
+                        .foregroundStyle(Color.lineNavy.opacity(0.6))
+                    singleChips(SymptomSeverity.allCases.map(\.title), selection: Binding(
+                        get: { form.severity?.title },
+                        set: { title in form.severity = SymptomSeverity.allCases.first { $0.title == title } }
+                    ), tint: DailyLogSection.flushes.tint)
+                }
+                .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+    }
+
+    private func counterRow(_ title: String, symbol: String, value: Binding<Int?>) -> some View {
+        let count = value.wrappedValue ?? 0
+        return HStack(spacing: 12) {
+            Label(title, systemImage: symbol)
+                .font(.app(.subheadline, weight: .semibold))
+                .foregroundStyle(Color.lineNavy)
+            Spacer()
+            stepButton("minus", label: "One fewer \(title.lowercased())") {
+                let next = max(0, count - 1)
+                value.wrappedValue = next == 0 ? nil : next
+            }
+            .disabled(count == 0)
+            .opacity(count == 0 ? 0.4 : 1)
+            Text("\(count)")
+                .font(.app(.title3, weight: .heavy))
+                .monospacedDigit()
+                .foregroundStyle(Color.lineNavy)
+                .frame(minWidth: 36)
+                .contentTransition(.numericText())
+                .accessibilityLabel("\(count) \(title.lowercased())")
+            stepButton("plus", label: "One more \(title.lowercased())") {
+                value.wrappedValue = min(count + 1, 50)
+            }
+        }
+    }
+
+    private func stepButton(_ symbol: String, label: String, action: @escaping () -> Void) -> some View {
+        Button {
+            withAnimation(.snappy) { action() }
+        } label: {
+            Image(systemName: symbol)
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(Color.orange)
+                .frame(width: 36, height: 36)
+                .background(Color.orange.opacity(0.12), in: Circle())
+        }
+        .buttonStyle(PressScaleButtonStyle())
+        .accessibilityLabel(label)
+    }
+
+    private var sleepContent: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            singleChips(visible(optionsFor(.sleep), in: .sleep), selection: Binding(
+                get: { form.sleep?.title },
+                set: { title in form.sleep = SleepQuality.allCases.first { $0.title == title } }
+            ), tint: DailyLogSection.sleep.tint)
+            if query.isEmpty, let hours = metricsForDay?.sleepHours, hours > 0 {
+                let minutes = Int((hours * 60).rounded())
+                Label("\(minutes / 60)h \(minutes % 60)m asleep, from Apple Health", systemImage: "heart.fill")
+                    .font(.app(.caption2, weight: .semibold))
+                    .foregroundStyle(Color.linePurple.opacity(0.7))
+            }
+        }
+    }
+
+    /// Any bleeding once periods have stopped needs a clinician to look at it.
+    private var bleedingNotice: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: "stethoscope")
+                .font(.system(size: 15, weight: .bold))
+                .foregroundStyle(Color.linePink)
+            Text(stage == .postmenopause
+                 ? "Bleeding after menopause should always be checked. Please contact your GP or clinician - it's often nothing serious, but it needs looking at."
+                 : "Unexpected bleeding is worth mentioning to your GP or clinician, especially if it's new for you.")
+                .font(.app(.caption, weight: .medium))
+                .foregroundStyle(Color.lineNavy.opacity(0.78))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color.linePink.opacity(0.10), in: RoundedRectangle(cornerRadius: 12))
+        .transition(.opacity)
+    }
+
     private func optionsFor(_ section: DailyLogSection) -> [String] {
         switch section {
+        case .flushes: ["Hot flushes", "Night sweats", "Hot flashes"]
+        case .sleep: SleepQuality.allCases.map(\.title)
         case .flow: FlowIntensity.allCases.map(\.title)
         case .body: Self.bodySearchTerms
         case .symptoms: DailyLogForm.suggestedSymptoms
         case .mood: DailyLogForm.moodOptions
+        case .hrt: hrtOptions
         case .supplements: DailyLogForm.supplementOptions
         case .notes: []
         }
@@ -367,7 +522,7 @@ struct DailyFertilityLogEditor: View {
     static let bodySearchTerms = ["weight", "height", "bmi", "water"]
 
     /// Shown until Apple Health is connected or the person dismisses it:
-    /// the daily log is where typing BBT, weight and water by hand hurts most.
+    /// the daily log is where typing symptoms, weight and water by hand hurts most.
     private var healthConnectBanner: some View {
         HStack(alignment: .center, spacing: 12) {
             Image(systemName: "heart.text.square.fill")
@@ -377,7 +532,7 @@ struct DailyFertilityLogEditor: View {
                 Text("Fill this in automatically")
                     .font(.app(.subheadline, weight: .bold))
                     .foregroundStyle(Color.lineNavy)
-                Text(healthConnectMessage ?? "Connect Apple Health for temperature, weight, symptoms and more.")
+                Text(healthConnectMessage ?? "Connect Apple Health for sleep, weight, hot flushes and more.")
                     .font(.app(.caption))
                     .foregroundStyle(Color.lineNavy.opacity(0.62))
                     .fixedSize(horizontal: false, vertical: true)
@@ -656,7 +811,7 @@ struct DailyFertilityLogEditor: View {
 
     private func prepareSave(thenGoTo target: Date?) {
         pendingDate = target
-        if isDirty, form.flow != nil, baseline.flow == nil, let continued = periodThisDayContinues {
+        if isDirty, form.flow != nil, baseline.flow == nil, stage.tracksCycle, let continued = periodThisDayContinues {
             continued.endDate = date
             save(startPeriod: false)
             finish()
@@ -667,6 +822,7 @@ struct DailyFertilityLogEditor: View {
            form.flow != baseline.flow,
            date <= .now,
            CycleTrackingService.periodStartConflict(on: date, periods: realPeriods) == nil,
+           stage.tracksCycle,
            settings != nil {
             askToStartPeriod = true
             return
@@ -699,6 +855,11 @@ struct DailyFertilityLogEditor: View {
         log.symptoms = Array(form.symptoms.union(customSymptoms)).sorted(); log.moods = form.moods.sorted(); log.supplements = form.supplements.sorted()
         log.notes = form.notes
         log.flowIntensity = form.flow
+        log.hotFlushCount = form.hotFlushes
+        log.nightSweatCount = form.nightSweats
+        log.vasomotorSeverity = (form.hotFlushes ?? 0) + (form.nightSweats ?? 0) > 0 ? form.severity : nil
+        log.sleepQuality = form.sleep
+        log.hrtTaken = form.hrtTaken.sorted()
         // Only what was changed here becomes
         // the person's own entry, and only that is written to Apple Health.
         let weightChanged = form.weightKg != baseline.weightKg
@@ -770,48 +931,50 @@ private struct LogChip: View {
         case "Light": "drop"
         case "Medium": "drop.halffull"
         case "Heavy": "drop.fill"
-        case "Cramps": "bolt.fill"
-        case "Headache": "brain.head.profile"
-        case "Tender Breasts": "heart.circle"
-        case "Bloating": "circle.circle"
-        case "Nausea": "face.dashed"
+        case "Brain Fog": "cloud.fog"
+        case "Joint Pain": "figure.walk"
         case "Fatigue": "battery.25percent"
-        case "Backache": "figure.stand"
-        case "Cravings": "fork.knife"
-        case "Dizziness": "tornado"
-        case "Acne": "sparkle"
-        case "Insomnia": "moon.zzz"
-        case "Pelvic Pain": "bolt.heart"
+        case "Headache": "brain.head.profile"
+        case "Palpitations": "heart.text.square"
         case "Vaginal Dryness": "sun.dust"
-        case "Dry": "sun.max"
-        case "Sticky": "hand.point.up"
-        case "Creamy": "cloud"
-        case "Watery": "water.waves"
-        case "Egg White": "drop.triangle"
-        case "Low · Firm · Closed": "arrow.down.circle"
-        case "High · Soft · Open": "arrow.up.circle"
-        case "Unprotected": "heart.fill"
-        case "Protected": "lock.shield"
-        case "Withdrawal": "arrow.uturn.backward"
-        case "No Sex": "heart.slash"
-        case "IUI": "cross.case"
-        case "At-Home Insemination": "house"
-        case "Frozen Sperm": "snowflake"
-        case "Trigger Shot": "syringe"
-        case "No Insemination": "xmark.circle"
+        case "Low Libido": "heart.slash"
+        case "Bladder Leaks": "drop.triangle"
+        case "Breast Tenderness": "heart.circle"
+        case "Pelvic Pain": "bolt.heart"
+        case "Bloating": "circle.circle"
+        case "Dizziness": "tornado"
+        case "Dry Skin": "hand.raised"
+        case "Hair Thinning": "comb"
+        case "Mild": "gauge.with.dots.needle.0percent"
+        case "Moderate": "gauge.with.dots.needle.50percent"
+        case "Severe": "gauge.with.dots.needle.100percent"
+        case "Slept Well": "moon.zzz.fill"
+        case "Broken Sleep": "moon.haze"
+        case "Poor Sleep": "eye"
         case "Happy": "face.smiling"
         case "Calm": "leaf"
         case "Energetic": "bolt"
-        case "Relaxed": "cup.and.saucer"
-        case "Focused": "scope"
-        case "Tired": "zzz"
-        case "Irritable": "flame"
+        case "Low": "cloud"
         case "Anxious": "exclamationmark.bubble"
-        case "Sad": "cloud.rain"
+        case "Irritable": "flame"
+        case "Tearful": "drop"
+        case "Overwhelmed": "tornado"
         case "Mood Swings": "arrow.up.arrow.down"
+        case "Low Confidence": "person.fill.questionmark"
+        case "Oestrogen Gel": "hand.point.up.left"
+        case "Oestrogen Patch": "bandage"
+        case "Oestrogen Spray": "aqi.medium"
+        case "Oestrogen Tablet", "Combined Tablet": "pills"
+        case "Progesterone": "capsule"
+        case "Vaginal Oestrogen": "cross.vial"
+        case "Testosterone": "drop.halffull"
         case "Vitamin D": "sun.max"
-        case "Fish Oil/DHA": "fish"
-        case "Folic Acid", "Prenatal": "pills"
+        case "Calcium": "circle.hexagongrid"
+        case "Magnesium": "sparkles"
+        case "Omega-3": "fish"
+        case "Iron": "bolt.circle"
+        case "Vitamin B12": "b.circle"
+        case "Probiotic": "leaf.circle"
         default: "circle"
         }
     }

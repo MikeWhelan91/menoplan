@@ -333,7 +333,7 @@ struct HomeView: View {
             (settings.hasCompletedPersonalization, false, "About you", "Your name and a few questions that tailor results", "person.text.rectangle", {
                 showPersonalization = true
             }),
-            (healthIsSetUp(settings), true, "Apple Health", "If you use it, fill in temperature, periods and more automatically", "heart.text.square", {
+            (healthIsSetUp(settings), true, "Apple Health", "If you use it, fill in hot flushes, sleep, periods and more automatically", "heart.text.square", {
                 connectAppleHealth(source: "setup_checklist")
             })
         ]

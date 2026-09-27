@@ -28,6 +28,10 @@ Fertility and pregnancy tracking are removed. The period estimate still comes fr
 
 `MenopauseStage` (perimenopause / postmenopause / unsure) is chosen in onboarding and Settings; only perimenopause asks for cycle dates.
 
+## Daily log
+
+`DailyFertilityLog` (name kept from LineCheck) holds hot flush / night sweat counts (nil = not logged), a flush severity, sleep quality, HRT taken (names from `UserSettings.hrtRegimen`, never doses), bleeding, symptoms, moods and supplements. Section order comes from `DailyLogSection.ordered(for:)`: bleeding leads only in perimenopause, and outside perimenopause logging flow never starts a period and shows a see-your-clinician notice. Apple Health hot flashes / night sweats fill the counts only on days the person hasn't counted.
+
 ## Product rules
 
 - Never diagnose peri/menopause; FSH is one data point, not a verdict.

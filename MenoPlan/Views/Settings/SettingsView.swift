@@ -48,6 +48,7 @@ struct SettingsView: View {
                     if let settings {
                         proCard(settings: settings)
                         stageCard(settings: settings)
+                        hrtCard(settings: settings)
                         preferencesCard(settings: settings)
                         privacyCard
                         aboutCard
@@ -304,6 +305,74 @@ struct SettingsView: View {
                 Text(current.detail)
                     .font(.app(.caption))
                     .foregroundStyle(Color.lineNavy.opacity(0.6))
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+        }
+    }
+
+    /// The person's usual HRT, so the daily log offers just those to tick off.
+    /// Names only: MenoPlan never records or suggests doses.
+    private func hrtCard(settings: UserSettings) -> some View {
+        let regimen = settings.hrtRegimen
+        let startBinding = Binding(
+            get: { settings.hrtStartDate ?? .now },
+            set: { settings.hrtStartDate = $0; try? modelContext.save() }
+        )
+        return AppCard {
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Your HRT")
+                        .font(.lineHeadline())
+                        .foregroundStyle(Color.lineNavy)
+                    Text(regimen.isEmpty ? "Choose what you use, if any. It's shown in your daily log and appointment summary." : "Shown in your daily log to tick off, and in your appointment summary.")
+                        .font(.lineCaption())
+                        .foregroundStyle(Color.lineNavy.opacity(0.55))
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                FlowLayout(spacing: 8) {
+                    ForEach(HRTOptions.common + regimen.filter { !HRTOptions.common.contains($0) }, id: \.self) { option in
+                        let selected = regimen.contains(option)
+                        Button {
+                            var next = regimen
+                            if selected { next.removeAll { $0 == option } } else { next.append(option) }
+                            withAnimation(.snappy) {
+                                settings.hrtRegimen = next
+                                if next.isEmpty { settings.hrtStartDate = nil }
+                            }
+                            try? modelContext.save()
+                        } label: {
+                            HStack(spacing: 6) {
+                                if selected {
+                                    Image(systemName: "checkmark")
+                                        .font(.system(size: 11, weight: .heavy))
+                                }
+                                Text(option)
+                                    .font(.app(.subheadline, weight: .semibold))
+                            }
+                            .foregroundStyle(selected ? Color.linePurple : Color.lineNavy.opacity(0.78))
+                            .padding(.horizontal, 13)
+                            .padding(.vertical, 8)
+                            .background(selected ? Color.linePurple.opacity(0.14) : Color.lineBackground, in: Capsule())
+                            .overlay(Capsule().stroke(selected ? Color.linePurple.opacity(0.7) : Color.clear, lineWidth: 1.2))
+                        }
+                        .buttonStyle(PressScaleButtonStyle())
+                        .sensoryFeedback(.selection, trigger: selected)
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                    }
+                }
+
+                if !regimen.isEmpty {
+                    Divider()
+                    DatePicker("Started", selection: startBinding, in: ...Date.now, displayedComponents: .date)
+                        .font(.lineSubheadline(.semibold))
+                        .foregroundStyle(Color.lineNavy)
+                        .tint(Color.linePurple)
+                }
+
+                Text("For questions about doses or changing your HRT, speak to your prescriber.")
+                    .font(.app(.caption2))
+                    .foregroundStyle(Color.lineNavy.opacity(0.5))
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
@@ -1015,18 +1084,20 @@ struct SettingsView: View {
     private func makeExportData() -> Data {
         let iso = ISO8601DateFormatter()
         func date(_ value: Date?) -> Any { value.map(iso.string(from:)) ?? NSNull() }
+        func optional(_ value: Any?) -> Any { value ?? NSNull() }
         let payload: [String: Any] = [
             "exportedAt": iso.string(from: .now),
             "settings": settings.map { [
                 "userName": $0.userName,
-                "trackingFocus": $0.trackingFocus.rawValue,
+                "menopauseStage": $0.menopauseStage.rawValue,
+                "hrtRegimen": $0.hrtRegimen,
+                "hrtStarted": date($0.hrtStartDate),
                 "lastPeriodStart": date($0.lastPeriodStartDate),
-                "averageCycleLength": $0.averageCycleLength,
-                "lutealPhaseLength": $0.lutealPhaseLength
+                "averageCycleLength": $0.averageCycleLength
             ] } ?? [:],
             "periods": periods.map { ["id": $0.id.uuidString, "start": date($0.startDate), "end": date($0.endDate), "source": $0.source.rawValue, "notes": $0.notes] },
-            "cycles": cycles.map { ["id": $0.id.uuidString, "start": date($0.startDate), "end": date($0.endDate), "predictedOvulation": date($0.predictedOvulationDate), "confirmedOvulation": date($0.confirmedOvulationDate), "expectedPeriod": date($0.expectedPeriodDate), "cycleLength": $0.averageCycleLengthAtStart, "lutealLength": $0.lutealPhaseLengthAtStart] },
-            "bodySigns": dailyLogs.map { ["date": date($0.date), "symptoms": $0.symptoms, "moods": $0.moods, "supplements": $0.supplements, "healthKitObservations": $0.healthKitObservations, "notes": $0.notes] },
+            "cycles": cycles.map { ["id": $0.id.uuidString, "start": date($0.startDate), "end": date($0.endDate), "expectedPeriod": date($0.expectedPeriodDate), "cycleLength": $0.averageCycleLengthAtStart] },
+            "dailyLogs": dailyLogs.map { ["date": date($0.date), "flow": optional($0.flowIntensity?.rawValue), "hotFlushes": optional($0.hotFlushCount), "nightSweats": optional($0.nightSweatCount), "flushSeverity": optional($0.vasomotorSeverity?.rawValue), "sleep": optional($0.sleepQuality?.rawValue), "hrtTaken": $0.hrtTaken, "symptoms": $0.symptoms, "moods": $0.moods, "supplements": $0.supplements, "healthKitObservations": $0.healthKitObservations, "notes": $0.notes] },
             "tests": scans.map { ["id": $0.id.uuidString, "date": date($0.createdAt), "type": $0.testType.rawValue, "result": $0.resultType.rawValue, "certainty": $0.certaintyPercentage, "lineStrength": $0.lineStrength, "ratio": $0.testControlRatio, "notes": $0.notes] },
             "comparisons": comparisons.map { ["id": $0.id.uuidString, "date": date($0.createdAt), "type": $0.testType.rawValue, "earlierScanID": $0.earlierScanID.uuidString, "laterScanID": $0.laterScanID.uuidString, "summary": $0.localSummaryDetail] },
             "reminders": reminders.map { ["id": $0.id.uuidString, "title": $0.title, "type": $0.reminderType.rawValue, "date": date($0.scheduledDate), "completed": $0.isCompleted] },

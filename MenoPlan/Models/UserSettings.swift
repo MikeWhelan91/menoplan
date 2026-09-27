@@ -32,6 +32,10 @@ final class UserSettings {
     var averageCycleLengthValue: Int?
     var lutealPhaseLengthValue: Int?
     var menopauseStageRaw: String?
+    /// The HRT the person uses, from HRTOptions or their own wording, so the
+    /// daily log can offer just those to tick off.
+    var hrtRegimenRaw: String?
+    var hrtStartDate: Date?
     var expectedPeriodDate: Date?
     var knownOvulationDate: Date?
     var trackingFocusRaw: String?
@@ -225,6 +229,10 @@ final class UserSettings {
     var menopauseStage: MenopauseStage {
         get { MenopauseStage(rawValue: menopauseStageRaw ?? "") ?? .perimenopause }
         set { menopauseStageRaw = newValue.rawValue }
+    }
+    var hrtRegimen: [String] {
+        get { (hrtRegimenRaw ?? "").split(separator: "|").map(String.init) }
+        set { hrtRegimenRaw = newValue.isEmpty ? nil : newValue.joined(separator: "|") }
     }
     var trackingFocus: TrackingFocus {
         get { TrackingFocus(rawValue: trackingFocusRaw ?? "") ?? .ovulation }

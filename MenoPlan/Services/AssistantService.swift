@@ -24,6 +24,9 @@ struct AssistantUserContext: Encodable, Sendable {
     var userName: String?
     var trackingFocus: String
     var menopauseStage: String
+    /// The HRT the person has said they use (names only, never doses).
+    var hrtRegimen: [String] = []
+    var hrtStartDate: String? = nil
     var expectedPeriodDate: String?
     var lastPeriodStartDate: String?
     var averageCycleLength: Int?
@@ -38,9 +41,8 @@ struct AssistantUserContext: Encodable, Sendable {
     /// explains predictions using the same grounds the UI already gives the
     /// user, instead of inventing its own reasoning.
     var predictionExplanationBullets: [String] = []
-    /// Personalisation answers (TTC duration, age, regularity, conditions
-    /// such as PCOS, recent birth control, supplements) so Luna can reason
-    /// about e.g. persistently high LH with PCOS without being told again.
+    /// Personalisation answers (age, regularity, conditions, recent birth
+    /// control) so Luna doesn't have to ask again.
     var healthProfile: [String] = []
     /// Observations CycleSignalsEngine found in this person's data (temperature
     /// shift, late period, short sleep, contraception in Health...), filtered
@@ -175,6 +177,8 @@ enum AssistantContextBuilder {
             userName: settings.userName.isEmpty ? nil : settings.userName,
             trackingFocus: settings.trackingFocus.rawValue,
             menopauseStage: settings.menopauseStage.rawValue,
+            hrtRegimen: settings.hrtRegimen,
+            hrtStartDate: settings.hrtStartDate.map { formatter.string(from: $0) },
             expectedPeriodDate: settings.expectedPeriodDate.map { formatter.string(from: $0) },
             lastPeriodStartDate: settings.lastPeriodStartDate.map { formatter.string(from: $0) },
             averageCycleLength: settings.averageCycleLengthValue,
@@ -189,7 +193,11 @@ enum AssistantContextBuilder {
                 .map { log in
                     var parts = ["date=\(formatter.string(from: log.date))"]
                     if let flow = log.flowIntensity { parts.append("flow=\(flow.rawValue)") }
-                    if let bbt = log.basalBodyTemperatureCelsius { parts.append("basalBodyTemperature=\(String(format: "%.2f°C", bbt))") }
+                    if let hot = log.hotFlushCount { parts.append("hotFlushes=\(hot)") }
+                    if let sweats = log.nightSweatCount { parts.append("nightSweats=\(sweats)") }
+                    if let severity = log.vasomotorSeverity { parts.append("flushSeverity=\(severity.rawValue)") }
+                    if let sleep = log.sleepQuality { parts.append("sleep=\(sleep.rawValue)") }
+                    if !log.hrtTaken.isEmpty { parts.append("hrtTaken=\(log.hrtTaken.joined(separator: ","))") }
                     if let wrist = log.wristTemperatureCelsius { parts.append("appleWatchWristTemperature=\(String(format: "%.2f°C", wrist))") }
                     if let weight = log.weightKg { parts.append(String(format: "weightKg=%.1f", weight)) }
                     if let water = log.waterMl { parts.append("waterMl=\(Int(water.rounded()))") }
