@@ -619,7 +619,10 @@ struct CaptureGuideView: View {
                 .foregroundStyle(Color.lineNavy)
 
             captureTip("Fit the test inside the camera guide before taking the photo", icon: "viewfinder")
-            captureTip("Keep the C and T labels beside the result window in view", icon: "character.textbox")
+            // Luna Check's on-device model reads the guide box with T on the
+            // left and C on the right, so orientation matters.
+            captureTip("Turn the test so the T line is on the left and C on the right", icon: "arrow.left.arrow.right")
+            captureTip("Keep both lines inside the yellow T–C box", icon: "character.textbox")
             captureTip("Read it at the time your test's instructions say", icon: "timer")
         }
         .padding(15)
