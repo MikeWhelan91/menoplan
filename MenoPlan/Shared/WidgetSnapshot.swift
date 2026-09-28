@@ -1,11 +1,12 @@
 import Foundation
 
-/// Compiled into both the app and the widget extension. The app owns all the
-/// cycle maths; the widget only reads this precomputed snapshot from the App
-/// Group, so it never opens the SwiftData/CloudKit store itself.
+/// Compiled into both the app and the widget extension. The app does the
+/// work; the widget only reads this precomputed snapshot from the App Group,
+/// so it never opens the SwiftData/CloudKit store itself.
 enum WidgetShared {
     static let appGroupID = "group.com.menocheck.app"
-    static let snapshotKey = "widgetSnapshot.v2"
+    static let snapshotKey = "widgetSnapshot.v3"
+    // Kind strings kept from LineCheck so widgets people have placed survive.
     static let cycleWidgetKind = "LineCheckCycleWidget"
     static let todayPlanWidgetKind = "LineCheckTodayPlanWidget"
     static let urlScheme = "menoplan"
@@ -14,7 +15,7 @@ enum WidgetShared {
 /// Deep links the widgets open. Kept here so the widget and RootView's
 /// onOpenURL agree on the same hosts.
 enum WidgetDeepLink: String {
-    case calendar, setupCycle = "setup-cycle", scanOvulation = "scan-ovulation"
+    case checkIn = "check-in", calendar, setupCycle = "setup-cycle", scanOvulation = "scan-ovulation"
 
     var url: URL { URL(string: "\(WidgetShared.urlScheme)://\(rawValue)")! }
 
@@ -24,37 +25,29 @@ enum WidgetDeepLink: String {
     }
 }
 
+/// Only facts, never predictions: which days were logged, which were period
+/// days, and when the last period started. Everything a widget says is
+/// derived from these at render time, so it stays right past midnight.
 struct WidgetSnapshot: Codable, Hashable {
-    enum CycleState: String, Codable {
-        case notSetUp, tracking, ended
-    }
+    var isSetUp: Bool
+    var tracksCycle: Bool
+    var lastPeriodStart: Date?
+    /// Day keys (see `dayKey`) of logged period days, recent months only.
+    var periodDays: Set<String>
+    /// Day keys of days with anything in the daily log.
+    var loggedDays: Set<String>
+    /// The person's check-in symptoms, for the check-in widget.
+    var focus: [String]
 
-    /// Mirrors CycleCalendarPhase without depending on app-only types.
-    enum DayPhase: String, Codable {
-        case period, predictedPeriod
-    }
-
-    struct Cycle: Codable, Hashable {
-        var cycleStart: Date
-        var nextPeriod: Date
-        var isIrregular: Bool
-    }
-
-    var cycleState: CycleState
-    var cycle: Cycle?
-    /// Keyed by `WidgetSnapshot.dayKey` - only non-regular days are stored.
-    var dayPhases: [String: DayPhase]
-
-    static let empty = WidgetSnapshot(cycleState: .notSetUp, cycle: nil, dayPhases: [:])
+    static let empty = WidgetSnapshot(isSetUp: false, tracksCycle: false, lastPeriodStart: nil, periodDays: [], loggedDays: [], focus: [])
 
     static func dayKey(_ date: Date, calendar: Calendar = .current) -> String {
         let parts = calendar.dateComponents([.year, .month, .day], from: date)
         return String(format: "%04d-%02d-%02d", parts.year ?? 0, parts.month ?? 0, parts.day ?? 0)
     }
 
-    func phase(on date: Date, calendar: Calendar = .current) -> DayPhase? {
-        dayPhases[Self.dayKey(date, calendar: calendar)]
-    }
+    func isLogged(_ date: Date, calendar: Calendar = .current) -> Bool { loggedDays.contains(Self.dayKey(date, calendar: calendar)) }
+    func isPeriod(_ date: Date, calendar: Calendar = .current) -> Bool { periodDays.contains(Self.dayKey(date, calendar: calendar)) }
 }
 
 enum WidgetSnapshotStore {
@@ -72,9 +65,26 @@ enum WidgetSnapshotStore {
         let encoder = JSONEncoder()
         // Sorted so an unchanged snapshot encodes to identical bytes.
         encoder.outputFormatting = .sortedKeys
-        guard let defaults, let data = try? encoder.encode(snapshot) else { return false }
+        guard let defaults, let data = try? encoder.encode(SortedSnapshot(snapshot)) else { return false }
         if defaults.data(forKey: WidgetShared.snapshotKey) == data { return false }
         defaults.set(data, forKey: WidgetShared.snapshotKey)
         return true
+    }
+
+    /// Sets encode in hash order, which changes run to run; sorted arrays keep
+    /// an unchanged snapshot byte-identical. Decodes as a WidgetSnapshot.
+    private struct SortedSnapshot: Encodable {
+        let base: WidgetSnapshot
+        init(_ base: WidgetSnapshot) { self.base = base }
+        enum Keys: String, CodingKey { case isSetUp, tracksCycle, lastPeriodStart, periodDays, loggedDays, focus }
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: Keys.self)
+            try container.encode(base.isSetUp, forKey: .isSetUp)
+            try container.encode(base.tracksCycle, forKey: .tracksCycle)
+            try container.encodeIfPresent(base.lastPeriodStart, forKey: .lastPeriodStart)
+            try container.encode(base.periodDays.sorted(), forKey: .periodDays)
+            try container.encode(base.loggedDays.sorted(), forKey: .loggedDays)
+            try container.encode(base.focus, forKey: .focus)
+        }
     }
 }

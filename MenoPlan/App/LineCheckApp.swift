@@ -508,7 +508,8 @@ struct RootView: View {
         WidgetSnapshotService.snapshot(
             settings: currentSettings,
             cycleRecords: cycleRecords,
-            periodEvents: periodEvents
+            periodEvents: periodEvents,
+            logs: dailyLogs
         )
     }
 
@@ -517,6 +518,8 @@ struct RootView: View {
               currentSettings?.hasCompletedOnboarding == true else { return }
         AppAnalytics.log("linecheck_widget_opened", ["link": link.rawValue])
         switch link {
+        case .checkIn:
+            appState.selectedTab = .home
         case .calendar:
             appState.selectedTab = .calendar
         case .setupCycle:

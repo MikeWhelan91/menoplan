@@ -1,77 +1,92 @@
 import Foundation
 
-/// The words a widget shows for a given day. Computed from the snapshot's
-/// dates rather than stored, so the countdown keeps ticking at midnight even
-/// when the app hasn't been opened. Wording follows Home's journey overview.
+/// The words the widgets show on a given day, derived from the snapshot's
+/// facts. No predicted or "late" dates: while periods continue it counts from
+/// the last one; otherwise it shows how the log is going.
 struct WidgetCycleSummary: Equatable {
-    enum Tone: Equatable { case period, neutral }
+    enum State: Equatable { case notSetUp, needsPeriod, sinceLastPeriod, logging }
 
+    var state: State
     var label: String
     var headline: String
     var detail: String
-    var tone: Tone
     /// Short one-liner for the inline lock-screen widget.
     var inline: String
-    var cycleDay: Int?
+    /// Number and caption for the circular lock-screen widget.
+    var circularValue: String
+    var circularCaption: String
 
     static func make(for snapshot: WidgetSnapshot, on date: Date, calendar: Calendar = .current) -> WidgetCycleSummary {
-        switch snapshot.cycleState {
-        case .notSetUp:
-            return WidgetCycleSummary(label: "Your cycle", headline: "Set Up", detail: "Add your last period to see your timing",
-                                      tone: .neutral, inline: "Set up your cycle in MenoPlan")
-        case .ended:
-            return WidgetCycleSummary(label: "This cycle", headline: "Has Ended", detail: "Tap to start tracking a new cycle",
-                                      tone: .neutral, inline: "Start tracking a new cycle")
-        case .tracking:
-            break
+        let checkIn = WidgetCheckIn.make(for: snapshot, on: date, calendar: calendar)
+        guard snapshot.isSetUp else {
+            return WidgetCycleSummary(state: .notSetUp, label: "MenoPlan", headline: "Get Started", detail: "Open MenoPlan to set up",
+                                      inline: "Set up MenoPlan", circularValue: "–", circularCaption: "Setup")
         }
-        guard let cycle = snapshot.cycle else {
-            return make(for: .empty, on: date, calendar: calendar)
+        if snapshot.tracksCycle {
+            guard let last = snapshot.lastPeriodStart else {
+                return WidgetCycleSummary(state: .needsPeriod, label: "Your cycle", headline: "Add Period", detail: "Log your last period to see how your cycle is changing",
+                                          inline: "Add your last period", circularValue: "–", circularCaption: "Cycle")
+            }
+            let days = max(0, calendar.dateComponents([.day], from: calendar.startOfDay(for: last), to: calendar.startOfDay(for: date)).day ?? 0)
+            return WidgetCycleSummary(
+                state: .sinceLastPeriod,
+                label: "Last period",
+                headline: days == 0 ? "Today" : days == 1 ? "1 Day Ago" : "\(days) Days Ago",
+                detail: "Started \(last.formatted(.dateTime.day().month(.abbreviated)))",
+                inline: days == 0 ? "Period started today" : "Last period \(days) \(days == 1 ? "day" : "days") ago",
+                circularValue: "\(days)", circularCaption: "Days"
+            )
         }
+        let month = calendar.dateInterval(of: .month, for: date)
+        let loggedThisMonth = snapshot.loggedDays.filter { key in
+            guard let month, let day = WidgetCheckIn.date(fromKey: key, calendar: calendar) else { return false }
+            return month.contains(day) && day <= date
+        }.count
+        return WidgetCycleSummary(
+            state: .logging,
+            label: "This month",
+            headline: loggedThisMonth == 1 ? "1 Day Logged" : "\(loggedThisMonth) Days Logged",
+            detail: checkIn.loggedToday ? "Checked in today" : "Tap to check in today",
+            inline: checkIn.loggedToday ? "Checked in today" : "Check in today",
+            circularValue: "\(loggedThisMonth)", circularCaption: "Logged"
+        )
+    }
+}
 
+/// The check-in widget: has today been logged, which symptoms to rate, and
+/// the last seven days at a glance. No streaks - a gap is just a gap.
+struct WidgetCheckIn: Equatable {
+    struct Day: Equatable {
+        var date: Date
+        var logged: Bool
+    }
+
+    var loggedToday: Bool
+    var headline: String
+    var detail: String
+    var focus: [String]
+    var week: [Day]
+
+    static func make(for snapshot: WidgetSnapshot, on date: Date, calendar: Calendar = .current) -> WidgetCheckIn {
         let today = calendar.startOfDay(for: date)
-        func days(to other: Date) -> Int {
-            calendar.dateComponents([.day], from: today, to: calendar.startOfDay(for: other)).day ?? 0
+        let loggedToday = snapshot.isLogged(today, calendar: calendar)
+        let week = (0..<7).reversed().compactMap { offset -> Day? in
+            guard let day = calendar.date(byAdding: .day, value: -offset, to: today) else { return nil }
+            return Day(date: day, logged: snapshot.isLogged(day, calendar: calendar))
         }
-        let cycleDay = -days(to: cycle.cycleStart) + 1
-        let toPeriod = days(to: cycle.nextPeriod)
-        let dayText = "Cycle day \(cycleDay)"
-        let variesText = cycle.isIrregular ? " · your cycles vary, so it's an estimate" : ""
-
-        var summary: WidgetCycleSummary
-        if toPeriod > 0 {
-            summary = WidgetCycleSummary(label: "Next period", headline: titled(toPeriod), detail: dayText + variesText,
-                                         tone: .period, inline: "Next period \(countdown(toPeriod))")
-        } else if toPeriod == 0 {
-            summary = WidgetCycleSummary(label: "Period", headline: "Due Today", detail: "Log it when it starts",
-                                         tone: .period, inline: "Period due today")
-        } else {
-            let late = -toPeriod
-            let lateText = late == 1 ? "1 day late" : "\(late) days late"
-            summary = WidgetCycleSummary(label: "Period", headline: late == 1 ? "1 Day Late" : "\(late) Days Late",
-                                         detail: "Cycles often vary more in perimenopause",
-                                         tone: .period, inline: "Period \(lateText)")
-        }
-        summary.cycleDay = cycleDay > 0 ? cycleDay : nil
-        return summary
+        let focus = Array(snapshot.focus.prefix(3))
+        return WidgetCheckIn(
+            loggedToday: loggedToday,
+            headline: loggedToday ? "Logged Today" : "How's Today?",
+            detail: loggedToday ? "Tap to add or change anything" : (focus.isEmpty ? "A tap or two is enough" : focus.joined(separator: " · ")),
+            focus: focus,
+            week: week
+        )
     }
 
-    private static func countdown(_ days: Int) -> String {
-        switch days {
-        case ...0: "today"
-        case 1: "tomorrow"
-        default: "in \(days) days"
-        }
+    static func date(fromKey key: String, calendar: Calendar = .current) -> Date? {
+        let parts = key.split(separator: "-").compactMap { Int($0) }
+        guard parts.count == 3 else { return nil }
+        return calendar.date(from: DateComponents(year: parts[0], month: parts[1], day: parts[2]))
     }
-
-    /// The big headline slot uses Title Case ("Tomorrow", "In 3 Days");
-    /// sentences such as the inline widget keep `countdown`.
-    private static func titled(_ days: Int) -> String {
-        switch days {
-        case ...0: "Today"
-        case 1: "Tomorrow"
-        default: "In \(days) Days"
-        }
-    }
-
 }

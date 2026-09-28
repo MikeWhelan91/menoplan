@@ -1,12 +1,12 @@
 import SwiftUI
 import WidgetKit
 
-// MARK: - What to do today, by cycle phase
+// MARK: - Daily check-in widget
 
 struct TodayPlanEntry: TimelineEntry {
     let date: Date
     let snapshot: WidgetSnapshot
-    var plan: WidgetTodayPlan { WidgetTodayPlan.make(for: snapshot, on: date) }
+    var checkIn: WidgetCheckIn { WidgetCheckIn.make(for: snapshot, on: date) }
 }
 
 struct TodayPlanProvider: TimelineProvider {
@@ -15,9 +15,8 @@ struct TodayPlanProvider: TimelineProvider {
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TodayPlanEntry) -> Void) {
-        // The gallery shows a sample cycle rather than an empty "Set up" card.
         let stored = WidgetSnapshotStore.load()
-        let snapshot = context.isPreview && (stored?.cycleState ?? .notSetUp) == .notSetUp ? .preview : (stored ?? .empty)
+        let snapshot = context.isPreview && !(stored?.isSetUp ?? false) ? .preview : (stored ?? .empty)
         completion(TodayPlanEntry(date: .now, snapshot: snapshot))
     }
 
@@ -28,32 +27,16 @@ struct TodayPlanProvider: TimelineProvider {
     }
 }
 
+/// Kind string kept from LineCheck's "Today's Plan" so placed widgets survive.
 struct TodayPlanWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: WidgetShared.todayPlanWidgetKind, provider: TodayPlanProvider()) { entry in
             TodayPlanWidgetView(entry: entry)
                 .containerBackground(for: .widget) { WidgetBackdrop() }
         }
-        .configurationDisplayName("Today's Plan")
-        .description("Where you are in your cycle, with the dates coming up.")
+        .configurationDisplayName("Daily Check-in")
+        .description("One tap to log how today went, and your last seven days.")
         .supportedFamilies([.systemSmall, .systemMedium])
-    }
-}
-
-extension WidgetTodayPlan {
-    var tint: Color {
-        switch phase {
-        case .upcoming, .periodDue: .wPink
-        case .idle: .wNavy
-        }
-    }
-
-    var actionLink: WidgetDeepLink {
-        .calendar
-    }
-
-    var actionTitle: String {
-        "Log Period"
     }
 }
 
@@ -62,146 +45,85 @@ struct TodayPlanWidgetView: View {
     let entry: TodayPlanEntry
 
     var body: some View {
-        let plan = entry.plan
-        if plan.phase == .idle {
-            WidgetIdleView(state: entry.snapshot.cycleState, compact: family == .systemSmall)
-                .widgetURL((entry.snapshot.cycleState == .notSetUp ? WidgetDeepLink.setupCycle : .calendar).url)
-        } else if family == .systemSmall {
-            TodayPlanSmall(plan: plan)
-                .widgetURL((plan.action == nil ? WidgetDeepLink.calendar : plan.actionLink).url)
-        } else {
-            TodayPlanMedium(plan: plan)
-                .widgetURL(WidgetDeepLink.calendar.url)
-        }
-    }
-}
-
-private struct PlanHeadline: View {
-    let plan: WidgetTodayPlan
-    let size: CGFloat
-
-    var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 5) {
-            if plan.isDone {
-                Image(systemName: "checkmark.circle.fill")
-                    .font(.system(size: size * 0.8, weight: .bold))
-                    .foregroundStyle(plan.tint)
+        let checkIn = entry.checkIn
+        Group {
+            if !entry.snapshot.isSetUp {
+                WidgetIdleView(summary: WidgetCycleSummary.make(for: entry.snapshot, on: entry.date), compact: family == .systemSmall)
+            } else if family == .systemSmall {
+                VStack(spacing: 8) {
+                    prompt(checkIn, size: 19)
+                    WeekDots(week: checkIn.week)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                HStack(spacing: 14) {
+                    prompt(checkIn, size: 21)
+                        .frame(maxWidth: .infinity)
+                    VStack(spacing: 8) {
+                        Text("Last 7 days")
+                            .font(.widget(.caption2, weight: .heavy))
+                            .foregroundStyle(Color.wNavy.opacity(0.5))
+                            .textCase(.uppercase)
+                            .tracking(0.6)
+                        WeekDots(week: checkIn.week, showsLabels: true)
+                    }
+                    .padding(10)
+                    .frame(width: 138)
+                    .frame(maxHeight: .infinity)
+                    .background(Color.wSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+                }
             }
-            Text(plan.headline)
+        }
+        .widgetURL(WidgetDeepLink.checkIn.url)
+    }
+
+    private func prompt(_ checkIn: WidgetCheckIn, size: CGFloat) -> some View {
+        VStack(spacing: 4) {
+            Image(systemName: checkIn.loggedToday ? "checkmark.circle.fill" : "sun.haze.fill")
+                .font(.system(size: size * 0.9, weight: .bold))
+                .foregroundStyle(checkIn.loggedToday ? Color.wPurple : Color.orange)
+                .widgetAccentable()
+            Text(checkIn.headline)
                 .font(.widget(size: size, weight: .heavy))
                 .foregroundStyle(Color.wNavy)
                 .minimumScaleFactor(0.75)
-        }
-        .widgetAccentable()
-    }
-}
-
-private struct PlanLabel: View {
-    let plan: WidgetTodayPlan
-
-    var body: some View {
-        Text(plan.label)
-            .font(.widget(.caption2, weight: .heavy))
-            .foregroundStyle(plan.tint)
-            .textCase(.uppercase)
-            .tracking(0.6)
-    }
-}
-
-private struct TodayPlanSmall: View {
-    let plan: WidgetTodayPlan
-
-    var body: some View {
-        VStack(spacing: 6) {
-            PlanLabel(plan: plan)
-            PlanHeadline(plan: plan, size: 19)
-                .lineLimit(3)
-            Text(plan.compactDetail)
+                .lineLimit(1)
+            Text(checkIn.detail)
                 .font(.widget(.caption, weight: .semibold))
                 .foregroundStyle(Color.wNavy.opacity(0.62))
                 .lineLimit(2)
+                .minimumScaleFactor(0.85)
         }
         .multilineTextAlignment(.center)
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 }
 
-/// Left: today's answer and what to do. Right: the next dates that matter.
-private struct TodayPlanMedium: View {
-    let plan: WidgetTodayPlan
+/// Seven dots, filled for days with a check-in. No streak count on purpose.
+private struct WeekDots: View {
+    let week: [WidgetCheckIn.Day]
+    var showsLabels = false
 
     var body: some View {
-        HStack(alignment: .center, spacing: 14) {
-            VStack(alignment: .center, spacing: 4) {
-                PlanLabel(plan: plan)
-                PlanHeadline(plan: plan, size: 19)
-                    .lineLimit(2)
-                Text(plan.detail)
-                    .font(.widget(.caption, weight: .semibold))
-                    .foregroundStyle(Color.wNavy.opacity(0.65))
-                    .lineLimit(2)
-                    .minimumScaleFactor(0.85)
-                if plan.action != nil {
-                    Link(destination: plan.actionLink.url) {
-                        Label(plan.actionTitle, systemImage: "drop.fill")
-                            .font(.widget(.caption, weight: .bold))
-                            .foregroundStyle(.white)
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.8)
-                            .padding(.horizontal, 12)
-                            .padding(.vertical, 6)
-                            .background(plan.tint, in: Capsule())
-                            .widgetAccentable()
+        HStack(spacing: showsLabels ? 5 : 6) {
+            ForEach(Array(week.enumerated()), id: \.offset) { index, day in
+                VStack(spacing: 3) {
+                    if showsLabels {
+                        Text(day.date.formatted(.dateTime.weekday(.narrow)))
+                            .font(.widget(size: 9, weight: .bold))
+                            .foregroundStyle(Color.wNavy.opacity(0.45))
                     }
-                    .padding(.top, 6)
-                } else if let tip = plan.tip {
-                    Text(tip)
-                        .font(.widget(.caption2, weight: .semibold))
-                        .foregroundStyle(Color.wNavy.opacity(0.6))
-                        .lineLimit(2)
-                        .padding(.top, 4)
-                }
-            }
-            .multilineTextAlignment(.center)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-
-            if !plan.stops.isEmpty {
-                ComingUpList(plan: plan)
-                    .frame(width: 128)
-            }
-        }
-    }
-}
-
-/// "Coming Up": one date per row, so close dates never collide.
-private struct ComingUpList: View {
-    let plan: WidgetTodayPlan
-
-    var body: some View {
-        VStack(alignment: .center, spacing: 7) {
-            Text("Coming Up")
-                .font(.widget(.caption2, weight: .heavy))
-                .foregroundStyle(Color.wNavy.opacity(0.5))
-                .textCase(.uppercase)
-                .tracking(0.6)
-            ForEach(Array(plan.stops.enumerated()), id: \.offset) { _, stop in
-                VStack(alignment: .center, spacing: 0) {
-                    Text(stop.date.formatted(.dateTime.weekday(.abbreviated).day().month(.abbreviated)))
-                        .font(.widget(size: 12, weight: .heavy))
-                        .foregroundStyle(plan.tint)
+                    Circle()
+                        .fill(day.logged ? Color.wPurple : Color.wNavy.opacity(0.12))
+                        .frame(width: showsLabels ? 12 : 9, height: showsLabels ? 12 : 9)
+                        .overlay {
+                            if index == week.count - 1 {
+                                Circle().stroke(Color.wNavy, lineWidth: 1.2).padding(-2)
+                            }
+                        }
                         .widgetAccentable()
-                    Text(stop.title)
-                        .font(.widget(size: 11, weight: .semibold))
-                        .foregroundStyle(Color.wNavy.opacity(0.75))
-                        .minimumScaleFactor(0.8)
                 }
-                .lineLimit(1)
             }
         }
-        .multilineTextAlignment(.center)
-        .padding(10)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .background(Color.wSurface, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
     }
 }
 

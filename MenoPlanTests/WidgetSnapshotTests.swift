@@ -9,53 +9,61 @@ final class WidgetSnapshotTests: XCTestCase {
     }()
 
     private func day(_ value: Int) throws -> Date {
-        try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 5, day: value)))
+        try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 9, day: value)))
     }
 
-    private func snapshot(irregular: Bool = false) throws -> WidgetSnapshot {
+    private func snapshot(tracksCycle: Bool = true, lastPeriod: Int? = 1, logged: [Int] = []) throws -> WidgetSnapshot {
         WidgetSnapshot(
-            cycleState: .tracking,
-            cycle: .init(cycleStart: try day(1), nextPeriod: try day(29), isIrregular: irregular),
-            dayPhases: [:]
+            isSetUp: true,
+            tracksCycle: tracksCycle,
+            lastPeriodStart: try lastPeriod.map { try day($0) },
+            periodDays: [],
+            loggedDays: Set(try logged.map { WidgetSnapshot.dayKey(try day($0), calendar: calendar) }),
+            focus: ["Sleep", "Anxiety", "Brain Fog", "Joint Pain"]
         )
     }
 
-    private func summary(_ value: Int, irregular: Bool = false) throws -> WidgetCycleSummary {
-        WidgetCycleSummary.make(for: try snapshot(irregular: irregular), on: try day(value), calendar: calendar)
+    func testCountsFromTheLastPeriodWithoutPredicting() throws {
+        let summary = WidgetCycleSummary.make(for: try snapshot(), on: try day(21), calendar: calendar)
+        XCTAssertEqual(summary.state, .sinceLastPeriod)
+        XCTAssertEqual(summary.headline, "20 Days Ago")
+        XCTAssertEqual(summary.inline, "Last period 20 days ago")
+        XCTAssertEqual(summary.circularValue, "20")
+
+        // Long gaps just keep counting - never "late".
+        let later = WidgetCycleSummary.make(for: try snapshot(), on: try day(30), calendar: calendar)
+        XCTAssertFalse(later.headline.localizedCaseInsensitiveContains("late"))
+        XCTAssertEqual(WidgetCycleSummary.make(for: try snapshot(), on: try day(1), calendar: calendar).headline, "Today")
     }
 
-    func testCountdownFollowsTheCycle() throws {
-        let early = try summary(5)
-        XCTAssertEqual(early.label, "Next period")
-        XCTAssertEqual(early.headline, "In 24 Days")
-        XCTAssertEqual(early.detail, "Cycle day 5")
-        XCTAssertEqual(early.cycleDay, 5)
-
-        XCTAssertEqual(try summary(28).headline, "Tomorrow")
-        XCTAssertEqual(try summary(29).headline, "Due Today")
-        XCTAssertEqual(try summary(31).headline, "2 Days Late")
-        XCTAssertEqual(try summary(31).detail, "Cycles often vary more in perimenopause")
+    func testWithoutPeriodsItShowsTheMonthsLog() throws {
+        let summary = WidgetCycleSummary.make(for: try snapshot(tracksCycle: false, lastPeriod: nil, logged: [2, 5, 20, 21]), on: try day(20), calendar: calendar)
+        XCTAssertEqual(summary.state, .logging)
+        XCTAssertEqual(summary.headline, "3 Days Logged", "A future-dated key never counts")
+        XCTAssertEqual(summary.detail, "Checked in today")
     }
 
-    func testIrregularCycleSaysItIsAnEstimate() throws {
-        XCTAssertTrue(try summary(5, irregular: true).detail.contains("estimate"))
+    func testSetupStates() throws {
+        XCTAssertEqual(WidgetCycleSummary.make(for: .empty, on: try day(5), calendar: calendar).state, .notSetUp)
+        XCTAssertEqual(WidgetCycleSummary.make(for: try snapshot(lastPeriod: nil), on: try day(5), calendar: calendar).state, .needsPeriod)
     }
 
-    func testNotSetUpAsksForALastPeriod() throws {
-        let summary = WidgetCycleSummary.make(for: .empty, on: try day(5), calendar: calendar)
-        XCTAssertEqual(summary.headline, "Set Up")
-        XCTAssertEqual(summary.tone, .neutral)
+    func testCheckInShowsTodayAndTheLastSevenDays() throws {
+        let notYet = WidgetCheckIn.make(for: try snapshot(logged: [18, 19]), on: try day(20), calendar: calendar)
+        XCTAssertFalse(notYet.loggedToday)
+        XCTAssertEqual(notYet.headline, "How's Today?")
+        XCTAssertEqual(notYet.detail, "Sleep · Anxiety · Brain Fog")
+        XCTAssertEqual(notYet.week.count, 7)
+        XCTAssertEqual(notYet.week.map(\.logged), [false, false, false, false, true, true, false])
+
+        let done = WidgetCheckIn.make(for: try snapshot(logged: [20]), on: try day(20), calendar: calendar)
+        XCTAssertTrue(done.loggedToday)
+        XCTAssertEqual(done.headline, "Logged Today")
     }
 
-    func testTodayPlanOffersToLogALatePeriod() throws {
-        let upcoming = WidgetTodayPlan.make(for: try snapshot(), on: try day(10), calendar: calendar)
-        XCTAssertEqual(upcoming.phase, .upcoming)
-        XCTAssertNil(upcoming.action)
-        XCTAssertEqual(upcoming.stops.count, 1)
-
-        let late = WidgetTodayPlan.make(for: try snapshot(), on: try day(33), calendar: calendar)
-        XCTAssertEqual(late.phase, .periodDue)
-        XCTAssertEqual(late.headline, "Period Is Late")
-        XCTAssertEqual(late.action, .logPeriod)
+    func testDayKeysRoundTrip() throws {
+        let key = WidgetSnapshot.dayKey(try day(7), calendar: calendar)
+        XCTAssertEqual(key, "2026-09-07")
+        XCTAssertEqual(WidgetCheckIn.date(fromKey: key, calendar: calendar), try day(7))
     }
 }

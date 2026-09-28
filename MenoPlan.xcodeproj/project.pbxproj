@@ -33,14 +33,12 @@
 		34964C18A3C1FCFB5F90F674 /* TodayPlanWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68779322F23A534675DFA1A0 /* TodayPlanWidget.swift */; };
 		38C36FDBBFC3FE205E0ECA45 /* PlusJakartaSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 56660ECE0A87770DC95CEF9B /* PlusJakartaSans-Medium.ttf */; };
 		398EAD6FB401B1507337A367 /* AdaptiveLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = C001AB9703DD2A86840B0ECE /* AdaptiveLayout.swift */; };
-		39A5AAB95BBC46AB33804127 /* WidgetTodayPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00A1108498F058A24F4B2E4 /* WidgetTodayPlan.swift */; };
 		39AFE2608355439D8C7FD741 /* PlusJakartaSans-SemiBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 0A0082091349EB3F0230FD3E /* PlusJakartaSans-SemiBold.ttf */; };
 		3C42CF480FF73426FDFC4732 /* HomeJourneyViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0A4B4C21A5EB29209EC0E0E /* HomeJourneyViews.swift */; };
 		3D4BBC65A19CE9DC85EFCBA2 /* FertilityWindowCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = ECE80BA94DCF754D40F86912 /* FertilityWindowCalculator.swift */; };
 		3E7538FF5BF1E388E7444062 /* GuidedCaptureCropMathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A12E7F3C89EDE831D1800C7 /* GuidedCaptureCropMathTests.swift */; };
 		3F41002E8CD4287E0CF1008E /* MenoPlanWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = B2BA196A4D7712CF11C9DC3C /* MenoPlanWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		3FCE4B0DAA82A167E1DC5635 /* RevenueCatAdMob in Frameworks */ = {isa = PBXBuildFile; productRef = 674E0B1CB8E3BAAAAC62082A /* RevenueCatAdMob */; };
-		41DF7047EEC5F79F202DE13B /* WidgetTodayPlan.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00A1108498F058A24F4B2E4 /* WidgetTodayPlan.swift */; };
 		4501EF2E85FC9FA9A604C725 /* Scan.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7199AED3A1C2DD0FCC0CC905 /* Scan.swift */; };
 		47698FEC25EBCEFE4254AC3E /* WidgetSnapshotTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EBC21C2851E8294B1AF054A8 /* WidgetSnapshotTests.swift */; };
 		47DBC33C512290020FBE36DB /* PlusJakartaSans-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7BE0608F049B48EA99B6222D /* PlusJakartaSans-ExtraBold.ttf */; };
@@ -286,7 +284,6 @@
 		B808AFA3C6DC5827C4C3F484 /* MenopauseSummaryCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenopauseSummaryCalculator.swift; sourceTree = "<group>"; };
 		B9ABB176AD6D34629D3BC38A /* PersonalizationQuizView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonalizationQuizView.swift; sourceTree = "<group>"; };
 		C001AB9703DD2A86840B0ECE /* AdaptiveLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AdaptiveLayout.swift; sourceTree = "<group>"; };
-		C00A1108498F058A24F4B2E4 /* WidgetTodayPlan.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetTodayPlan.swift; sourceTree = "<group>"; };
 		C16C3F5D23479760918ECF90 /* AssistantService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssistantService.swift; sourceTree = "<group>"; };
 		C2C075326518E86A23A196E8 /* Reminder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Reminder.swift; sourceTree = "<group>"; };
 		C308200E4F6B4674C14B850F /* OFL.txt */ = {isa = PBXFileReference; lastKnownFileType = text; path = OFL.txt; sourceTree = "<group>"; };
@@ -358,7 +355,6 @@
 			children = (
 				32B96F1C2ABC11FD23AB3100 /* WidgetCycleSummary.swift */,
 				98D2F86CB52CBA0BFFADF316 /* WidgetSnapshot.swift */,
-				C00A1108498F058A24F4B2E4 /* WidgetTodayPlan.swift */,
 			);
 			path = Shared;
 			sourceTree = "<group>";
@@ -892,7 +888,6 @@
 				9520F003BD07A9AC9F494732 /* WidgetCycleSummary.swift in Sources */,
 				FF17AD21FB7D3D6727AB0AD0 /* WidgetSnapshot.swift in Sources */,
 				9473D0DFB365C9D1A887317B /* WidgetTheme.swift in Sources */,
-				39A5AAB95BBC46AB33804127 /* WidgetTodayPlan.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -982,7 +977,6 @@
 				21D1065985A885223E181DE7 /* WidgetCycleSummary.swift in Sources */,
 				595A054F57E6BEA3C8BC9A07 /* WidgetSnapshot.swift in Sources */,
 				6B6287C37A89E87CD5B091ED /* WidgetSnapshotService.swift in Sources */,
-				41DF7047EEC5F79F202DE13B /* WidgetTodayPlan.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

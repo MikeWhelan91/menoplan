@@ -25,23 +25,6 @@ extension Color {
     }
 }
 
-extension WidgetCycleSummary.Tone {
-    var color: Color {
-        switch self {
-        case .period: .wPink
-        case .neutral: .wNavy
-        }
-    }
-}
-
-extension WidgetSnapshot.DayPhase {
-    var color: Color {
-        switch self {
-        case .period, .predictedPeriod: .wPink
-        }
-    }
-}
-
 struct WidgetBrandMark: View {
     var size: CGFloat = 22
 
@@ -57,61 +40,46 @@ struct WidgetBrandMark: View {
 
 /// Not set up or ended: nothing to count down, so a centred
 /// message with one clear next step instead of an empty countdown.
+/// Shown before setup, or while a person still having periods hasn't
+/// logged one yet.
 struct WidgetIdleView: View {
-    let state: WidgetSnapshot.CycleState
+    let summary: WidgetCycleSummary
     var compact = false
 
+    private var icon: String { summary.state == .needsPeriod ? "calendar.badge.plus" : "sparkles" }
+    private var action: String { summary.state == .needsPeriod ? "Add period" : "Open MenoPlan" }
+
     var body: some View {
-        let copy = IdleCopy(state: state)
         VStack(spacing: 6) {
-            Image(systemName: copy.icon)
+            Image(systemName: icon)
                 .font(.system(size: compact ? 18 : 20, weight: .bold))
-                .foregroundStyle(copy.tint)
+                .foregroundStyle(Color.wPink)
                 .frame(width: 40, height: 40)
-                .background(copy.tint.opacity(0.12), in: Circle())
+                .background(Color.wPink.opacity(0.12), in: Circle())
                 .widgetAccentable()
-            Text(copy.title)
+            Text(summary.state == .needsPeriod ? "Add your last period" : "Set up MenoPlan")
                 .font(.widget(size: 17, weight: .heavy))
                 .foregroundStyle(Color.wNavy)
                 .lineLimit(2)
                 .minimumScaleFactor(0.8)
             if !compact {
-                Text(copy.detail)
+                Text(summary.detail)
                     .font(.widget(.caption, weight: .medium))
                     .foregroundStyle(Color.wNavy.opacity(0.62))
                     .lineLimit(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
-            if let action = copy.action {
-                Text(action)
-                    .font(.widget(.caption, weight: .bold))
-                    .foregroundStyle(.white)
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 5)
-                    .background(copy.tint, in: Capsule())
-                    .widgetAccentable()
-                    .padding(.top, 2)
-            }
+            Text(action)
+                .font(.widget(.caption, weight: .bold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(Color.wPink, in: Capsule())
+                .widgetAccentable()
+                .padding(.top, 2)
         }
         .multilineTextAlignment(.center)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-}
-
-struct IdleCopy {
-    let icon: String
-    let title: String
-    let detail: String
-    let action: String?
-    let tint: Color
-
-    init(state: WidgetSnapshot.CycleState) {
-        switch state {
-        case .ended:
-            (icon, title, detail, action, tint) = ("arrow.clockwise", "This cycle has ended", "Start whenever you're ready", "Start new cycle", .wPurple)
-        case .notSetUp, .tracking:
-            (icon, title, detail, action, tint) = ("calendar.badge.plus", "Set up your cycle", "Add your last period to begin", "Add period", .wPink)
-        }
     }
 }
 
@@ -129,8 +97,8 @@ struct WidgetBackdrop: View {
     }
 }
 
-/// One entry per midnight for a week: the countdowns are derived from the
-/// entry date, so they stay correct without the app refreshing the snapshot.
+/// One entry per midnight for a week: everything shown is derived from the
+/// entry date, so it stays correct without the app refreshing the snapshot.
 enum WidgetTimeline {
     static func dates(from now: Date, days: Int = 7, calendar: Calendar = .current) -> [Date] {
         let today = calendar.startOfDay(for: now)

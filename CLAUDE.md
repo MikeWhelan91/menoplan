@@ -32,6 +32,10 @@ Fertility and pregnancy tracking are removed. The period estimate still comes fr
 
 Built from user research (App Store reviews, studies, Reddit via Codex): people want low-effort logging of *their own* symptoms, a doctor-ready summary, and patterns, not predictions. Order: `CheckInCard` hero (day impact: not at all / a bit / a lot, then the person's pinned `FocusSymptoms`, tap to rate mild → moderate → severe; hot flushes / night sweats counted; sleep uses sleep quality), `RecentChangeCard` (`RecentChangeCalculator`, needs 7+ logged days in 14, phrased as an observation not a cause), `AppointmentCard` (moves to the top within 7 days of `nextAppointmentDate`), `HRTTodayCard` (only with a regimen; daily repeating reminder), `CycleChangeCard` (perimenopause only: last period and cycle lengths, never predicted or "late" dates), then a tools row (Ask Luna, FSH Test, Trends). Only the postmenopause bleeding nudge sits above the check-in. No streaks. Focus symptoms are picked in onboarding ("What's affecting you most?") and Settings; defaults don't lead with hot flushes.
 
+## Appointment summary and widgets
+
+`AppointmentSummaryBuilder` + `AppointmentSummaryView` make the one-page A4 summary (top three concerns, daily-life impact, sleep, periods/bleeding, HRT as prescribed, home tests, the person's own questions), shared as a vector PDF. Widgets (`WidgetSnapshot` v3) carry facts only - logged days, period days, last period start, check-in symptoms - and never show predicted or "late" dates. Widget kind strings keep LineCheck's names so placed widgets survive.
+
 ## Daily log
 
 `DailyFertilityLog` (name kept from LineCheck) holds hot flush / night sweat counts (nil = not logged), a flush severity, sleep quality, HRT taken (names from `UserSettings.hrtRegimen`, never doses), bleeding, symptoms, moods and supplements. Section order comes from `DailyLogSection.ordered(for:)`: bleeding leads only in perimenopause, and outside perimenopause logging flow never starts a period and shows a see-your-clinician notice. Apple Health hot flashes / night sweats fill the counts only on days the person hasn't counted.

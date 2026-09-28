@@ -10,18 +10,19 @@ struct LineCheckWidgetsBundle: WidgetBundle {
 }
 
 extension WidgetSnapshot {
-    /// Sample cycle used for the widget gallery and Xcode previews - never
-    /// shown as if it were the user's data.
+    /// Sample data for the widget gallery and Xcode previews - never shown
+    /// as if it were the user's data.
     static var preview: WidgetSnapshot {
         let calendar = Calendar.current
         let today = calendar.startOfDay(for: .now)
-        func day(_ offset: Int) -> Date { calendar.date(byAdding: .day, value: offset, to: today) ?? today }
-        // 31-day cycle, today is cycle day 24, period due in 8 days.
-        let start = -23
-        let cycle = Cycle(cycleStart: day(start), nextPeriod: day(start + 31), isIrregular: true)
-        var phases: [String: DayPhase] = [:]
-        for offset in start...(start + 4) { phases[dayKey(day(offset))] = .period }
-        for offset in (start + 31)...(start + 35) { phases[dayKey(day(offset))] = .predictedPeriod }
-        return WidgetSnapshot(cycleState: .tracking, cycle: cycle, dayPhases: phases)
+        func key(_ offset: Int) -> String { dayKey(calendar.date(byAdding: .day, value: offset, to: today) ?? today) }
+        return WidgetSnapshot(
+            isSetUp: true,
+            tracksCycle: true,
+            lastPeriodStart: calendar.date(byAdding: .day, value: -23, to: today),
+            periodDays: Set(((-23)...(-19)).map(key)),
+            loggedDays: Set([0, -1, -2, -4, -5, -8, -9, -10, -12, -15].map(key)),
+            focus: ["Sleep", "Anxiety", "Brain Fog"]
+        )
     }
 }
