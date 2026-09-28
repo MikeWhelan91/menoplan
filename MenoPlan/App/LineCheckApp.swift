@@ -516,6 +516,14 @@ struct RootView: View {
     }
 
     private func handleWidgetLink(_ url: URL) {
+        #if DEBUG
+        if url.scheme == WidgetShared.urlScheme, url.host() == "debug-seed", let settings = currentSettings {
+            SampleDataSeeder.seed(settings: settings, context: modelContext)
+            appState.toast = "Sample perimenopause data added"
+            appState.selectedTab = .home
+            return
+        }
+        #endif
         guard let link = WidgetDeepLink(url: url),
               currentSettings?.hasCompletedOnboarding == true else { return }
         AppAnalytics.log("linecheck_widget_opened", ["link": link.rawValue])

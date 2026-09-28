@@ -85,6 +85,7 @@
 		792E7DE6C2AA28BA70DA185A /* PlusJakartaSans-ExtraBold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 7BE0608F049B48EA99B6222D /* PlusJakartaSans-ExtraBold.ttf */; };
 		7D81AC4A35373FA0DCE7B53F /* UserSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD763CA5E45786D11E139D03 /* UserSettings.swift */; };
 		86CD28E236A95C75EDB9FFCC /* ScoutAvatar.svg in Resources */ = {isa = PBXBuildFile; fileRef = 4403800C4F280E22AE6F91B8 /* ScoutAvatar.svg */; };
+		88FD3B30CE7DD4DB17481514 /* SampleDataSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FEFF43D9AA339C2FA8C85B0 /* SampleDataSeeder.swift */; };
 		8CFB5EB1847487FD274F81A7 /* Fixtures in Resources */ = {isa = PBXBuildFile; fileRef = D8C088BC37777FFC4A68B175 /* Fixtures */; };
 		8EA1F5E5B7CE91C275A359D2 /* OnDeviceOvulationAnalysisService.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0459BCD0233DC157A111F19 /* OnDeviceOvulationAnalysisService.swift */; };
 		907F5A780725168B888E63CE /* calendar - woman.json in Resources */ = {isa = PBXBuildFile; fileRef = 6DB56982FE155B9B31CDBE0A /* calendar - woman.json */; };
@@ -259,6 +260,7 @@
 		8F5CBAAB1F2713BC71798B82 /* ReminderAutomationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReminderAutomationService.swift; sourceTree = "<group>"; };
 		8FDC696C089979C344122907 /* MenoPlan.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = MenoPlan.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		8FEB7444513A9CC6CD21A58E /* ScanFlowView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanFlowView.swift; sourceTree = "<group>"; };
+		8FEFF43D9AA339C2FA8C85B0 /* SampleDataSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SampleDataSeeder.swift; sourceTree = "<group>"; };
 		914F8967D95948F959046B93 /* ResultViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultViewModel.swift; sourceTree = "<group>"; };
 		92E4A42F7723EF6560563672 /* OnDeviceModelCalibrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnDeviceModelCalibrationTests.swift; sourceTree = "<group>"; };
 		972AE8BC12C0E0A6E780999E /* ImageQualityServiceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageQualityServiceTests.swift; sourceTree = "<group>"; };
@@ -434,6 +436,7 @@
 				8A436C32A3A77A9CD202BF3F /* PurchaseService.swift */,
 				8F5CBAAB1F2713BC71798B82 /* ReminderAutomationService.swift */,
 				9F49F01CCD4B8F9B58494725 /* RewardedAdService.swift */,
+				8FEFF43D9AA339C2FA8C85B0 /* SampleDataSeeder.swift */,
 				C33A69CE58CCE817B6D18B7C /* ScanImageSyncService.swift */,
 				AFC8D6E3B0F1FDC9C09389EF /* TipService.swift */,
 				4091D32B3297C0CA045C0E86 /* WeeklyLunaUpdateService.swift */,
@@ -962,6 +965,7 @@
 				E25A273FA1C09854DDB91BB1 /* ResultView.swift in Sources */,
 				A09CB08012776BF8245D4DB0 /* ResultViewModel.swift in Sources */,
 				0C0B72C49B0721A16151519A /* RewardedAdService.swift in Sources */,
+				88FD3B30CE7DD4DB17481514 /* SampleDataSeeder.swift in Sources */,
 				4501EF2E85FC9FA9A604C725 /* Scan.swift in Sources */,
 				FBAE6D8F6761F8B41CC9D03F /* ScanFlowView.swift in Sources */,
 				E4BE5C0F11A5CAC595870FFA /* ScanImageSyncService.swift in Sources */,

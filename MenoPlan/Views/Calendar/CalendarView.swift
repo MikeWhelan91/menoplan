@@ -2877,8 +2877,8 @@ private struct CalendarIntroPopup: View {
     private let highlights: [CalendarIntroHighlight] = [
         .init(
             symbol: "calendar.badge.clock",
-            title: "See your timing",
-            detail: "See where today sits in your cycle and when your next period is expected.",
+            title: "See your cycle",
+            detail: "See your logged periods and how your cycle is changing.",
             tint: .linePurple
         ),
         .init(
@@ -2896,8 +2896,8 @@ private struct CalendarIntroPopup: View {
         .init(
             symbol: "chart.xyaxis.line",
             imageName: "HomeTrendsIcon",
-            title: "See how test lines change",
-            detail: "Review how your tests and symptoms change over time.",
+            title: "See how things change",
+            detail: "Review how your symptoms and tests change over time.",
             tint: .linePurple
         )
     ]
@@ -2914,7 +2914,7 @@ private struct CalendarIntroPopup: View {
 
                     ScrollView {
                         VStack(alignment: .leading, spacing: 16) {
-                            VStack(spacing: 14) {
+                            VStack(alignment: .leading, spacing: 14) {
                                 ForEach(highlights) { highlight in
                                     CalendarIntroHighlightRow(highlight: highlight)
                                 }
@@ -2962,14 +2962,8 @@ private struct CalendarIntroPopup: View {
     }
 
     private var header: some View {
-        HStack(alignment: .center, spacing: 14) {
-            Image(systemName: "calendar")
-                .font(.system(size: LineType.size(24), weight: .bold))
-                .foregroundStyle(Color.lineBlue)
-                .frame(width: 50, height: 50)
-                .background(Color.white.opacity(0.70), in: RoundedRectangle(cornerRadius: 16, style: .continuous))
-
-            VStack(alignment: .leading, spacing: 2) {
+        VStack(spacing: 10) {
+            VStack(spacing: 2) {
                 Text("How Calendar Helps")
                     .font(.app(size: LineType.size(24), weight: .bold))
                     .foregroundStyle(Color.lineNavy)
@@ -2979,9 +2973,9 @@ private struct CalendarIntroPopup: View {
                     .font(.app(size: LineType.size(14), weight: .medium))
                     .foregroundStyle(Color.lineNavy.opacity(0.58))
             }
-
-            Spacer(minLength: 0)
+            .multilineTextAlignment(.center)
         }
+        .frame(maxWidth: .infinity)
         .padding(18)
         .background(Color.white.opacity(0.36))
     }
@@ -3027,7 +3021,11 @@ private struct CalendarIntroHighlightRow: View {
                     .lineSpacing(2)
                     .fixedSize(horizontal: false, vertical: true)
             }
+            Spacer(minLength: 0)
         }
+        // Full width and leading, so every icon sits in the same column
+        // however long its text is.
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 

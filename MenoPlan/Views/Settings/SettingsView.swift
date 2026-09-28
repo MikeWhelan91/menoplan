@@ -695,10 +695,10 @@ struct SettingsView: View {
                     }
                 )) {
                     VStack(alignment: .leading, spacing: 3) {
-                        Label("Seed sample chart data", systemImage: "chart.line.uptrend.xyaxis")
+                        Label("Seed sample data", systemImage: "chart.line.uptrend.xyaxis")
                             .font(.lineSubheadline(.semibold))
                             .foregroundStyle(Color.lineNavy.opacity(0.72))
-                        Text("Adds six fake cycles, daily logs, Apple Health-style readings, weight, noticed signals and test results so every Trends card has data.")
+                        Text("Adds a fake perimenopause history: six changing cycles, daily check-ins with flushes, sleep and rated symptoms, HRT from six weeks ago, FSH tests, Apple Health-style readings and an appointment next week.")
                             .font(.lineCaption())
                             .foregroundStyle(Color.lineNavy.opacity(0.58))
                     }
@@ -827,167 +827,11 @@ struct SettingsView: View {
         try? modelContext.save()
     }
 
-    /// Fills every Trends card with believable data: six past cycles
-    /// (varied lengths, period end dates, live forecasts, Peak-confirmed
-    /// ovulation in most - one with a short luteal phase), daily logs with
-    /// cycle-shaped symptoms, moods, mucus, BBT, wrist temperature and
-    /// weekly weight, Apple Health-style metrics that rise after ovulation,
-    /// a few noticed signals, and saved test results.
-    ///
-    /// The sample cycles end at the earliest real period, so real history is
-    /// left as it is; with none, a current cycle starting 12 days ago is added. Existing log fields are never
-    /// overwritten, so running it twice doesn't duplicate days. Re-fetches
-    /// between steps because this view's @Query arrays don't see inserts
-    /// until the next render.
     @MainActor
     private func seedSampleTrendsData(settings: UserSettings?) {
         guard let settings else { return }
-        let calendar = Calendar.current
-        let today = calendar.startOfDay(for: .now)
-        let marker = "[LineCheck Screenshot Sample]"
-        func daysAgo(_ n: Int) -> Date { calendar.date(byAdding: .day, value: -n, to: today) ?? today }
-        func addingDays(_ n: Int, to date: Date) -> Date { calendar.date(byAdding: .day, value: n, to: date) ?? date }
-        func currentCycles() -> [CycleRecord] { ((try? modelContext.fetch(FetchDescriptor<CycleRecord>())) ?? []).filter { !$0.notes.contains(marker) } }
-        func currentPeriods() -> [PeriodEvent] { ((try? modelContext.fetch(FetchDescriptor<PeriodEvent>())) ?? []).filter { !$0.notes.contains(marker) } }
-        func period(startingOn day: Date) -> PeriodEvent? { currentPeriods().first { calendar.isDate($0.startDate, inSameDayAs: day) } }
-        func cycle(startingOn day: Date) -> CycleRecord? { currentCycles().first { calendar.isDate($0.startDate, inSameDayAs: day) } }
-
-        // Oldest first. ovulationDay is the 1-based cycle day a Peak test
-        // confirmed (nil = estimate only); forecast is the length LineCheck
-        // predicted when the cycle began.
-        let plan: [(length: Int, periodDays: Int, ovulationDay: Int?, forecast: Int)] = [
-            (29, 5, 15, 28), (27, 4, nil, 28), (31, 6, 17, 29), (26, 4, 17, 28), (28, 5, 15, 28), (30, 5, 15, 29)
-        ]
-        // Sample cycles go before the earliest real period so they never
-        // overlap real history (a real period inside a sample cycle split it
-        // into an implausible 5-day cycle).
-        let earliestReal = currentPeriods().map { calendar.startOfDay(for: $0.startDate) }.filter { $0 <= today }.min()
-        let anchor = earliestReal ?? daysAgo(12)
-        var starts: [Date] = []
-        var cursor = addingDays(-plan.map(\.length).reduce(0, +), to: anchor)
-        for item in plan {
-            starts.append(cursor)
-            cursor = addingDays(item.length, to: cursor)
-        }
-
-        for start in starts + [anchor] where period(startingOn: start) == nil {
-            _ = CycleTrackingService.recordPeriodStart(start, settings: settings, records: currentCycles(), periods: currentPeriods(), context: modelContext)
-        }
-        if let current = period(startingOn: anchor), current.endDate == nil, anchor <= daysAgo(5) {
-            current.endDate = addingDays(4, to: anchor)
-        }
-
-        for (index, item) in plan.enumerated() {
-            let start = starts[index]
-            period(startingOn: start)?.endDate = addingDays(item.periodDays - 1, to: start)
-            guard let record = cycle(startingOn: start) else { continue }
-            // Tracked live, so Prediction Accuracy grades the forecast.
-            record.createdAt = start
-            record.expectedPeriodDate = addingDays(item.forecast, to: start)
-            guard let ovulationDay = item.ovulationDay else { continue }
-            let ovulation = addingDays(ovulationDay - 1, to: start)
-            record.predictedOvulationDate = ovulation
-            record.ovulationSource = .testSupported
-            let opkSteps: [(before: Int, ratio: Double, result: ScanResultType)] = [(5, 0.3, .low), (3, 0.55, .low), (2, 0.9, .elevated), (1, 1.2, .elevated)]
-            for step in opkSteps {
-                modelContext.insert(Scan(
-                    createdAt: addingDays(-step.before, to: ovulation).addingTimeInterval(15 * 3600),
-                    testType: .ovulation, testFormat: .midstream, resultType: step.result,
-                    certaintyPercentage: 90, testControlRatio: step.ratio, analysisMode: .aiQuickCheck,
-                    imageFilename: "debug_seed_placeholder.jpg", cycleRecordID: record.id
-                ))
-            }
-        }
-
-        // Daily logs and Apple Health-style metrics for every day since the
-        // first sample period, shaped by where each day sits in its cycle.
-        let existingLogs = Dictionary(((try? modelContext.fetch(FetchDescriptor<DailyFertilityLog>())) ?? []).map { (calendar.startOfDay(for: $0.date), $0) }, uniquingKeysWith: { first, _ in first })
-        let existingMetrics = Dictionary(((try? modelContext.fetch(FetchDescriptor<DailyHealthMetrics>())) ?? []).map { (calendar.startOfDay(for: $0.date), $0) }, uniquingKeysWith: { first, _ in first })
-        let flowByDay: [FlowIntensity] = [.heavy, .heavy, .medium, .light, .spotting, .spotting]
-        let firstStart = starts.first ?? anchor
-        // Real history keeps its own logs; sample days stop where it begins.
-        let lastSampleDay = earliestReal.map { addingDays(-1, to: $0) } ?? today
-        let totalDays = (calendar.dateComponents([.day], from: firstStart, to: lastSampleDay).day ?? -1) + 1
-        var random = SystemRandomNumberGenerator()
-        func noise(_ amount: Double) -> Double { Double.random(in: -amount...amount, using: &random) }
-
-        for dayNumber in 0..<totalDays {
-            let date = addingDays(dayNumber, to: firstStart)
-            let cycleIndex = starts.lastIndex { $0 <= date }.flatMap { date < anchor ? $0 : nil }
-            let cycleStart = cycleIndex.map { starts[$0] } ?? anchor
-            let dayIndex = calendar.dateComponents([.day], from: cycleStart, to: date).day ?? 0
-            let length = cycleIndex.map { plan[$0].length }
-            let periodDays = cycleIndex.map { plan[$0].periodDays } ?? 5
-            let ovulationIndex = (cycleIndex.flatMap { plan[$0].ovulationDay } ?? (length.map { $0 - 13 } ?? 15)) - 1
-            let daysToPeriod = length.map { $0 - dayIndex }
-            let isPeriod = dayIndex < periodDays
-            let isLuteal = dayIndex > ovulationIndex
-            let isFertile = !isLuteal && dayIndex >= ovulationIndex - 5
-
-            let log: DailyFertilityLog
-            if let existing = existingLogs[date] {
-                log = existing
-            } else {
-                log = DailyFertilityLog(date: date)
-                modelContext.insert(log)
-            }
-            if log.symptoms.isEmpty {
-                var symptoms: [String] = []
-                if isPeriod && dayIndex < 2 { symptoms += ["Cramps", "Fatigue"] }
-                if let daysToPeriod, daysToPeriod <= 3 { symptoms += daysToPeriod == 2 ? ["Bloating", "Cramps"] : ["Bloating", "Tender breasts"] }
-                if dayIndex == ovulationIndex || (isFertile && dayNumber.isMultiple(of: 5)) { symptoms.append("Headache") }
-                log.symptoms = symptoms
-            }
-            if log.moods.isEmpty {
-                if let daysToPeriod, daysToPeriod <= 4 { log.moods = [daysToPeriod.isMultiple(of: 2) ? "Irritable" : "Anxious"] }
-                else if isPeriod { log.moods = ["Tired"] }
-                else if !isLuteal && dayNumber.isMultiple(of: 2) { log.moods = [isFertile ? "Happy" : "Calm"] }
-            }
-            if log.flowIntensity == nil, isPeriod { log.flowIntensity = flowByDay[min(dayIndex, flowByDay.count - 1)] }
-            // Thermometer readings for the last two sample cycles and the
-            // current one, so the BBT chart can find the temperature rise.
-            if log.basalBodyTemperatureCelsius == nil, (cycleIndex ?? plan.count) >= plan.count - 2, date <= today {
-                log.basalBodyTemperatureCelsius = (isLuteal ? 36.68 : 36.32) + noise(0.05)
-            }
-            if log.wristTemperatureCelsius == nil { log.wristTemperatureCelsius = (isLuteal ? 35.62 : 35.3) + noise(0.06) }
-            if log.weightKg == nil, dayNumber.isMultiple(of: 7) { log.weightKg = 64.8 - Double(dayNumber) / 90 + noise(0.2) }
-
-            let metrics: DailyHealthMetrics
-            if let existing = existingMetrics[date] {
-                metrics = existing
-            } else {
-                metrics = DailyHealthMetrics(date: date)
-                modelContext.insert(metrics)
-            }
-            if metrics.restingHeartRate == nil { metrics.restingHeartRate = (isLuteal ? 61.5 : 58) + noise(1.2) }
-            if metrics.heartRateVariabilityMs == nil { metrics.heartRateVariabilityMs = (isLuteal ? 44 : 52) + noise(4) }
-            if metrics.sleepHours == nil { metrics.sleepHours = (isLuteal ? 6.9 : 7.4) + noise(0.35) }
-            if metrics.steps == nil { metrics.steps = 8200 + noise(2500) }
-            if metrics.exerciseMinutes == nil { metrics.exerciseMinutes = 32 + noise(15) }
-        }
-
-        // A few things LineCheck "noticed", spread across recent cycles.
-        let noticed: [(id: String, tone: MenoPlan.CycleSignal.Tone, symbol: String, title: String, detail: String, first: Date, days: Int)] = [
-            ("longCycle", .info, "calendar.badge.clock", "A longer cycle than usual",
-             "Cycles often lengthen and vary in perimenopause.",
-             addingDays(40, to: starts[plan.count - 2]), 5),
-            ("shortSleep", .info, "bed.double", "Short on sleep this week",
-             "You've averaged under 7 hours of sleep. Night sweats and hot flushes often break up sleep.",
-             addingDays(20, to: starts[plan.count - 2]), 4),
-            ("weightChange", .info, "scalemass", "Weight has come down",
-             "Your weight is down a little over the last couple of months.",
-             daysAgo(6), 6),
-        ]
-        for item in noticed {
-            let signal = MenoPlan.CycleSignal(id: item.id, tone: item.tone, symbol: item.symbol, title: item.title, detail: item.detail, surfaces: [.home, .luna])
-            let row = NoticedSignal(signal: signal, on: item.first)
-            row.lastSeen = min(today, addingDays(item.days - 1, to: item.first))
-            row.seenAt = row.lastSeen
-            modelContext.insert(row)
-        }
-
-        try? modelContext.save()
-        appState.toast = "Sample data added - check Trends"
+        SampleDataSeeder.seed(settings: settings, context: modelContext)
+        appState.toast = "Sample perimenopause data added"
     }
 
     @MainActor
@@ -1670,4 +1514,5 @@ private struct AboutFeatureRow: View {
         )
     }
 }
+
 
