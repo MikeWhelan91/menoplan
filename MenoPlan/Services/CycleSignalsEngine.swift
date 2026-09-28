@@ -91,11 +91,11 @@ enum CycleSignalsEngine {
                 detail: "Apple Health has contraception (\(method)) recorded from \(short(contraceptive.0)). Hormonal methods can change or stop bleeding, so cycle dates may not reflect your natural cycle.",
                 surfaces: [.luna, .weekly, .home, .ovulationResult]
             ))
-        } else if input.profile.birthControl == .stillUsing {
+        } else if input.profile.birthControl?.isCurrentlyUsing == true {
             signals.append(CycleSignal(
                 id: "hormonalContraception", tone: .attention, symbol: "pills.circle",
                 title: "Using hormonal contraception",
-                detail: "You said you're still using hormonal contraception. It can change or stop bleeding, so cycle dates may not reflect your natural cycle. Your symptoms still tell the story.",
+                detail: "You said you use hormonal contraception. It can change or stop bleeding, and home FSH tests may not be reliable while you use it. Your symptoms still tell the story.",
                 surfaces: [.luna, .weekly, .ovulationResult]
             ))
         }

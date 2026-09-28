@@ -86,3 +86,13 @@ final class AppointmentSummaryTests: XCTestCase {
         XCTAssertEqual(summary.hrtDose, "2 pumps daily")
     }
 }
+
+extension AppointmentSummaryTests {
+    func testHealthHistoryAndContraceptionReachTheSummary() {
+        let settings = UserSettings()
+        settings.reproductiveConditions = [.hysterectomy, .migraineWithAura]
+        settings.birthControlRecency = .hormonalCoil
+        let summary = AppointmentSummaryBuilder.build(days: 30, logs: [], settings: settings, periodStarts: [], tests: [], on: .now)
+        XCTAssertEqual(summary.conditions, ["Hysterectomy", "Migraine with aura", "Hormonal contraception: a hormonal coil (like Mirena)"])
+    }
+}

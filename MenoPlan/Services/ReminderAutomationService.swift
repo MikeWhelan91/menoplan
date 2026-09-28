@@ -60,7 +60,7 @@ enum ReminderAutomationService {
             (.periodCheckIn, settings.autoPeriodCheckInRemindersEnabled, window.nextPeriodDate, PeriodCheckInCopy.title),
             // The home card checks in daily. One later optional notification
             // is more useful than repeating it two days after the estimate.
-            (.periodLate, settings.autoPeriodLateRemindersEnabled, calendar.date(byAdding: .day, value: (window.isIrregular || window.profileWidening == .pcos || window.profileWidening == .irregularPeriods) ? 14 : 7, to: window.nextPeriodDate) ?? window.nextPeriodDate, "Still waiting for your period?")
+            (.periodLate, settings.autoPeriodLateRemindersEnabled, calendar.date(byAdding: .day, value: (window.isIrregular || window.profileWidening == .irregularPeriods) ? 14 : 7, to: window.nextPeriodDate) ?? window.nextPeriodDate, "Still waiting for your period?")
         ]
         let targets = candidates.filter { $0.1 && calendar.startOfDay(for: $0.2) >= today && cycle.endDate == nil }.map { ($0.0, $0.2, $0.3) }
         let targetTypes = Set(targets.map(\.0))

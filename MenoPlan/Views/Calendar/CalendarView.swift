@@ -73,7 +73,6 @@ struct CalendarView: View {
     @State private var showCycleSettingsControl = false
     @State private var periodToDelete: PeriodEvent?
     @State private var trendsShareItem: TrendsShareItem?
-    @State private var showPredictionWhy = false
     @State private var showTrendsExportOptions = false
     @State private var pendingExportScope: TrendsExportScope?
     @State private var exportScope: TrendsExportScope = .ovulation
@@ -203,11 +202,6 @@ struct CalendarView: View {
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
-            .sheet(isPresented: $showPredictionWhy) {
-                if let window = fertilityWindow, let settings {
-                    PredictionWhySheet(window: window, cycle: activeCycle, settings: settings)
-                }
-            }
             .sheet(item: $activeSetup) { setup in
                 if let settings {
                     switch setup {
@@ -242,20 +236,6 @@ struct CalendarView: View {
                     return nil
                 }()
                 let dayContext = CalendarCycleSettings(settings: settings, cycleRecords: calendarCycleRecords, periodEvents: calendarPeriodEvents).dayContext(for: day.date, trackingType: .ovulation)
-                // The predicted-period window is a planning estimate, not a
-                // fact - once its start day has come and gone with nothing
-                // logged, keep showing it (predictions don't self-delete) but
-                // flag it as overdue so it doesn't read as settled truth.
-                let periodIsOverdue: Bool = {
-                    guard loggedPeriod == nil, selectedDay <= today, dayContext?.phase == .predictedPeriod,
-                          let containingCycle else { return false }
-                    guard let expectedDay = CycleTrackingService.window(
-                        for: selectedDay, records: calendarCycleRecords, periods: calendarPeriodEvents, settings: settings
-                    )?.nextPeriodDate,
-                          Calendar.current.startOfDay(for: expectedDay) < today else { return false }
-                    let cycleStart = Calendar.current.startOfDay(for: containingCycle.startDate)
-                    return !calendarPeriodEvents.contains { Calendar.current.startOfDay(for: $0.startDate) > cycleStart }
-                }()
                 CalendarDayDetailView(
                     date: day.date,
                     dayContext: dayContext,
@@ -274,7 +254,6 @@ struct CalendarView: View {
                     canLogPeriod: selectedDay <= today,
                     loggedPeriod: loggedPeriod,
                     removableDayEdge: removableDayEdge,
-                    periodIsOverdue: periodIsOverdue,
                     addReminder: {
                         selectedDate = nil
                         let draftDate = selectedDay == today
@@ -670,55 +649,31 @@ struct CalendarView: View {
         .buttonStyle(.plain)
     }
 
+    /// Facts only: when the last period started and how long ago.
+    private var cycleChange: CycleChangeSummary {
+        CycleChangeCalculator.summary(periodStarts: calendarPeriodEvents.map(\.startDate) + calendarCycleRecords.map(\.startDate))
+    }
+
     private var populatedTimelineCard: some View {
         VStack(alignment: .leading, spacing: 12) {
-            if let window = fertilityWindow,
-               Calendar.current.startOfDay(for: .now) >= Calendar.current.startOfDay(for: window.nextPeriodDate) {
-                let isPastEstimate = window.isPastExpectedPeriod(on: .now)
-                HStack(spacing: 9) {
-                    Image(systemName: "calendar.badge.clock")
-                        .foregroundStyle(Color.linePurple)
-                    Text(isPastEstimate ? "Period not here yet?" : "Period estimated around today")
-                        .font(.app(.subheadline, weight: .bold))
-                        .foregroundStyle(Color.lineNavy)
-                }
-                Text("\(DateFormatting.shortDate.string(from: window.nextPeriodDate)) \(isPastEstimate ? "was" : "is") an estimate, not a logged period. If bleeding hasn't started, there's nothing to confirm—your current cycle stays open.")
-                    .font(.app(.caption))
-                    .foregroundStyle(Color.lineNavy.opacity(0.72))
-                    .fixedSize(horizontal: false, vertical: true)
-                Text("When it begins, log the actual first day so future dates can update.")
-                    .font(.app(.caption, weight: .semibold))
-                    .foregroundStyle(Color.lineNavy)
-                    .fixedSize(horizontal: false, vertical: true)
-                Button {
-                    periodDraftDate = .now
-                    showPeriodUpdate = true
-                } label: {
-                    Label("Log actual period start", systemImage: "drop.fill")
-                        .font(.app(.subheadline, weight: .bold))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.primaryLine)
-            } else {
-                HStack(spacing: 10) {
-                    timelineStat(
-                        title: "Cycle day",
-                        value: fertilityWindow.map { "Day \($0.cycleDay)" } ?? "Not set",
-                        symbol: "calendar",
-                        tint: Color.lineNavy
-                    )
-                    Divider()
-                        .frame(height: 38)
-                        .opacity(0.45)
-                    timelineStat(
-                        title: "Next period",
-                        value: fertilityWindow.map { DateFormatting.shortDate.string(from: $0.nextPeriodDate) } ?? "Not set",
-                        symbol: "drop",
-                        tint: Color.linePink
-                    )
-                }
-                Divider().opacity(0.45)
+            HStack(spacing: 10) {
+                timelineStat(
+                    title: "Last period",
+                    value: cycleChange.lastPeriodStart.map { DateFormatting.shortDate.string(from: $0) } ?? "Not set",
+                    symbol: "drop",
+                    tint: Color.linePink
+                )
+                Divider()
+                    .frame(height: 38)
+                    .opacity(0.45)
+                timelineStat(
+                    title: "Days since",
+                    value: cycleChange.daysSinceLastPeriod.map { $0 == 1 ? "1 day" : "\($0) days" } ?? "Not set",
+                    symbol: "calendar",
+                    tint: Color.lineNavy
+                )
             }
+            Divider().opacity(0.45)
         }
         .padding(.horizontal, 4)
         .padding(.top, 4)
@@ -805,7 +760,6 @@ struct CalendarView: View {
     private var approachablePhaseTitle: String {
         switch currentPhase {
         case .period: "Period"
-        case .predictedPeriod: "Estimated Period Days"
         case .regular: "Cycle overview"
         }
     }
@@ -821,10 +775,10 @@ struct CalendarView: View {
     }
 
     private var unifiedTimelineDetail: String {
-        guard let fertilityWindow else {
-            return "Add your last period and typical cycle length to see personalised timing."
+        guard let last = cycleChange.lastPeriodStart else {
+            return "Add your last period to start your cycle history."
         }
-        return "Next period expected \(DateFormatting.shortDate.string(from: fertilityWindow.nextPeriodDate)). Tap for today's full details."
+        return "Last period started \(DateFormatting.shortDate.string(from: last)). Tap for today's full details."
     }
 
     private var quickCalendarActions: some View {
@@ -1050,13 +1004,8 @@ struct CalendarView: View {
         if let period = CycleTrendsCalculator.averagePeriodLength(calendarPeriodEvents) {
             lines.append(("Average period length", "\(period) days"))
         }
-        let history = cycleHistory
-        if let accuracy = CycleTrendsCalculator.accuracySummary(history) {
-            lines.append(("Period forecast accuracy", "\(accuracy.withinOneDay) of \(accuracy.count) within 1 day"))
-        }
-        if let window = fertilityWindow {
-            lines.append(("Current cycle day", "Day \(window.cycleDay)"))
-            lines.append(("Next expected period", DateFormatting.shortDate.string(from: window.nextPeriodDate)))
+        if let last = cycleChange.lastPeriodStart, let days = cycleChange.daysSinceLastPeriod {
+            lines.append(("Last period started", "\(DateFormatting.shortDate.string(from: last)) (\(days) days ago)"))
         }
         do {
             let peaks = scans
@@ -1111,9 +1060,6 @@ struct CalendarView: View {
         let history = filteredCycleHistory
         if !history.isEmpty, let image = snapshotPlainView(CycleHistoryChart(entries: history, limit: 12), width: chartSize.width / 2) {
             sections.append(("Cycle History", .linePink, image, nil))
-        }
-        if CycleTrendsCalculator.accuracySummary(history) != nil, let image = snapshotPlainView(PredictionAccuracyChart(entries: history).frame(height: 280), width: chartSize.width / 2) {
-            sections.append(("Prediction Accuracy", .linePurple, image, nil))
         }
         if var chart = cycleLengthChart() {
             chart.isZoomable = false
@@ -1545,7 +1491,7 @@ struct CalendarView: View {
                         .background(Color.lineBlue.opacity(0.10), in: Circle())
 
                     VStack(alignment: .leading, spacing: 4) {
-                        Text("Improve calendar accuracy")
+                        Text("Your cycle details")
                             .font(.lineSubheadline(.semibold))
                             .foregroundStyle(Color.lineNavy)
                         Text(calendarSetupCopy)
@@ -1571,7 +1517,6 @@ struct CalendarView: View {
     }
 
     private static let cycleHistoryTab = ChartTabItem(id: "cycleHistory", title: "Cycle History", icon: "chart.bar.doc.horizontal")
-    private static let accuracyTab = ChartTabItem(id: "accuracy", title: "Prediction Accuracy", icon: "target")
     private static let bodyTab = ChartTabItem(id: "body", title: "Body Rhythms", icon: "heart.text.square")
     private static let symptomTimingTab = ChartTabItem(id: "symptomTiming", title: "Symptom Timing", icon: "clock.arrow.circlepath")
     private static let noticedTab = ChartTabItem(id: "noticed", title: "Noticed Signals", icon: "eye")
@@ -1579,7 +1524,6 @@ struct CalendarView: View {
     private static let ovulationChartTabs: [ChartTabItem] = [
         ChartTabItem(id: "opk", title: "Test Trend", icon: "testtube.2"),
         cycleHistoryTab,
-        accuracyTab,
         ChartTabItem(id: "cycleLength", title: "Cycle & Period Length", icon: "arrow.triangle.2.circlepath"),
         bodyTab,
         ChartTabItem(id: "symptoms", title: "Symptoms", icon: "waveform.path.ecg"),
@@ -1589,7 +1533,7 @@ struct CalendarView: View {
     ]
 
     /// Cards that hug their content and have nothing more to show full screen.
-    private static let compactTabIDs: Set<String> = ["symptoms", "moods", "cycleHistory", "accuracy", "body", "symptomTiming", "noticed"]
+    private static let compactTabIDs: Set<String> = ["symptoms", "moods", "cycleHistory", "body", "symptomTiming", "noticed"]
 
     // MARK: - Cycle Signals
 
@@ -1702,7 +1646,7 @@ struct CalendarView: View {
     private func isPremiumGatedTab(_ tab: String) -> Bool {
         guard settings?.proUnlocked != true else { return false }
         return switch tab {
-        case "opk", "cycleHistory", "accuracy", "body", "symptomTiming", "noticed": true
+        case "opk", "cycleHistory", "body", "symptomTiming", "noticed": true
         default: false
         }
     }
@@ -1726,7 +1670,6 @@ struct CalendarView: View {
         case "symptoms": "Your most logged symptom from the last 90 days."
         case "moods": "Your most logged mood from the last 90 days."
         case "cycleHistory": "Each cycle side by side: its length and the days you had a period, so you can see how your cycles are changing."
-        case "accuracy": "How close MenoPlan's forecast was to the day your period actually started, for cycles tracked live in the app."
         case "body": "Apple Health readings and your logged weight, lined up against the phases of your cycle."
         case "symptomTiming": "Which part of your cycle each symptom or mood is usually logged in, from symptoms and moods logged at least three times."
         case "noticed": "Everything MenoPlan has flagged from your cycle, daily log and Apple Health, grouped by cycle. It describes patterns and doesn't diagnose anything."
@@ -1742,17 +1685,6 @@ struct CalendarView: View {
         case "symptoms": symptomCloudBody
         case "moods": moodCloudBody
         case "cycleHistory": premiumGatedChart(tint: .linePink) { CycleHistoryChart(entries: filteredCycleHistory) }
-        case "accuracy":
-            premiumGatedChart(tint: .linePurple) {
-                VStack(spacing: 10) {
-                    PredictionAccuracyChart(entries: filteredCycleHistory)
-                    if fertilityWindow != nil {
-                        Button("How is this worked out?") { showPredictionWhy = true }
-                            .font(.app(.caption, weight: .semibold))
-                            .foregroundStyle(Color.lineBlue)
-                    }
-                }
-            }
         case "body": premiumGatedChart(tint: .linePink) { BodyAcrossCycleView(data: bodyTrendData) }
         case "symptomTiming": premiumGatedChart(tint: .linePink) { SymptomTimingView(timings: symptomTimings) }
         case "noticed": premiumGatedChart(tint: .linePurple) { NoticedTimelineView(entries: cycleHistory, items: noticedTimelineItems) }
@@ -3118,16 +3050,17 @@ private struct CalendarDayContext {
     let ovulationSource: TrackingDataSource?
 }
 
+/// What the Calendar draws for a day. Only logged periods - never estimated
+/// ones: late in perimenopause predictions are mostly noise, and a calendar
+/// full of "expected" days that never come was a common complaint.
 private enum CalendarDayPhase: Equatable {
     case regular
     case period
-    case predictedPeriod
 
     init(_ phase: CycleCalendarPhase) {
         switch phase {
-        case .regular: self = .regular
         case .period: self = .period
-        case .predictedPeriod: self = .predictedPeriod
+        case .regular, .predictedPeriod: self = .regular
         }
     }
 
@@ -3135,15 +3068,13 @@ private enum CalendarDayPhase: Equatable {
         switch self {
         case .regular: "Regular Day"
         case .period: "Logged Period"
-        case .predictedPeriod: "Estimated Period Days"
         }
     }
 
     var detail: String {
         switch self {
-        case .regular: "No period is logged or expected on this day."
+        case .regular: "No period is logged on this day."
         case .period: "This period was logged by you and starts a saved cycle."
-        case .predictedPeriod: "These are the estimated days beginning with your expected period start. They are a planning estimate, not a logged period."
         }
     }
 
@@ -3152,11 +3083,7 @@ private enum CalendarDayPhase: Equatable {
         case .regular:
             Self.neutralFill
         case .period:
-            // Logged period days are solid so they read as fact at a glance;
-            // predictions stay as dashed outlines.
             Color.linePink
-        case .predictedPeriod:
-            Color.clear
         }
     }
 
@@ -3166,8 +3093,6 @@ private enum CalendarDayPhase: Equatable {
             Self.neutralAccent
         case .period:
             Color.linePink
-        case .predictedPeriod:
-            Color.linePink.opacity(0.65)
         }
     }
 
@@ -3180,16 +3105,13 @@ private enum CalendarDayPhase: Equatable {
 
     var showsPhaseBorder: Bool {
         switch self {
-        case .period, .predictedPeriod: true
+        case .period: true
         case .regular: false
         }
     }
 
     var borderStyle: StrokeStyle {
-        switch self {
-        case .predictedPeriod: StrokeStyle(lineWidth: 1.5, lineCap: .round, dash: [3, 3])
-        default: StrokeStyle(lineWidth: 1.25)
-        }
+        StrokeStyle(lineWidth: 1.25)
     }
 
     static let neutralFill = Color(red: 0.94, green: 0.95, blue: 0.98)
@@ -3287,19 +3209,11 @@ private struct CalendarCycleSettings {
         let cycleDay = FertilityWindowCalculator.cycleDay(for: day, cycleStart: window.cycleStart)
         let phase = projected.map { CalendarDayPhase(CycleCalendarPhaseResolver.projectedPhase(for: day, window: $0)) }
             ?? dayPhase(for: day, window: window)
-        var lines: [CalendarDayDetailLine]
-        switch phase {
-        case .predictedPeriod:
-            lines = [
-                CalendarDayDetailLine(label: "Estimated start", value: DateFormatting.shortDate.string(from: window.cycleStart)),
-                CalendarDayDetailLine(label: "This day", value: "Day \(cycleDay) of the estimated period")
-            ]
-        case .period, .regular:
-            lines = [CalendarDayDetailLine(label: "Next period", value: DateFormatting.shortDate.string(from: window.nextPeriodDate))]
-        }
-
-        let title = phase == .predictedPeriod && cycleDay == 1 ? "Estimated Period Start" : phase.title
-        return CalendarDayContext(title: title, detail: phase.detail, phase: phase, cycleDay: cycleDay, lines: lines, ovulationSource: nil)
+        // Only facts: which cycle day this was since a logged period start.
+        let lines = projected == nil && day >= Calendar.current.startOfDay(for: window.cycleStart)
+            ? [CalendarDayDetailLine(label: "Cycle day", value: "Day \(cycleDay) since your last logged period")]
+            : []
+        return CalendarDayContext(title: phase.title, detail: phase.detail, phase: phase, cycleDay: cycleDay, lines: lines, ovulationSource: nil)
     }
 
     private func dateBelongsToCycle(_ date: Date, window: FertilityWindow, graceDays: Int = 0) -> Bool {
@@ -3336,12 +3250,6 @@ private struct CalendarTerminologyView: View {
                         dotColor: CalendarDayPhase.period.accent,
                         title: "Logged Period",
                         description: "A filled pink drop marks period days you entered. These dates become part of your cycle history."
-                    )
-                    legendRow(
-                        dayColor: CalendarDayPhase.predictedPeriod.fill,
-                        dotColor: CalendarDayPhase.predictedPeriod.accent,
-                        title: "Estimated Period Days",
-                        description: "An outlined pink drop marks dates MenoPlan estimates from your previous logged cycles."
                     )
                 }
 
@@ -3562,7 +3470,7 @@ private struct CycleSetupView: View {
                         Text("Personalise your calendar")
                             .font(.app(size: LineType.size(28), weight: .bold))
                             .foregroundStyle(Color.lineNavy)
-                        Text("A couple of simple details help us estimate your next period. You can change these at any time.")
+                        Text("A couple of details start your cycle history, so MenoPlan can show how your cycle is changing. You can change these at any time.")
                             .font(.app(.subheadline))
                             .foregroundStyle(Color.lineNavy.opacity(0.60))
                             .fixedSize(horizontal: false, vertical: true)
@@ -3608,7 +3516,7 @@ private struct CycleSetupView: View {
                         Toggle(isOn: $autoReminders) {
                             VStack(alignment: .leading, spacing: 2) {
                                 Text("Remind me automatically").font(.app(.subheadline, weight: .semibold)).foregroundStyle(Color.lineNavy)
-                                Text("Get a heads-up before your next period and a check-in if it's late, timed from these estimates.")
+                                Text("Optional heads-ups around when a period might come, based on your past cycles. Cycles often vary in perimenopause, so treat them as rough.")
                                     .font(.app(.caption))
                                     .foregroundStyle(Color.lineNavy.opacity(0.58))
                             }
@@ -3623,10 +3531,6 @@ private struct CycleSetupView: View {
                     }
                     .padding(16)
                     .background(Color.white.opacity(0.86), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
-
-                    if let preview = FertilityWindowCalculator.window(lastPeriodStart: lastPeriodStart, averageCycleLength: averageCycleLength, lutealPhaseLength: lutealPhaseLength) {
-                        previewCard(preview)
-                    }
 
                     if let conflictingSetupPeriod {
                         Text("That date falls within the period starting \(DateFormatting.shortDate.string(from: conflictingSetupPeriod.startDate)). Choose its actual first day, or edit that period in Calendar.")
@@ -3693,27 +3597,6 @@ private struct CycleSetupView: View {
         .foregroundStyle(Color.linePurple)
         .padding(.horizontal, 6)
         .background(Color.linePurpleSoft.opacity(0.66), in: RoundedRectangle(cornerRadius: 15, style: .continuous))
-    }
-
-    private func previewCard(_ preview: FertilityWindow) -> some View {
-        VStack(alignment: .leading, spacing: 11) {
-            Label("Your Estimated Cycle", systemImage: "calendar")
-                .font(.app(.subheadline, weight: .bold))
-                .foregroundStyle(Color.linePurple)
-            previewRow("Today", "Cycle day \(preview.cycleDay)")
-            previewRow("Next period", DateFormatting.shortDate.string(from: preview.nextPeriodDate))
-            Text("This is an estimate and updates as you log more periods.")
-                .font(.app(.caption2))
-                .foregroundStyle(Color.lineNavy.opacity(0.50))
-        }
-        .padding(16)
-        .background(Color.linePurpleSoft.opacity(0.72), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-    }
-
-    private func previewRow(_ title: String, _ value: String) -> some View {
-        HStack { Text(title); Spacer(); Text(value).fontWeight(.semibold) }
-            .font(.app(.caption))
-            .foregroundStyle(Color.lineNavy)
     }
 
     private func save() {
@@ -3954,7 +3837,6 @@ private struct CalendarDayDetailView: View {
     /// removed from the middle, so this offers a direct one-tap action only
     /// where that's actually possible.
     var removableDayEdge: PeriodDayEdge?
-    var periodIsOverdue: Bool
     var addReminder: () -> Void
     var editDailyLog: () -> Void
     /// Set while Apple Health isn't connected.
@@ -4009,14 +3891,6 @@ private struct CalendarDayDetailView: View {
                                                 .padding(.vertical, 5)
                                                 .background(badge.tint.opacity(0.12), in: Capsule())
                                         }
-                                        if periodIsOverdue {
-                                            Text("Past estimate")
-                                                .font(.app(.caption2, weight: .semibold))
-                                                .foregroundStyle(.orange)
-                                                .padding(.horizontal, 9)
-                                                .padding(.vertical, 5)
-                                                .background(Color.orange.opacity(0.12), in: Capsule())
-                                        }
                                         if let removableDayEdge {
                                             Spacer(minLength: 8)
                                             Button(action: removeThisDayFromPeriod) {
@@ -4044,15 +3918,6 @@ private struct CalendarDayDetailView: View {
                                 .font(.app(.subheadline))
                                 .foregroundStyle(Color.lineNavy.opacity(0.62))
                                 .fixedSize(horizontal: false, vertical: true)
-
-                            if dayContext.phase == .predictedPeriod {
-                                Text(periodIsOverdue
-                                     ? "This was an estimate, not a period you confirmed. If bleeding hasn't started, no action is needed—this cycle stays open. When it does, log its actual first day."
-                                     : "This is an estimate, not a logged period. Only log this date if bleeding actually started on this day.")
-                                    .font(.app(.caption))
-                                    .foregroundStyle(periodIsOverdue ? Color.orange : Color.lineNavy.opacity(0.66))
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
 
                             Divider()
                                 .overlay(Color.lineNavy.opacity(0.06))
@@ -4224,7 +4089,7 @@ private struct CalendarDayDetailView: View {
                             dismiss()
                             logPeriod()
                         } label: {
-                            Label(dayContext?.phase == .predictedPeriod ? "Bleeding started this day? Log period" : "Log Period Starting This Day", systemImage: "drop.fill")
+                            Label("Log Period Starting This Day", systemImage: "drop.fill")
                         }
                         .foregroundStyle(Color.linePink)
                     }
@@ -4680,9 +4545,7 @@ private struct FullCalendarYearView: View {
                 if phase == .period { Circle().fill(Color.linePink) }
             }
             .overlay {
-                if phase == .predictedPeriod {
-                    Circle().stroke(Color.linePink.opacity(0.7), style: StrokeStyle(lineWidth: 0.8, dash: [1.5, 1.5]))
-                } else if isToday {
+                if isToday {
                     Circle().stroke(Color.lineNavy, lineWidth: 1)
                 }
             }
@@ -4691,7 +4554,6 @@ private struct FullCalendarYearView: View {
     private func miniText(_ phase: CalendarDayPhase) -> Color {
         switch phase {
         case .period: .white
-        case .predictedPeriod: .linePink
         default: Color.lineNavy.opacity(0.8)
         }
     }

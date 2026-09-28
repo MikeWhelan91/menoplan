@@ -35,7 +35,7 @@ final class ProfileWideningTests: XCTestCase {
 
     func testWideningPadsFertileWindowAndTestingStart() throws {
         let plain = try XCTUnwrap(FertilityWindowCalculator.window(for: day(9, 3), lastPeriodStart: day(9, 1), averageCycleLength: 28, lutealPhaseLength: 14, calendar: calendar))
-        let pcos = try XCTUnwrap(FertilityWindowCalculator.window(for: day(9, 3), lastPeriodStart: day(9, 1), averageCycleLength: 28, lutealPhaseLength: 14, profileWidening: .pcos, calendar: calendar))
+        let pcos = try XCTUnwrap(FertilityWindowCalculator.window(for: day(9, 3), lastPeriodStart: day(9, 1), averageCycleLength: 28, lutealPhaseLength: 14, profileWidening: .irregularPeriods, calendar: calendar))
         // The late side widens by the full 4 days; the early side stops at the
         // day after the period (6 Sep with a 5-day period starting 1 Sep).
         XCTAssertTrue(calendar.isDate(pcos.fertileStartDate, inSameDayAs: day(9, 6)))
@@ -65,12 +65,10 @@ final class ProfileWideningTests: XCTestCase {
         XCTAssertEqual(ProfileWidening.reason(for: settings, loggedPeriodCount: 2), .irregularPeriods)
         XCTAssertNil(ProfileWidening.reason(for: settings, loggedPeriodCount: 4), "Enough logged periods: measured variability decides")
         settings.cycleRegularity = .regular
-        settings.birthControlRecency = .pill
+        settings.birthControlRecency = .stoppedRecently
         XCTAssertEqual(ProfileWidening.reason(for: settings, loggedPeriodCount: 1), .recentBirthControl)
-        settings.birthControlRecency = .stillUsing
-        XCTAssertNil(ProfileWidening.reason(for: settings, loggedPeriodCount: 1))
-        settings.reproductiveConditions = [.pcos]
-        XCTAssertEqual(ProfileWidening.reason(for: settings, loggedPeriodCount: 12), .pcos, "PCOS keeps widening however much history there is")
+        settings.birthControlRecency = .hormonalCoil
+        XCTAssertNil(ProfileWidening.reason(for: settings, loggedPeriodCount: 1), "Current use is a signal, not a settling-down period")
     }
 }
 
@@ -85,8 +83,14 @@ final class HealthProfileTests: XCTestCase {
     func testPredictionsLessCertain() {
         XCTAssertFalse(HealthProfile(regularity: .regular, conditions: []).predictionsLessCertain)
         XCTAssertTrue(HealthProfile(regularity: .irregular, conditions: []).predictionsLessCertain)
-        XCTAssertTrue(HealthProfile(conditions: [.pcos]).predictionsLessCertain)
-        XCTAssertTrue(HealthProfile(conditions: [], birthControl: .stillUsing).predictionsLessCertain)
+        XCTAssertTrue(HealthProfile(conditions: [], birthControl: .hormonalCoil).predictionsLessCertain)
+        XCTAssertFalse(HealthProfile(conditions: [], birthControl: .none).predictionsLessCertain)
+    }
+
+    func testRegularityIsOnlyAskedWhilePeriodsContinue() {
+        XCTAssertTrue(PersonalizationQuestion.sequence(for: .perimenopause).contains(.regularity))
+        XCTAssertFalse(PersonalizationQuestion.sequence(for: .postmenopause).contains(.regularity))
+        XCTAssertFalse(PersonalizationQuestion.sequence(for: .unsure).contains(.name))
     }
 
     func testStageDecidesWhetherCycleTimingIsTracked() {

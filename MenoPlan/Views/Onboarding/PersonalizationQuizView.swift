@@ -77,8 +77,9 @@ enum PersonalizationQuestion: Int, CaseIterable, Identifiable {
     case name
     var id: Int { rawValue }
 
-    static var sequence: [PersonalizationQuestion] {
-        allCases.filter { $0 != .name }
+    /// Asking about period regularity only makes sense while periods continue.
+    static func sequence(for stage: MenopauseStage) -> [PersonalizationQuestion] {
+        allCases.filter { $0 != .name && ($0 != .regularity || stage.tracksCycle) }
     }
 
     var title: String {
@@ -86,9 +87,9 @@ enum PersonalizationQuestion: Int, CaseIterable, Identifiable {
         case .name: "What should we call you?"
         case .birthYear: "What year were you born?"
         case .bodyMeasurements: "How tall are you, and what do you weigh?"
-        case .regularity: "Are your periods regular?"
-        case .conditions: "Do you have any of these conditions?"
-        case .birthControl: "Have you used hormonal contraception in the last 6 months?"
+        case .regularity: "How have your periods been lately?"
+        case .conditions: "Anything a doctor would want to know?"
+        case .birthControl: "Do you use hormonal contraception?"
         }
     }
 
@@ -97,9 +98,9 @@ enum PersonalizationQuestion: Int, CaseIterable, Identifiable {
         case .name: "Luna and MenoPlan use your first name. It stays with your app data."
         case .birthYear: "Age changes when it’s worth checking in with a doctor, so we only use it for that."
         case .bodyMeasurements: "Weight changes are common through menopause. You can update it any day in the calendar."
-        case .regularity: "Regular means the gap between your periods is about the same each month."
-        case .conditions: "Some conditions cause similar symptoms or change bleeding. Choose any that apply."
-        case .birthControl: "This includes a hormonal coil, which can change or stop bleeding."
+        case .regularity: "Think about the gap between periods over the last year."
+        case .conditions: "Some of these change which treatments suit you or what bleeding means. Choose any that apply."
+        case .birthControl: "Including a hormonal coil. These can change bleeding and affect home FSH tests."
         }
     }
 
@@ -262,15 +263,13 @@ struct PersonalizationQuestionView: View {
         case .birthYear, .bodyMeasurements, .name:
             return []
         case .regularity:
-            let titles: [CycleRegularity: String] = [.regular: "Yes, regular", .irregular: "No, they vary", .unsure: "I’m not sure"]
             return CycleRegularity.allCases.map { option in
-                QuizOption(id: option.rawValue, title: titles[option] ?? option.title, response: option.response, isSelected: answers.regularity == option) { answers.regularity = option }
+                QuizOption(id: option.rawValue, title: option.title, response: option.response, isSelected: answers.regularity == option) { answers.regularity = option }
             }
         case .conditions:
-            let titles: [ReproductiveCondition: String] = [.pcos: "PCOS", .endometriosis: "Endometriosis", .fibroids: "Fibroids", .thyroid: "Thyroid condition", .other: "Something else"]
             var options = ReproductiveCondition.allCases.map { option in
                 let typed = answers.otherCondition.trimmingCharacters(in: .whitespacesAndNewlines)
-                let title = option == .other && answers.conditions.contains(.other) && !typed.isEmpty ? typed : (titles[option] ?? option.title)
+                let title = option == .other && answers.conditions.contains(.other) && !typed.isEmpty ? typed : option.shortTitle
                 return QuizOption(id: option.rawValue, title: title, response: option.response, isSelected: answers.conditions.contains(option)) {
                     answers.noConditions = false
                     if answers.conditions.contains(option) {
@@ -292,9 +291,8 @@ struct PersonalizationQuestionView: View {
             })
             return options
         case .birthControl:
-            let titles: [BirthControlRecency: String] = [.none: "No", .stillUsing: "Still using it", .pill: "The pill", .iud: "An IUD", .implantOrShot: "Implant or injection", .nonHormonal: "Non-hormonal", .preferNotToSay: "Prefer not to say"]
             return BirthControlRecency.allCases.map { option in
-                QuizOption(id: option.rawValue, title: titles[option] ?? option.title, response: option.response, isSelected: answers.birthControl == option) { answers.birthControl = option }
+                QuizOption(id: option.rawValue, title: option.title, response: option.response, isSelected: answers.birthControl == option) { answers.birthControl = option }
             }
         }
     }
@@ -513,7 +511,7 @@ struct PersonalizationQuizSheet: View {
     init(settings: UserSettings) {
         self.settings = settings
         _answers = State(initialValue: PersonalizationAnswers(settings: settings))
-        questions = [.name] + PersonalizationQuestion.sequence
+        questions = [.name] + PersonalizationQuestion.sequence(for: settings.menopauseStage)
     }
 
     var body: some View {

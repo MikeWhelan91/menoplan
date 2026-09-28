@@ -132,6 +132,10 @@ enum AppointmentSummaryBuilder {
                 .sorted { $0.date < $1.date },
             conditions: settings.healthProfile.conditions.filter { $0 != .other }.map(\.title).sorted()
                 + [settings.healthProfile.otherCondition].compactMap { $0?.isEmpty == false ? $0 : nil }
+                + [settings.healthProfile.birthControl].compactMap { method in
+                    guard let method, method.mayAffectRecentCycles else { return nil }
+                    return "Hormonal contraception: \(method.title.prefix(1).lowercased() + method.title.dropFirst())"
+                }
         )
     }
 

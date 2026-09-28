@@ -142,11 +142,11 @@ enum CycleCalendarPhaseResolver {
 /// Uncertainty driven by the personalisation answers rather than logged
 /// history. Each reason widens the internal estimate by a few days.
 enum ProfileWidening: String, Equatable {
-    case pcos, irregularPeriods, recentBirthControl
+    case irregularPeriods, recentBirthControl
 
     var paddingDays: Int {
         switch self {
-        case .pcos, .irregularPeriods: 4
+        case .irregularPeriods: 4
         case .recentBirthControl: 3
         }
     }
@@ -154,7 +154,6 @@ enum ProfileWidening: String, Equatable {
     /// Short label for Home.
     var shortNote: String {
         switch self {
-        case .pcos: "A rough estimate, as PCOS can make cycles vary"
         case .irregularPeriods: "A rough estimate, as your periods vary"
         case .recentBirthControl: "A rough estimate while your cycle settles"
         }
@@ -163,8 +162,6 @@ enum ProfileWidening: String, Equatable {
     /// Plain-English reason for "How is this worked out?" and Luna.
     var explanation: String {
         switch self {
-        case .pcos:
-            "You told MenoPlan you have PCOS, which can make cycle length vary, so treat the next-period date as a rough estimate."
         case .irregularPeriods:
             "You told MenoPlan your periods aren’t regular, so the next-period date is a rough estimate until you’ve logged enough periods for your own history to take over."
         case .recentBirthControl:
@@ -179,10 +176,9 @@ enum ProfileWidening: String, Equatable {
 
     static func reason(for settings: UserSettings?, loggedPeriodCount: Int) -> ProfileWidening? {
         guard let profile = settings?.healthProfile else { return nil }
-        if profile.hasPCOS { return .pcos }
         guard loggedPeriodCount < historyTakesOverAfterPeriods else { return nil }
         if profile.regularity == .irregular { return .irregularPeriods }
-        if profile.birthControl?.mayAffectRecentCycles == true && profile.birthControl != .stillUsing { return .recentBirthControl }
+        if profile.birthControl == .stoppedRecently { return .recentBirthControl }
         return nil
     }
 }

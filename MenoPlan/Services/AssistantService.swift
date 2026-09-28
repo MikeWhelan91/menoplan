@@ -141,10 +141,10 @@ enum AssistantContextBuilder {
     static func healthProfileSummary(_ profile: HealthProfile) -> [String] {
         var lines: [String] = []
         if let age = profile.age() { lines.append("age=\(age)") }
-        if let regularity = profile.regularity { lines.append("periodsRegular=\(regularity.rawValue)") }
-        if !profile.conditions.isEmpty { lines.append("reproductiveConditions=\(profile.conditions.map(\.title).sorted().joined(separator: ", "))") }
+        if let regularity = profile.regularity { lines.append("recentPeriods=\(regularity.rawValue)") }
+        if !profile.conditions.isEmpty { lines.append("healthHistory=\(profile.conditions.map(\.title).sorted().joined(separator: ", "))") }
         if let other = profile.otherCondition, !other.isEmpty { lines.append("otherConditionDescribedByUser=\(other)") }
-        if let birthControl = profile.birthControl { lines.append("hormonalContraceptionLast6Months=\(birthControl.rawValue)") }
+        if let birthControl = profile.birthControl { lines.append("hormonalContraception=\(birthControl.rawValue)") }
         if let heightCm = profile.heightCm { lines.append("heightCm=\(Int(heightCm.rounded()))") }
         if let weightKg = profile.weightKg { lines.append(String(format: "weightKg=%.1f", weightKg)) }
         if let bmi = profile.bmi, let category = profile.bmiCategory { lines.append(String(format: "bmi=%.1f (%@)", bmi, category.rawValue)) }

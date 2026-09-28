@@ -64,7 +64,7 @@ struct OnboardingView: View {
     }
 
     private var quizQuestions: [PersonalizationQuestion] {
-        PersonalizationQuestion.sequence
+        PersonalizationQuestion.sequence(for: stage)
     }
 
     private var progressIndex: Int? {

@@ -10,71 +10,107 @@ enum CycleRegularity: String, CaseIterable, Codable, Identifiable {
 
     var title: String {
         switch self {
-        case .regular: "Yes"
-        case .irregular: "No"
-        case .unsure: "I don’t know"
+        case .regular: "About the same as usual"
+        case .irregular: "Changing: shorter, longer or skipped"
+        case .unsure: "I’m not sure"
         }
     }
 
     var response: String? {
         switch self {
         case .regular: nil
-        case .irregular: "Changing cycles are one of the most common early signs of perimenopause. MenoPlan will track how much yours vary."
-        case .unsure: "No problem. As you log a few periods, MenoPlan learns how much your cycle varies."
+        case .irregular: "Changing cycles are one of the most common signs of perimenopause. MenoPlan will show how much yours vary."
+        case .unsure: "No problem. As you log a few periods, MenoPlan shows how your cycle is changing."
         }
     }
 }
 
+/// Health history a clinician would want to know at a menopause
+/// appointment: things that change what bleeding means, which treatments
+/// suit, or that cause similar symptoms. The type keeps LineCheck's name.
 enum ReproductiveCondition: String, CaseIterable, Codable, Identifiable {
-    case pcos, endometriosis, fibroids, thyroid, other
+    case hysterectomy, ovariesRemoved, thyroid, breastCancer, bloodClots, migraineWithAura, endometriosis, fibroids, other
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .pcos: "Polycystic ovary syndrome (PCOS)"
+        case .hysterectomy: "Hysterectomy"
+        case .ovariesRemoved: "Ovaries removed"
+        case .thyroid: "A thyroid condition"
+        case .breastCancer: "Breast cancer, now or in the past"
+        case .bloodClots: "Blood clots or stroke"
+        case .migraineWithAura: "Migraine with aura"
         case .endometriosis: "Endometriosis"
         case .fibroids: "Fibroids"
-        case .thyroid: "A thyroid condition"
         case .other: "Something else"
+        }
+    }
+
+    /// Short chip label for the quiz.
+    var shortTitle: String {
+        switch self {
+        case .breastCancer: "Breast cancer"
+        case .bloodClots: "Clots or stroke"
+        case .thyroid: "Thyroid condition"
+        default: title
         }
     }
 
     var response: String? {
         switch self {
-        default: nil
+        case .hysterectomy:
+            "Without a womb, periods can’t show how things are changing, so MenoPlan focuses on your symptoms."
+        case .ovariesRemoved:
+            "Removing the ovaries usually brings menopause on straight away, so symptoms can be sudden. It’s worth mentioning at any appointment."
+        case .breastCancer, .bloodClots, .migraineWithAura:
+            "This can affect which treatments suit you, so it’s included in your appointment summary."
+        case .thyroid:
+            "Thyroid problems can cause similar symptoms, like tiredness and mood changes, so doctors often check them."
+        default:
+            nil
         }
     }
 }
 
+/// Hormonal contraception, which can change or stop bleeding and can make
+/// home FSH tests unreliable. The type keeps LineCheck's name.
 enum BirthControlRecency: String, CaseIterable, Codable, Identifiable {
-    case none, stillUsing, pill, iud, implantOrShot, nonHormonal, preferNotToSay
+    case none, hormonalCoil, pillPatchOrRing, implantOrInjection, stoppedRecently, preferNotToSay
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .none: "No"
-        case .stillUsing: "I’m still using birth control"
-        case .pill: "Yes, I was on the pill"
-        case .iud: "Yes, I had an IUD"
-        case .implantOrShot: "Yes, an implant or injection"
-        case .nonHormonal: "Yes, condoms or another non-hormonal method"
-        case .preferNotToSay: "Prefer not to answer"
+        case .hormonalCoil: "A hormonal coil (like Mirena)"
+        case .pillPatchOrRing: "The pill, patch or ring"
+        case .implantOrInjection: "An implant or injection"
+        case .stoppedRecently: "I stopped in the last 6 months"
+        case .preferNotToSay: "Prefer not to say"
         }
     }
 
     var response: String? {
         switch self {
-        case .pill, .iud, .implantOrShot:
-            "Cycles can take a few months to settle after hormonal contraception, so early estimates may shift."
-        case .stillUsing:
-            "Hormonal contraception, including a hormonal coil, can change or stop bleeding, so cycle dates may be less useful. Symptoms still tell the story."
+        case .hormonalCoil:
+            "A hormonal coil can lighten or stop periods, so MenoPlan leans on your symptoms rather than cycle dates."
+        case .pillPatchOrRing:
+            "Combined methods can hide bleeding changes and some symptoms, and home FSH tests may not be reliable while you use them."
+        case .implantOrInjection:
+            "These can change or stop bleeding, so cycle dates may be less useful. Your symptoms still tell the story."
+        case .stoppedRecently:
+            "Cycles can take a few months to settle after stopping, so early patterns may shift."
         default:
             nil
         }
     }
 
+    /// Using hormonal contraception now.
+    var isCurrentlyUsing: Bool {
+        [.hormonalCoil, .pillPatchOrRing, .implantOrInjection].contains(self)
+    }
+
     var mayAffectRecentCycles: Bool {
-        [.stillUsing, .pill, .iud, .implantOrShot].contains(self)
+        isCurrentlyUsing || self == .stoppedRecently
     }
 }
 
@@ -104,7 +140,8 @@ struct HealthProfile: Equatable {
         birthYear.map { calendar.component(.year, from: date) - $0 }
     }
 
-    var hasPCOS: Bool { conditions.contains(.pcos) }
+    /// No womb or ovaries, so bleeding can't guide anything.
+    var hasSurgicalHistory: Bool { conditions.contains(.hysterectomy) || conditions.contains(.ovariesRemoved) }
 
     /// NICE NG23: under 45, symptoms are usually checked with a doctor (and
     /// a blood test may be used) rather than assumed to be perimenopause.
@@ -115,7 +152,7 @@ struct HealthProfile: Equatable {
 
     /// True when dates alone are a weaker guide to this person's cycle.
     var predictionsLessCertain: Bool {
-        regularity == .irregular || hasPCOS || (birthControl?.mayAffectRecentCycles ?? false)
+        regularity == .irregular || (birthControl?.mayAffectRecentCycles ?? false)
     }
 
     var isEmpty: Bool {
