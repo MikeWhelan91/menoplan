@@ -27,11 +27,12 @@ struct FlowLayout: Layout {
 /// Sections of the daily log, so callers (e.g. Home's quick actions) can open
 /// the sheet already scrolled to the part they care about.
 enum DailyLogSection: String, CaseIterable, Identifiable {
-    case flushes, sleep, symptoms, mood, hrt, flow, body, supplements, notes
+    case day, flushes, sleep, symptoms, mood, hrt, flow, body, supplements, notes
     var id: String { rawValue }
 
     var title: String {
         switch self {
+        case .day: "Your Day"
         case .flushes: "Flushes & Sweats"
         case .sleep: "Sleep"
         case .flow: "Period & Bleeding"
@@ -46,6 +47,7 @@ enum DailyLogSection: String, CaseIterable, Identifiable {
 
     var symbol: String {
         switch self {
+        case .day: "sun.haze.fill"
         case .flushes: "thermometer.sun.fill"
         case .sleep: "bed.double.fill"
         case .flow: "drop.circle.fill"
@@ -61,6 +63,7 @@ enum DailyLogSection: String, CaseIterable, Identifiable {
     var tint: Color {
         switch self {
         case .flushes: .orange
+        case .day: .linePurple
         case .flow, .symptoms: .linePink
         case .supplements, .body: .lineBlue
         case .sleep, .hrt: .linePurple
@@ -73,16 +76,16 @@ enum DailyLogSection: String, CaseIterable, Identifiable {
     /// being tracked; otherwise it sits after the symptoms.
     static func ordered(for stage: MenopauseStage) -> [DailyLogSection] {
         stage.tracksCycle
-            ? [.flow, .flushes, .sleep, .symptoms, .mood, .hrt, .body, .supplements, .notes]
-            : [.flushes, .sleep, .symptoms, .mood, .hrt, .flow, .body, .supplements, .notes]
+            ? [.day, .flow, .symptoms, .flushes, .sleep, .mood, .hrt, .body, .supplements, .notes]
+            : [.day, .symptoms, .flushes, .sleep, .mood, .hrt, .flow, .body, .supplements, .notes]
     }
 }
 
 /// Everything the editor lets you change for one day, as a value so the sheet
 /// can move between days and tell whether anything was edited.
 private struct DailyLogForm: Equatable {
-    static let suggestedSymptoms = ["Brain Fog", "Joint Pain", "Fatigue", "Headache", "Palpitations", "Vaginal Dryness", "Low Libido", "Bladder Leaks", "Breast Tenderness", "Pelvic Pain", "Bloating", "Dizziness", "Dry Skin", "Hair Thinning"]
-    static let moodOptions = ["Calm", "Happy", "Energetic", "Low", "Anxious", "Irritable", "Tearful", "Overwhelmed", "Mood Swings", "Low Confidence"]
+    static let suggestedSymptoms = ["Anxiety", "Irritability", "Low Mood", "Mood Swings", "Brain Fog", "Joint Pain", "Fatigue", "Headache", "Palpitations", "Vaginal Dryness", "Low Libido", "Bladder Leaks", "Breast Tenderness", "Pelvic Pain", "Bloating", "Dizziness", "Dry Skin", "Hair Thinning"]
+    static let moodOptions = ["Calm", "Happy", "Energetic", "Tearful", "Overwhelmed", "Low Confidence"]
     static let supplementOptions = ["Vitamin D", "Calcium", "Magnesium", "Omega-3", "Iron", "Vitamin B12", "Probiotic"]
 
     var symptoms: Set<String> = []
@@ -90,6 +93,9 @@ private struct DailyLogForm: Equatable {
     var moods: Set<String> = []
     var supplements: Set<String> = []
     var flow: FlowIntensity?
+    var impact: DayImpact?
+    /// Ratings from Home's check-in, kept for symptoms that stay selected.
+    var severities: [String: SymptomSeverity] = [:]
     var hotFlushes: Int?
     var nightSweats: Int?
     var severity: SymptomSeverity?
@@ -106,6 +112,8 @@ private struct DailyLogForm: Equatable {
         moods = Set(log.moods)
         supplements = Set(log.supplements)
         flow = log.flowIntensity
+        impact = log.dayImpact
+        severities = log.symptomSeverities
         hotFlushes = log.hotFlushCount
         nightSweats = log.nightSweatCount
         severity = log.vasomotorSeverity
@@ -354,6 +362,16 @@ struct DailyFertilityLogEditor: View {
     @ViewBuilder
     private func sectionView(_ section: DailyLogSection) -> some View {
         switch section {
+        case .day:
+            LogSection(.day) {
+                Text("How much did symptoms affect your day?")
+                    .font(.app(.caption, weight: .semibold))
+                    .foregroundStyle(Color.lineNavy.opacity(0.6))
+                singleChips(visible(optionsFor(.day), in: .day), selection: Binding(
+                    get: { form.impact?.title },
+                    set: { title in form.impact = DayImpact.allCases.first { $0.title == title } }
+                ), tint: DailyLogSection.day.tint)
+            }
         case .flushes:
             LogSection(.flushes) { flushesContent }
         case .sleep:
@@ -369,7 +387,7 @@ struct DailyFertilityLogEditor: View {
             LogSection(.body) { bodyContent }
         case .symptoms:
             LogSection(.symptoms) {
-                multiChips(visible(DailyLogForm.suggestedSymptoms, in: .symptoms), selection: $form.symptoms, tint: DailyLogSection.symptoms.tint)
+                multiChips(visible(DailyLogForm.suggestedSymptoms, in: .symptoms), selection: $form.symptoms, tint: DailyLogSection.symptoms.tint) { form.severities[$0]?.title }
                 if query.isEmpty {
                     TextField("Other symptoms, separated by commas", text: $form.customSymptomsText, axis: .vertical)
                         .focused($isInputFocused)
@@ -507,6 +525,7 @@ struct DailyFertilityLogEditor: View {
 
     private func optionsFor(_ section: DailyLogSection) -> [String] {
         switch section {
+        case .day: DayImpact.allCases.map(\.title)
         case .flushes: ["Hot flushes", "Night sweats", "Hot flashes"]
         case .sleep: SleepQuality.allCases.map(\.title)
         case .flow: FlowIntensity.allCases.map(\.title)
@@ -763,10 +782,11 @@ struct DailyFertilityLogEditor: View {
         )
     }
 
-    private func multiChips(_ values: [String], selection: Binding<Set<String>>, tint: Color) -> some View {
+    private func multiChips(_ values: [String], selection: Binding<Set<String>>, tint: Color, detail: @escaping (String) -> String? = { _ in nil }) -> some View {
         FlowLayout(spacing: 8) {
             ForEach(values, id: \.self) { value in
-                LogChip(title: value, symbol: LogChip.symbol(for: value), tint: tint, selected: selection.wrappedValue.contains(value)) {
+                let selected = selection.wrappedValue.contains(value)
+                LogChip(title: selected ? detail(value).map { "\(value) · \($0)" } ?? value : value, symbol: LogChip.symbol(for: value), tint: tint, selected: selected) {
                     if selection.wrappedValue.contains(value) { selection.wrappedValue.remove(value) } else { selection.wrappedValue.insert(value) }
                 }
             }
@@ -855,6 +875,9 @@ struct DailyFertilityLogEditor: View {
         log.symptoms = Array(form.symptoms.union(customSymptoms)).sorted(); log.moods = form.moods.sorted(); log.supplements = form.supplements.sorted()
         log.notes = form.notes
         log.flowIntensity = form.flow
+        log.dayImpact = form.impact
+        // A rating only survives while its symptom is still ticked.
+        log.symptomSeverities = form.severities.filter { log.symptoms.contains($0.key) }
         log.hotFlushCount = form.hotFlushes
         log.nightSweatCount = form.nightSweats
         log.vasomotorSeverity = (form.hotFlushes ?? 0) + (form.nightSweats ?? 0) > 0 ? form.severity : nil
@@ -931,6 +954,12 @@ private struct LogChip: View {
         case "Light": "drop"
         case "Medium": "drop.halffull"
         case "Heavy": "drop.fill"
+        case "Anxiety": "exclamationmark.bubble"
+        case "Irritability": "bolt"
+        case "Low Mood": "cloud"
+        case "Not at all": "sun.max"
+        case "A bit": "cloud.sun"
+        case "A lot": "cloud.rain"
         case "Brain Fog": "cloud.fog"
         case "Joint Pain": "figure.walk"
         case "Fatigue": "battery.25percent"
@@ -954,9 +983,6 @@ private struct LogChip: View {
         case "Happy": "face.smiling"
         case "Calm": "leaf"
         case "Energetic": "bolt"
-        case "Low": "cloud"
-        case "Anxious": "exclamationmark.bubble"
-        case "Irritable": "flame"
         case "Tearful": "drop"
         case "Overwhelmed": "tornado"
         case "Mood Swings": "arrow.up.arrow.down"

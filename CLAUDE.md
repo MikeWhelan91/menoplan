@@ -30,7 +30,7 @@ Fertility and pregnancy tracking are removed. The period estimate still comes fr
 
 ## Home
 
-Stage-aware. Perimenopause with a cycle set up: LineCheck's countdown hero (switching to "days since your last period" 14+ days past the estimate) plus `CycleChangeCard` (cycle lengths, 7+ day changes, 60+ day gaps, 12-month progress from `CycleChangeCalculator`). Otherwise `VasomotorWeekHero` shows hot flushes and night sweats side by side, equally weighted. Both get one-tap +1 quick actions, `SymptomWeekCard` (`SymptomWeekCalculator`), and the FSH scan as a compact `FSHTestTile`, never the hero. Postmenopause bleeding in the last 30 days shows a see-your-clinician nudge.
+Built from user research (App Store reviews, studies, Reddit via Codex): people want low-effort logging of *their own* symptoms, a doctor-ready summary, and patterns, not predictions. Order: `CheckInCard` hero (day impact: not at all / a bit / a lot, then the person's pinned `FocusSymptoms`, tap to rate mild → moderate → severe; hot flushes / night sweats counted; sleep uses sleep quality), `RecentChangeCard` (`RecentChangeCalculator`, needs 7+ logged days in 14, phrased as an observation not a cause), `AppointmentCard` (moves to the top within 7 days of `nextAppointmentDate`), `HRTTodayCard` (only with a regimen; daily repeating reminder), `CycleChangeCard` (perimenopause only: last period and cycle lengths, never predicted or "late" dates), then a tools row (Ask Luna, FSH Test, Trends). Only the postmenopause bleeding nudge sits above the check-in. No streaks. Focus symptoms are picked in onboarding ("What's affecting you most?") and Settings; defaults don't lead with hot flushes.
 
 ## Daily log
 
@@ -40,4 +40,4 @@ Stage-aware. Perimenopause with a cycle set up: LineCheck's countdown hero (swit
 
 - Never diagnose peri/menopause; FSH is one data point, not a verdict.
 - Bleeding logged by someone in postmenopause mode should prompt contacting a clinician.
-- No HRT dose advice; direct medication questions to the prescriber.
+- Record HRT doses and changes as the person states them; never suggest or advise on doses, and direct medication questions to the prescriber.

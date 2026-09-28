@@ -68,57 +68,82 @@ enum CycleChangeCalculator {
     }
 }
 
-/// The last seven days of the daily log, against the seven before, for
-/// Home. Days with nothing logged are left out rather than counted as
-/// symptom-free.
-struct SymptomWeekSummary: Equatable {
-    var hotFlushes: Int
-    var previousHotFlushes: Int?
-    var nightSweats: Int
-    var previousNightSweats: Int?
-    var badSleepNights: Int
-    var hrtDays: Int
-    var loggedDays: Int
-    /// Most-logged symptoms this week, most frequent first.
-    var topSymptoms: [String]
-
-    var isEmpty: Bool { loggedDays == 0 }
+/// One modest observation for Home: how often a pinned symptom showed up
+/// recently, set against the fortnight before, with any recent HRT change
+/// alongside. It never claims a cause, and stays hidden until there are
+/// enough logged days to say anything.
+struct RecentChange: Equatable {
+    var title: String
+    var detail: String?
 }
 
-enum SymptomWeekCalculator {
-    static func summary(
+enum RecentChangeCalculator {
+    static let windowDays = 14
+    static let minimumLoggedDays = 7
+    static let meaningfulDifference = 3
+
+    static func observation(
         logs: [DailyFertilityLog],
+        focus: [String],
+        hrtChanged: Date? = nil,
         on date: Date = .now,
         calendar: Calendar = .current
-    ) -> SymptomWeekSummary {
+    ) -> RecentChange? {
         let today = calendar.startOfDay(for: date)
-        func days(_ offset: Int) -> [DailyFertilityLog] {
-            guard let end = calendar.date(byAdding: .day, value: -offset * 7, to: today),
-                  let start = calendar.date(byAdding: .day, value: -6, to: end) else { return [] }
-            return logs.filter { log in
+        func window(_ offset: Int) -> [DailyFertilityLog] {
+            guard let end = calendar.date(byAdding: .day, value: -offset * windowDays, to: today),
+                  let start = calendar.date(byAdding: .day, value: -(windowDays - 1), to: end) else { return [] }
+            var byDay: [Date: DailyFertilityLog] = [:]
+            for log in logs where log.hasContent {
                 let day = calendar.startOfDay(for: log.date)
-                return day >= start && day <= end && log.hasContent
+                if day >= start && day <= end { byDay[day] = log }
+            }
+            return Array(byDay.values)
+        }
+        let recent = window(0)
+        guard recent.count >= minimumLoggedDays else { return nil }
+        let earlier = window(1)
+
+        struct Candidate { var name: String; var now: Int; var before: Int? }
+        let candidates = focus.map { name in
+            Candidate(
+                name: name,
+                now: recent.filter { FocusSymptoms.isPresent(name, in: $0) }.count,
+                before: earlier.count >= minimumLoggedDays ? earlier.filter { FocusSymptoms.isPresent(name, in: $0) }.count : nil
+            )
+        }
+
+        let title: String
+        if let change = candidates
+            .filter({ $0.before != nil && abs($0.now - ($0.before ?? 0)) >= meaningfulDifference })
+            .max(by: { abs($0.now - ($0.before ?? 0)) < abs($1.now - ($1.before ?? 0)) }),
+           let before = change.before {
+            title = "\(label(change.name)) on \(change.now) of your last \(recent.count) logged days, \(change.now > before ? "up" : "down") from \(before) the fortnight before."
+        } else if let common = candidates.max(by: { $0.now < $1.now }), common.now * 2 >= recent.count, common.now > 0 {
+            title = "\(label(common.name)) on \(common.now) of your last \(recent.count) logged days."
+        } else {
+            let rough = recent.filter { $0.dayImpact == .lots }.count
+            guard rough > 0 else { return nil }
+            title = "Symptoms affected your day a lot on \(rough) of your last \(recent.count) logged days."
+        }
+
+        var detail: String?
+        if let hrtChanged {
+            let days = calendar.dateComponents([.day], from: calendar.startOfDay(for: hrtChanged), to: today).day ?? 0
+            if (0...42).contains(days) {
+                detail = days == 0 ? "You changed your HRT today." : "You changed your HRT \(days) \(days == 1 ? "day" : "days") ago."
             }
         }
-        let week = days(0)
-        let previous = days(1)
-        func flushes(_ logs: [DailyFertilityLog]) -> Int { logs.reduce(0) { $0 + ($1.hotFlushCount ?? 0) } }
-        let sweats: Int = week.reduce(0) { $0 + ($1.nightSweatCount ?? 0) }
-        let badSleep = week.filter { $0.sleepQuality == .broken || $0.sleepQuality == .poor }.count
-        let loggedDays = Set(week.map { calendar.startOfDay(for: $0.date) }).count
-        var counts: [String: Int] = [:]
-        for log in week { for symptom in log.symptoms { counts[symptom, default: 0] += 1 } }
-        let ranked = counts.sorted { $0.value == $1.value ? $0.key < $1.key : $0.value > $1.value }
-        return SymptomWeekSummary(
-            hotFlushes: flushes(week),
-            previousHotFlushes: previous.isEmpty ? nil : flushes(previous),
-            nightSweats: sweats,
-            previousNightSweats: previous.isEmpty ? nil : previous.reduce(0) { $0 + ($1.nightSweatCount ?? 0) },
-            badSleepNights: badSleep,
-            hrtDays: week.filter { !$0.hrtTaken.isEmpty }.count,
-            loggedDays: loggedDays,
-            topSymptoms: ranked.prefix(3).map { $0.key }
-        )
+        return RecentChange(title: title, detail: detail)
     }
 
+    /// Sentence-case name for the start of an observation.
+    static func label(_ name: String) -> String {
+        switch FocusSymptoms.kind(of: name) {
+        case .sleep: return "Broken or poor sleep"
+        default:
+            let lower = name.lowercased()
+            return lower.prefix(1).uppercased() + lower.dropFirst()
+        }
+    }
 }

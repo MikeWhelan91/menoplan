@@ -1,60 +1,6 @@
 import XCTest
 @testable import MenoPlan
 
-final class CycleJourneyCalculatorTests: XCTestCase {
-    private var calendar: Calendar = {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        return calendar
-    }()
-
-    private func day(_ month: Int, _ day: Int, year: Int = 2026) throws -> Date {
-        try XCTUnwrap(calendar.date(from: DateComponents(year: year, month: month, day: day)))
-    }
-
-    /// 28-day cycle starting Sep 1: ovulation on cycle day 14 (Sep 14), period due Sep 29.
-    private func window(on date: Date) throws -> FertilityWindow {
-        try XCTUnwrap(FertilityWindowCalculator.window(
-            for: date, lastPeriodStart: try day(9, 1), averageCycleLength: 28, lutealPhaseLength: 14, calendar: calendar
-        ))
-    }
-
-    private func countdown(_ month: Int, _ dayOfMonth: Int) throws -> HomeCountdown {
-        let today = try day(month, dayOfMonth)
-        return CycleJourneyCalculator.countdown(on: today, window: try window(on: today), calendar: calendar)
-    }
-
-    func testCountdownOnlyTalksAboutTheNextPeriod() throws {
-        let early = try countdown(9, 5)
-        XCTAssertEqual(early.stage, .periodUpcoming)
-        XCTAssertEqual(early.caption, "Next period in")
-        XCTAssertEqual(early.value, 24)
-
-        let due = try countdown(9, 29)
-        XCTAssertEqual(due.stage, .periodDue)
-        XCTAssertEqual(due.headline, "Today")
-
-        let late = try countdown(10, 2)
-        XCTAssertEqual(late.stage, .periodLate)
-        XCTAssertEqual(late.value, 3)
-        XCTAssertEqual(late.footnote, "Cycles often vary more in perimenopause")
-
-        let longGap = try countdown(11, 1)
-        XCTAssertEqual(longGap.stage, .sinceLastPeriod)
-        XCTAssertEqual(longGap.caption, "Since your last period")
-        XCTAssertEqual(longGap.value, 61)
-    }
-
-    func testContraceptionAddsACaveat() throws {
-        let base = try countdown(9, 5)
-        XCTAssertEqual(CycleJourneyCalculator.reacting(base, to: []), base)
-        let signal = CycleSignal(id: "hormonalContraception", tone: .attention, symbol: "pills.circle", title: "t", detail: "d", surfaces: [.home])
-        let reacted = CycleJourneyCalculator.reacting(base, to: [signal])
-        XCTAssertEqual(reacted.value, base.value)
-        XCTAssertTrue(reacted.footnote.contains("contraception"))
-    }
-}
-
 final class CalendarProjectionTests: XCTestCase {
     // PeriodEvent normalises with Calendar.current, so this test does too.
     func testFutureCyclesAreProjectedAndPredictedPeriodSurvivesALoggedEnd() throws {
@@ -205,27 +151,6 @@ final class PeriodBulkEditPlanTests: XCTestCase {
             .update(move.id, start: day(8, 2), end: day(8, 5)),
             .create(start: day(9, 10), end: day(9, 13))
         ])
-    }
-
-    // MARK: Countdown reacting to signals
-
-    /// 28-day cycle from 1 Sep 2026 (ovulation 14 Sep, period due 29 Sep).
-    private func reactionCountdown(_ month: Int, _ dayOfMonth: Int) throws -> HomeCountdown {
-        var calendar = Calendar(identifier: .gregorian)
-        calendar.timeZone = TimeZone(secondsFromGMT: 0)!
-        let start = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 9, day: 1)))
-        let today = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: month, day: dayOfMonth)))
-        let window = try XCTUnwrap(FertilityWindowCalculator.window(for: today, lastPeriodStart: start, averageCycleLength: 28, lutealPhaseLength: 14, calendar: calendar))
-        return CycleJourneyCalculator.countdown(on: today, window: window, calendar: calendar)
-    }
-
-    private func signal(_ id: String, tone: CycleSignal.Tone = .info, title: String = "t") -> CycleSignal {
-        CycleSignal(id: id, tone: tone, symbol: "circle", title: title, detail: "d", surfaces: [.home])
-    }
-
-    func testCountdownWithoutSignalsIsUnchanged() throws {
-        let base = try reactionCountdown(9, 20)
-        XCTAssertEqual(CycleJourneyCalculator.reacting(base, to: []), base)
     }
 
 }

@@ -22,16 +22,13 @@ struct HomeView: View {
     }
 
     @State private var reminderDraft: HomeReminderDraft?
-    @State private var showPredictionWhy = false
     @State private var showPeriodStartCheckIn = false
-    @AppStorage("homePeriodCheckInSnoozedCycleID") private var checkInSnoozedCycleID = ""
-    @AppStorage("homePeriodCheckInDismissedUntilNextDay") private var checkInSnoozedUntil = 0.0
+    @State private var showFocusSheet = false
+    @State private var showAppointmentSheet = false
     @State private var logRequest: HomeLogRequest?
     @State private var showPersonalization = false
     @State private var showBodySignals = false
     @State private var showHealthPrompt = false
-    /// Brief confirmation under the quick actions after a one-tap +1.
-    @State private var quickLogToast: String?
     /// Day of the latest postmenopausal bleed whose nudge was dismissed.
     @AppStorage("homeBleedingNudgeDismissedDay") private var bleedingNudgeDismissedDay = 0.0
 
@@ -40,16 +37,10 @@ struct HomeView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     journeyOverview
-                    homeNudges
-                    stageCards
-                    FSHTestTile(lastTested: latestScan?.createdAt) {
-                        appState.startScan(testType: .ovulation)
-                    }
+                    urgentNudges
+                    homeCards
                     todayPanel
                     quickLinks
-                    if !scans.isEmpty {
-                        recentScansPanel
-                    }
                 }
                 // On compact these resolve to the 16/24 this screen has always
                 // used, so the iPhone layout is unchanged.
@@ -129,9 +120,16 @@ struct HomeView: View {
                 guard settings != nil else { return }
                 CycleSignalHistory.record(homeSignals, context: modelContext)
             }
-            .sheet(isPresented: $showPredictionWhy) {
-                if let window = fertilityWindow, let settings {
-                    PredictionWhySheet(window: window, cycle: activeCycle, settings: settings)
+            .sheet(isPresented: $showFocusSheet) {
+                FocusSymptomSheet(initial: focus) { chosen in
+                    settings?.focusSymptoms = chosen
+                    try? modelContext.save()
+                }
+            }
+            .sheet(isPresented: $showAppointmentSheet) {
+                AppointmentDateSheet(initial: settings?.upcomingAppointment) { date in
+                    settings?.nextAppointmentDate = date
+                    try? modelContext.save()
                 }
             }
             .sheet(item: $logRequest) { request in
@@ -163,9 +161,11 @@ struct HomeView: View {
     private var stage: MenopauseStage { settings?.menopauseStage ?? .perimenopause }
     private var tracksCycle: Bool { stage.tracksCycle }
 
-    private var symptomWeek: SymptomWeekSummary {
-        SymptomWeekCalculator.summary(logs: dailyLogs.filter { !$0.notes.contains("[LineCheck Screenshot Sample]") })
+    private var realLogs: [DailyFertilityLog] {
+        dailyLogs.filter { !$0.notes.contains("[LineCheck Screenshot Sample]") }
     }
+
+    private var focus: [String] { settings?.focusSymptoms ?? FocusSymptoms.defaults }
 
     private var cycleChange: CycleChangeSummary {
         let sample = "[LineCheck Screenshot Sample]"
@@ -174,13 +174,64 @@ struct HomeView: View {
         return CycleChangeCalculator.summary(periodStarts: starts)
     }
 
-    /// The cards under the hero: how the cycle is changing (while periods are
-    /// tracked) and the symptom week.
+    private var recentChange: RecentChange? {
+        RecentChangeCalculator.observation(logs: realLogs, focus: focus, hrtChanged: settings?.hrtLastChangedDate)
+    }
+
+    private var loggedDaysLast30: Int {
+        let calendar = Calendar.current
+        guard let cutoff = calendar.date(byAdding: .day, value: -29, to: calendar.startOfDay(for: .now)) else { return 0 }
+        return Set(realLogs.filter { $0.hasContent && $0.date >= cutoff }.map { calendar.startOfDay(for: $0.date) }).count
+    }
+
+    /// Within a week of an appointment, preparing for it comes first.
+    private var appointmentIsSoon: Bool {
+        guard let date = settings?.upcomingAppointment else { return false }
+        return (Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: .now), to: date).day ?? 99) <= 7
+    }
+
+    /// Check-in, then what's changed, the appointment, today's HRT (only
+    /// for people using it) and the cycle (only while periods continue).
     @ViewBuilder
-    private var stageCards: some View {
-        if tracksCycle, fertilityWindow != nil {
+    private var homeCards: some View {
+        if appointmentIsSoon { appointmentCard }
+        CheckInCard(
+            log: log(for: .now),
+            focus: focus,
+            onImpact: { impact in editToday { $0.dayImpact = impact } },
+            onAdvance: { name in editToday { FocusSymptoms.advance(name, in: $0) } },
+            onSetSeverity: { name, severity in editToday { $0.setSeverity(severity, for: name) } },
+            onCount: { name, delta in
+                editToday { FocusSymptoms.setCount((FocusSymptoms.count(name, in: $0) ?? 0) + delta, for: name, in: $0) }
+            },
+            onOpenLog: { logRequest = HomeLogRequest(date: .now, section: nil) },
+            onEditFocus: { showFocusSheet = true }
+        )
+        homeNudges
+        if let recentChange {
+            RecentChangeCard(change: recentChange, onOpenTrends: openTrends)
+        }
+        if !appointmentIsSoon { appointmentCard }
+        if let settings, !settings.hrtRegimen.isEmpty {
+            HRTTodayCard(
+                regimen: settings.hrtRegimen,
+                taken: log(for: .now)?.hrtTaken ?? [],
+                doseText: settings.hrtDoseText,
+                lastChanged: settings.hrtLastChangedDate,
+                reminderTime: settings.hrtReminderTime,
+                onToggle: { item in
+                    editToday { log in
+                        log.hrtTaken = log.hrtTaken.contains(item) ? log.hrtTaken.filter { $0 != item } : (log.hrtTaken + [item]).sorted()
+                    }
+                },
+                onReminder: { setHRTReminder($0) },
+                onEdit: { appState.selectedTab = .settings }
+            )
+        }
+        if tracksCycle, cycleChange.lastPeriodStart != nil {
             CycleChangeCard(
                 summary: cycleChange,
+                onLogPeriod: { showPeriodStartCheckIn = true },
                 onOpenCalendar: { appState.selectedTab = .calendar },
                 onSwitchStage: {
                     withAnimation(.snappy) { settings?.menopauseStage = .postmenopause }
@@ -188,16 +239,50 @@ struct HomeView: View {
                 }
             )
         }
-        SymptomWeekCard(
-            week: symptomWeek,
-            showsFlushesAndSweats: tracksCycle && fertilityWindow != nil,
-            tracksHRT: !(settings?.hrtRegimen.isEmpty ?? true) || symptomWeek.hrtDays > 0,
-            onLog: { logRequest = HomeLogRequest(date: .now, section: nil) },
-            onOpenTrends: {
-                appState.showTrendsRequested = true
-                appState.selectedTab = .calendar
-            }
+    }
+
+    private var appointmentCard: some View {
+        AppointmentCard(
+            appointment: settings?.upcomingAppointment,
+            loggedDays: loggedDaysLast30,
+            onPrepare: openTrends,
+            onSetDate: { showAppointmentSheet = true }
         )
+    }
+
+    private func openTrends() {
+        appState.showTrendsRequested = true
+        appState.selectedTab = .calendar
+    }
+
+    /// Applies a check-in change to today's log, creating it on first touch.
+    private func editToday(_ change: (DailyFertilityLog) -> Void) {
+        let today = Calendar.current.startOfDay(for: .now)
+        let entry: DailyFertilityLog
+        if let existing = log(for: today) {
+            entry = existing
+        } else {
+            entry = DailyFertilityLog(date: today)
+            modelContext.insert(entry)
+        }
+        withAnimation(.snappy) { change(entry) }
+        entry.updatedAt = .now
+        try? modelContext.save()
+    }
+
+    private func setHRTReminder(_ time: Date?) {
+        guard let settings else { return }
+        settings.hrtReminderTime = time
+        try? modelContext.save()
+        guard let time else {
+            NotificationService().cancelDailyHRTReminder()
+            return
+        }
+        Task {
+            let service = NotificationService()
+            guard await service.requestPermission() else { return }
+            try? await service.scheduleDailyHRTReminder(at: time)
+        }
     }
 
     /// Most recent bleeding logged in the last 30 days, for the
@@ -209,78 +294,7 @@ struct HomeView: View {
         return dailyLogs.first { $0.flowIntensity != nil && $0.date >= cutoff }.map { calendar.startOfDay(for: $0.date) }
     }
 
-    /// Adds one hot flush or night sweat to today's log without opening it.
-    private func addOneToToday(_ keyPath: ReferenceWritableKeyPath<DailyFertilityLog, Int?>, noun: (one: String, many: String)) {
-        let today = Calendar.current.startOfDay(for: .now)
-        let entry: DailyFertilityLog
-        if let existing = log(for: today) {
-            entry = existing
-        } else {
-            entry = DailyFertilityLog(date: today)
-            modelContext.insert(entry)
-        }
-        let count = min((entry[keyPath: keyPath] ?? 0) + 1, 50)
-        entry[keyPath: keyPath] = count
-        entry.updatedAt = .now
-        try? modelContext.save()
-        UIImpactFeedbackGenerator(style: .medium).impactOccurred()
-        let message = "\(noun.one.capitalized) added · \(count) \(count == 1 ? noun.one : noun.many) today"
-        withAnimation(.snappy) { quickLogToast = message }
-        Task {
-            try? await Task.sleep(for: .seconds(2.2))
-            if quickLogToast == message { withAnimation(.snappy) { quickLogToast = nil } }
-        }
-    }
-
-    private var shouldShowPeriodCheckIn: Bool {
-        guard settings != nil, tracksCycle else { return false }
-        return HomePeriodCheckInPolicy.shouldShow(
-            on: .now, window: fertilityWindow, cycle: activeCycle, periods: periodEvents,
-            snoozedCycleID: checkInSnoozedCycleID, snoozedUntil: checkInSnoozedUntil
-        )
-    }
-
-    private func snoozePeriodCheckIn() {
-        guard let activeCycle else { return }
-        checkInSnoozedCycleID = activeCycle.id.uuidString
-        checkInSnoozedUntil = (Calendar.current.date(byAdding: .day, value: 1, to: Calendar.current.startOfDay(for: .now)) ?? .now).timeIntervalSince1970
-    }
-
-    private var periodCheckInCard: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label("Has your period started?", systemImage: "calendar.badge.clock")
-                .font(.app(.headline, weight: .bold))
-                .foregroundStyle(Color.lineNavy)
-            if let expected = fertilityWindow?.nextPeriodDate {
-                Text("Your period \(Calendar.current.isDateInToday(expected) ? "is" : "was") estimated around \(DateFormatting.shortDate.string(from: expected)). That's only a prediction—not a period we've logged.")
-                    .font(.app(.subheadline))
-                    .foregroundStyle(Color.lineNavy.opacity(0.7))
-            }
-            Text("If it hasn't started, your current cycle stays open. If it has, log the actual first day—even if that date is different from the estimate.")
-                .font(.app(.caption))
-                .foregroundStyle(Color.lineNavy.opacity(0.65))
-                .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 10) {
-                Button("Not yet") { snoozePeriodCheckIn() }
-                    .buttonStyle(.bordered)
-                    .frame(maxWidth: .infinity)
-                Button("Log first day") { showPeriodStartCheckIn = true }
-                    .buttonStyle(.borderedProminent)
-                    .frame(maxWidth: .infinity)
-            }
-            .font(.app(.subheadline, weight: .semibold))
-            Text("‘Not yet’ hides this Home check-in until tomorrow. It doesn't record a period or change your reminder settings.")
-                .font(.app(.caption2))
-                .foregroundStyle(Color.lineNavy.opacity(0.52))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .padding(16)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white.opacity(0.96), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .overlay(RoundedRectangle(cornerRadius: 20, style: .continuous).stroke(Color.linePurple.opacity(0.22)))
-    }
-
-    // MARK: - Live Cycle Plan
+    // MARK: - Greeting
 
     private var journeyOverview: some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -294,79 +308,41 @@ struct HomeView: View {
             // A retained Home tab must refresh immediately after a long
             // background session, as well as at minute boundaries while open.
             .id(scenePhase)
-
-            if shouldShowPeriodCheckIn {
-                periodCheckInCard
-            }
+            .overlay(alignment: .trailing) { bodySignalsButton }
 
             HomeWeekStrip(
-                window: tracksCycle ? fertilityWindow : nil,
+                window: nil,
                 cycleRecords: cycleRecords,
-                periodEvents: periodEvents,
+                periodEvents: tracksCycle ? periodEvents : [],
                 loggedDays: loggedDays
             ) { day in
                 logRequest = HomeLogRequest(date: day, section: nil)
             }
             .padding(.top, 2)
 
-            if tracksCycle, let window = fertilityWindow {
-                let countdown = CycleJourneyCalculator.reacting(
-                    CycleJourneyCalculator.countdown(window: window),
-                    to: settings.map { CycleSignalsEngine.signals(signalInputs(settings: $0)) } ?? []
-                )
-                HomeCountdownHero(
-                    countdown: countdown,
-                    numberColor: HomePhaseStyle.forDay(.now, window: window, cycleRecords: cycleRecords, periodEvents: periodEvents).accent,
-                    uncertaintyNote: uncertaintyNote(for: window),
-                    onWhy: { showPredictionWhy = true }
-                ) {
-                    EmptyView()
-                }
-                .overlay(alignment: .topTrailing) { bodySignalsButton }
-            } else {
-                VasomotorWeekHero(week: symptomWeek)
-                    .overlay(alignment: .topTrailing) { bodySignalsButton }
-            }
-
-            HomeQuickActionsRow(actions: quickActions)
-                .padding(.bottom, quickLogToast == nil ? 4 : 0)
-            if let quickLogToast {
-                Text(quickLogToast)
-                    .font(.app(.caption, weight: .bold))
-                    .foregroundStyle(Color.lineNavy.opacity(0.7))
-                    .padding(.horizontal, 12)
-                    .padding(.vertical, 6)
-                    .background(Color.white.opacity(0.9), in: Capsule())
-                    .frame(maxWidth: .infinity)
-                    .transition(.opacity.combined(with: .scale(scale: 0.9)))
-                    .id(quickLogToast)
-            }
-
-            if tracksCycle, fertilityWindow == nil {
-                    Button {
-                        appState.calendarSetupRequest = .ovulation
-                        appState.selectedTab = .calendar
-                    } label: {
-                        VStack(spacing: 3) {
-                            Text("Set up your cycle timeline")
-                                .font(.app(size: LineType.size(17), weight: .bold))
-                                .foregroundStyle(Color.linePink)
-                                .underline()
-                            Text(homeTimelineDetail)
-                                .font(.app(.caption, weight: .medium))
-                                .foregroundStyle(Color.lineNavy.opacity(0.58))
-                                .multilineTextAlignment(.center)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .center)
+            if tracksCycle, cycleChange.lastPeriodStart == nil {
+                Button {
+                    appState.calendarSetupRequest = .ovulation
+                    appState.selectedTab = .calendar
+                } label: {
+                    VStack(spacing: 3) {
+                        Text("Add your last period")
+                            .font(.app(size: LineType.size(17), weight: .bold))
+                            .foregroundStyle(Color.linePink)
+                            .underline()
+                        Text(homeTimelineDetail)
+                            .font(.app(.caption, weight: .medium))
+                            .foregroundStyle(Color.lineNavy.opacity(0.58))
+                            .multilineTextAlignment(.center)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityHint("Opens cycle setup in Calendar")
+                    .frame(maxWidth: .infinity, alignment: .center)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Opens cycle setup in Calendar")
             }
         }
         .padding(.vertical, 4)
     }
-
-    // MARK: - Journey helpers
 
     private var loggedDays: Set<Date> {
         let calendar = Calendar.current
@@ -377,33 +353,6 @@ struct HomeView: View {
 
     private func log(for date: Date) -> DailyFertilityLog? {
         dailyLogs.first { Calendar.current.isDate($0.date, inSameDayAs: date) }
-    }
-
-    private func uncertaintyNote(for window: FertilityWindow) -> String? {
-        if window.isIrregular { return "Your cycles vary, so dates are approximate" }
-        if let widening = window.profileWidening { return widening.shortNote }
-        return nil
-    }
-
-    private var quickActions: [HomeQuickAction] {
-        let today = Calendar.current.startOfDay(for: .now)
-        let flush = HomeQuickAction(id: "flush", title: "Hot flush +1", symbol: "flame.fill", tint: .orange, filled: !tracksCycle) {
-            addOneToToday(\.hotFlushCount, noun: ("hot flush", "hot flushes"))
-        }
-        let sweat = HomeQuickAction(id: "sweat", title: "Night sweat +1", symbol: "moon.stars.fill", tint: .linePurple, filled: !tracksCycle) {
-            addOneToToday(\.nightSweatCount, noun: ("night sweat", "night sweats"))
-        }
-        let logToday = HomeQuickAction(id: "log", title: "Log today", symbol: "plus", tint: .linePurple) {
-            logRequest = HomeLogRequest(date: today, section: nil)
-        }
-        guard tracksCycle, fertilityWindow != nil else { return [flush, sweat, logToday] }
-        return [
-            HomeQuickAction(id: "period", title: "Log period", symbol: "drop.fill", tint: .linePink, filled: true) {
-                showPeriodStartCheckIn = true
-            },
-            flush,
-            logToday
-        ]
     }
 
     // MARK: - Setup checklist (for people who skipped onboarding)
@@ -542,7 +491,7 @@ struct HomeView: View {
         return CycleSignalsEngine.signals(for: .home, signalInputs(settings: settings))
     }
 
-    /// Top-right of the countdown, just under the date row. A dot shows when
+    /// Beside the greeting. A dot shows when
     /// there's something new to see; pink when one is worth a look.
     /// Signals the person hasn't opened the popup to see yet. One with no
     /// history row yet (recorded a moment later) counts as unseen.
@@ -596,23 +545,28 @@ struct HomeView: View {
 
     // MARK: - Nudges
 
+    /// The one prompt allowed above the check-in: bleeding after menopause.
+    @ViewBuilder
+    private var urgentNudges: some View {
+        if let bleed = recentPostmenopausalBleed, bleed.timeIntervalSince1970 > bleedingNudgeDismissedDay {
+            HomeNudgeCard(
+                symbol: "stethoscope",
+                tint: .linePink,
+                title: "Please get this bleeding checked",
+                message: "You logged bleeding on \(DateFormatting.shortDate.string(from: bleed)). Bleeding after menopause should always be looked at by a GP or clinician. It's often nothing serious, but it needs checking.",
+                onDismiss: {
+                    withAnimation(.snappy) { bleedingNudgeDismissedDay = bleed.timeIntervalSince1970 }
+                }
+            ) {
+                EmptyView()
+            }
+            .transition(.opacity.combined(with: .scale(scale: 0.97)))
+        }
+    }
+
     @ViewBuilder
     private var homeNudges: some View {
         if let settings {
-            if let bleed = recentPostmenopausalBleed, bleed.timeIntervalSince1970 > bleedingNudgeDismissedDay {
-                HomeNudgeCard(
-                    symbol: "stethoscope",
-                    tint: .linePink,
-                    title: "Please get this bleeding checked",
-                    message: "You logged bleeding on \(DateFormatting.shortDate.string(from: bleed)). Bleeding after menopause should always be looked at by a GP or clinician. It's often nothing serious, but it needs checking.",
-                    onDismiss: {
-                        withAnimation(.snappy) { bleedingNudgeDismissedDay = bleed.timeIntervalSince1970 }
-                    }
-                ) {
-                    EmptyView()
-                }
-                .transition(.opacity.combined(with: .scale(scale: 0.97)))
-            }
             if settings.healthProfile.shouldSuggestDoctor(), !settings.dismissedDoctorSuggestion {
                 HomeNudgeCard(
                     symbol: "stethoscope",
@@ -644,7 +598,7 @@ struct HomeView: View {
                     symbol: "person.crop.circle.badge.questionmark",
                     tint: .linePink,
                     title: "Make MenoPlan fit you",
-                    message: "A few quick questions so your predictions and results take your situation into account.",
+                    message: "A few quick questions so MenoPlan and Luna take your situation into account.",
                     onDismiss: {
                         withAnimation(.snappy) { settings.dismissedPersonalizationPrompt = true }
                         try? modelContext.save()
@@ -659,20 +613,18 @@ struct HomeView: View {
     }
 
     private var homeTimelineDetail: String {
-        "Add your last period to see how your cycle is changing."
+        "While you still have periods, logging them shows how your cycle is changing."
     }
 
     private var quickLinks: some View {
         HStack(spacing: 10) {
-            homeLink("Trends", imageName: "HomeTrendsIcon", tint: .linePurple) {
-                appState.showTrendsRequested = true
-                appState.selectedTab = .calendar
-            }
-            homeLink("Compare", imageName: "HomeCompareIcon", tint: .linePink) {
-                appState.historyRoute = .compare
-                appState.selectedTab = .history
-            }
             homeLink("Ask Luna", imageName: "HomeLunaIcon", tint: .linePurple) { appState.selectedTab = .assistant }
+            // FSH is one data point, so the test reader is a tool here rather
+            // than a hero.
+            homeLink("FSH Test", imageName: nil, symbol: "camera.viewfinder", tint: .linePink) {
+                appState.startScan(testType: .ovulation)
+            }
+            homeLink("Trends", imageName: "HomeTrendsIcon", tint: .linePurple, action: openTrends)
         }
         // The surrounding VStack's 14pt spacing is tuned for a phone; on iPad
         // this row sits between two large cards and needs more room to read as
@@ -680,13 +632,24 @@ struct HomeView: View {
         .padding(.vertical, layout.isRegular ? 10 : 0)
     }
 
-    private func homeLink(_ title: String, imageName: String, tint: Color, iconSize: CGSize = CGSize(width: 48, height: 38), showsProBadge: Bool = false, action: @escaping () -> Void) -> some View {
+    private func homeLink(_ title: String, imageName: String?, symbol: String? = nil, tint: Color, iconSize: CGSize = CGSize(width: 48, height: 38), showsProBadge: Bool = false, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             VStack(spacing: layout.scaled(8)) {
-                Image(imageName)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(width: layout.scaled(LineType.size(iconSize.width)), height: layout.scaled(LineType.size(iconSize.height)))
+                Group {
+                    if let imageName {
+                        Image(imageName)
+                            .resizable()
+                            .scaledToFit()
+                    } else if let symbol {
+                        Image(systemName: symbol)
+                            .resizable()
+                            .scaledToFit()
+                            .fontWeight(.semibold)
+                            .foregroundStyle(LinearGradient(colors: [Color.linePink, Color.linePurple], startPoint: .topLeading, endPoint: .bottomTrailing))
+                            .padding(3)
+                    }
+                }
+                .frame(width: layout.scaled(LineType.size(iconSize.width)), height: layout.scaled(LineType.size(iconSize.height)))
                 Text(title)
                     .font(.app(size: layout.scaled(13), weight: .bold))
                     .foregroundStyle(Color.lineNavy)
@@ -728,8 +691,6 @@ struct HomeView: View {
             }
         }
     }
-
-    private var latestScan: Scan? { scans.first }
 
     private var reminderChevron: some View {
         Image(systemName: "chevron.right")
@@ -810,75 +771,6 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
-    private var recentScansPanel: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("Recent Tests")
-                    .font(.app(.headline, weight: .bold))
-                    .foregroundStyle(Color.lineNavy)
-
-                Spacer()
-
-                Button("View all") {
-                    appState.selectedTab = .history
-                }
-                .font(.app(.caption, weight: .bold))
-            }
-
-            if scans.isEmpty {
-                Text("No saved scans yet.")
-                    .font(.app(.subheadline))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 18)
-            } else {
-                VStack(spacing: 0) {
-                    ForEach(Array(scans.prefix(3).enumerated()), id: \.element.id) { index, scan in
-                        ScanRow(scan: scan)
-                            .padding(.vertical, 10)
-
-                        if index < min(scans.count, 3) - 1 {
-                            Divider()
-                                .padding(.leading, 94)
-                        }
-                    }
-                }
-
-            }
-        }
-        .padding(16)
-        .background(
-            LinearGradient(
-                colors: [Color.white.opacity(0.96), Color.linePurple.opacity(0.07)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            ),
-            in: RoundedRectangle(cornerRadius: 22, style: .continuous)
-        )
-        .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).stroke(Color.linePurple.opacity(0.13)))
-    }
-
-}
-
-enum HomePeriodCheckInPolicy {
-    static func shouldShow(
-        on date: Date,
-        window: FertilityWindow?,
-        cycle: CycleRecord?,
-        periods: [PeriodEvent],
-        snoozedCycleID: String,
-        snoozedUntil: TimeInterval,
-        calendar: Calendar = .current
-    ) -> Bool {
-        guard let window, let cycle, cycle.endDate == nil else { return false }
-        let today = calendar.startOfDay(for: date)
-        guard today >= calendar.startOfDay(for: window.nextPeriodDate) else { return false }
-        let start = calendar.startOfDay(for: cycle.startDate)
-        guard !periods.contains(where: {
-            !$0.notes.contains("[LineCheck Screenshot Sample]") && calendar.startOfDay(for: $0.startDate) > start
-        }) else { return false }
-        return snoozedCycleID != cycle.id.uuidString || date.timeIntervalSince1970 >= snoozedUntil
-    }
 }
 
 enum HomeReminderTitle {

@@ -18,6 +18,7 @@ struct SettingsView: View {
     @Query private var dailyLogs: [DailyFertilityLog]
     @Query private var conversations: [AssistantConversation]
     @State private var showPro = false
+    @State private var showFocusSymptoms = false
     @State private var showAbout = false
     @State private var showMedicalSources = false
     @State private var showReminderPreferences = false
@@ -368,9 +369,38 @@ struct SettingsView: View {
                         .font(.lineSubheadline(.semibold))
                         .foregroundStyle(Color.lineNavy)
                         .tint(Color.linePurple)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Dose, as prescribed")
+                            .font(.lineSubheadline(.semibold))
+                            .foregroundStyle(Color.lineNavy)
+                        TextField("e.g. 50mcg patch twice a week", text: Binding(
+                            get: { settings.hrtDoseText ?? "" },
+                            set: { settings.hrtDoseText = $0.isEmpty ? nil : $0; try? modelContext.save() }
+                        ))
+                        .font(.app(.subheadline))
+                        .padding(12)
+                        .background(Color.lineBackground, in: RoundedRectangle(cornerRadius: 12))
+                    }
+                    if let changed = settings.hrtLastChangedDate {
+                        DatePicker("Last changed", selection: Binding(
+                            get: { changed },
+                            set: { settings.hrtLastChangedDate = $0; try? modelContext.save() }
+                        ), in: ...Date.now, displayedComponents: .date)
+                            .font(.lineSubheadline(.semibold))
+                            .foregroundStyle(Color.lineNavy)
+                            .tint(Color.linePurple)
+                    }
+                    Button {
+                        settings.hrtLastChangedDate = .now
+                        try? modelContext.save()
+                    } label: {
+                        Label("My HRT changed today", systemImage: "arrow.triangle.2.circlepath")
+                            .font(.app(.subheadline, weight: .bold))
+                    }
+                    .foregroundStyle(Color.linePurple)
                 }
 
-                Text("For questions about doses or changing your HRT, speak to your prescriber.")
+                Text("MenoPlan records what you've been prescribed so it shows alongside your symptoms. It never suggests doses. For questions about your HRT, speak to your prescriber.")
                     .font(.app(.caption2))
                     .foregroundStyle(Color.lineNavy.opacity(0.5))
                     .fixedSize(horizontal: false, vertical: true)
@@ -384,6 +414,39 @@ struct SettingsView: View {
                 Text("Preferences")
                     .font(.lineHeadline())
                     .foregroundStyle(Color.lineNavy)
+
+                Button { showFocusSymptoms = true } label: {
+                    HStack(spacing: 12) {
+                        Image(systemName: "checklist")
+                            .font(.system(size: LineType.size(15), weight: .bold))
+                            .foregroundStyle(Color.linePurple)
+                            .frame(width: 34, height: 34)
+                            .background(Color.linePurple.opacity(0.1), in: Circle())
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Check-in symptoms")
+                                .font(.lineSubheadline(.semibold))
+                                .foregroundStyle(Color.lineNavy)
+                            Text(settings.focusSymptoms.joined(separator: ", "))
+                                .font(.lineCaption())
+                                .foregroundStyle(Color.lineNavy.opacity(0.55))
+                                .fixedSize(horizontal: false, vertical: true)
+                        }
+                        Spacer(minLength: 4)
+                        Image(systemName: "chevron.right")
+                            .font(.app(.caption, weight: .bold))
+                            .foregroundStyle(Color.lineNavy.opacity(0.3))
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .sheet(isPresented: $showFocusSymptoms) {
+                    FocusSymptomSheet(initial: settings.focusSymptoms) { chosen in
+                        settings.focusSymptoms = chosen
+                        try? modelContext.save()
+                    }
+                }
+
+                Divider()
 
                 HStack(alignment: .center, spacing: 12) {
                     // Name lives in About you now, alongside the other answers.
@@ -1092,12 +1155,16 @@ struct SettingsView: View {
                 "menopauseStage": $0.menopauseStage.rawValue,
                 "hrtRegimen": $0.hrtRegimen,
                 "hrtStarted": date($0.hrtStartDate),
+                "hrtDose": optional($0.hrtDoseText),
+                "hrtLastChanged": date($0.hrtLastChangedDate),
+                "focusSymptoms": $0.focusSymptoms,
+                "nextAppointment": date($0.nextAppointmentDate),
                 "lastPeriodStart": date($0.lastPeriodStartDate),
                 "averageCycleLength": $0.averageCycleLength
             ] } ?? [:],
             "periods": periods.map { ["id": $0.id.uuidString, "start": date($0.startDate), "end": date($0.endDate), "source": $0.source.rawValue, "notes": $0.notes] },
             "cycles": cycles.map { ["id": $0.id.uuidString, "start": date($0.startDate), "end": date($0.endDate), "expectedPeriod": date($0.expectedPeriodDate), "cycleLength": $0.averageCycleLengthAtStart] },
-            "dailyLogs": dailyLogs.map { ["date": date($0.date), "flow": optional($0.flowIntensity?.rawValue), "hotFlushes": optional($0.hotFlushCount), "nightSweats": optional($0.nightSweatCount), "flushSeverity": optional($0.vasomotorSeverity?.rawValue), "sleep": optional($0.sleepQuality?.rawValue), "hrtTaken": $0.hrtTaken, "symptoms": $0.symptoms, "moods": $0.moods, "supplements": $0.supplements, "healthKitObservations": $0.healthKitObservations, "notes": $0.notes] },
+            "dailyLogs": dailyLogs.map { ["date": date($0.date), "dayImpact": optional($0.dayImpact?.rawValue), "symptomSeverities": $0.symptomSeverities.mapValues(\.rawValue), "flow": optional($0.flowIntensity?.rawValue), "hotFlushes": optional($0.hotFlushCount), "nightSweats": optional($0.nightSweatCount), "flushSeverity": optional($0.vasomotorSeverity?.rawValue), "sleep": optional($0.sleepQuality?.rawValue), "hrtTaken": $0.hrtTaken, "symptoms": $0.symptoms, "moods": $0.moods, "supplements": $0.supplements, "healthKitObservations": $0.healthKitObservations, "notes": $0.notes] },
             "tests": scans.map { ["id": $0.id.uuidString, "date": date($0.createdAt), "type": $0.testType.rawValue, "result": $0.resultType.rawValue, "certainty": $0.certaintyPercentage, "lineStrength": $0.lineStrength, "ratio": $0.testControlRatio, "notes": $0.notes] },
             "comparisons": comparisons.map { ["id": $0.id.uuidString, "date": date($0.createdAt), "type": $0.testType.rawValue, "earlierScanID": $0.earlierScanID.uuidString, "laterScanID": $0.laterScanID.uuidString, "summary": $0.localSummaryDetail] },
             "reminders": reminders.map { ["id": $0.id.uuidString, "title": $0.title, "type": $0.reminderType.rawValue, "date": date($0.scheduledDate), "completed": $0.isCompleted] },

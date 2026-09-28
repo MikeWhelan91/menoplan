@@ -231,6 +231,11 @@ final class DailyFertilityLog {
     var sleepQualityRaw: String?
     /// HRT ticked off as taken that day, by name (see HRTOptions).
     var hrtTakenRaw: String = ""
+    /// How much symptoms affected the day (see DayImpact).
+    var dayImpactRaw: String?
+    /// Severity per symptom, "Brain Fog:2|Anxiety:1" (1 mild ... 3 severe).
+    /// A symptom in `symptoms` without an entry here was logged without a rating.
+    var symptomSeverityRaw: String = ""
     var notes: String = ""
     var updatedAt: Date = Date.now
 
@@ -262,6 +267,43 @@ final class DailyFertilityLog {
     var symptoms: [String] { get { split(symptomsRaw) } set { symptomsRaw = newValue.joined(separator: "|"); updatedAt = .now } }
     var moods: [String] { get { split(moodsRaw) } set { moodsRaw = newValue.joined(separator: "|"); updatedAt = .now } }
     var supplements: [String] { get { split(supplementsRaw) } set { supplementsRaw = newValue.joined(separator: "|"); updatedAt = .now } }
+    var dayImpact: DayImpact? {
+        get { dayImpactRaw.flatMap(DayImpact.init(rawValue:)) }
+        set { dayImpactRaw = newValue?.rawValue; updatedAt = .now }
+    }
+    var symptomSeverities: [String: SymptomSeverity] {
+        get {
+            var result: [String: SymptomSeverity] = [:]
+            for pair in split(symptomSeverityRaw) {
+                let parts = pair.split(separator: ":", maxSplits: 1).map(String.init)
+                guard parts.count == 2, let level = Int(parts[1]),
+                      let severity = SymptomSeverity.allCases.first(where: { $0.level == level }) else { continue }
+                result[parts[0]] = severity
+            }
+            return result
+        }
+        set {
+            symptomSeverityRaw = newValue.sorted { $0.key < $1.key }.map { "\($0.key):\($0.value.level)" }.joined(separator: "|")
+            updatedAt = .now
+        }
+    }
+    func severity(of symptom: String) -> SymptomSeverity? { symptomSeverities[symptom] }
+    /// Rates a symptom for the day; nil removes it from the day altogether.
+    func setSeverity(_ severity: SymptomSeverity?, for symptom: String) {
+        var severities = symptomSeverities
+        severities[symptom] = severity
+        symptomSeverities = severities
+        if severity == nil {
+            symptoms = symptoms.filter { $0 != symptom }
+        } else if !symptoms.contains(symptom) {
+            symptoms = (symptoms + [symptom]).sorted()
+        }
+    }
+    /// Symptoms with any rating, e.g. "Brain Fog (moderate), Headache".
+    var ratedSymptomsText: String {
+        let severities = symptomSeverities
+        return symptoms.map { name in severities[name].map { "\(name) (\($0.title.lowercased()))" } ?? name }.joined(separator: ", ")
+    }
     var hrtTaken: [String] { get { split(hrtTakenRaw) } set { hrtTakenRaw = newValue.joined(separator: "|"); updatedAt = .now } }
     var vasomotorSeverity: SymptomSeverity? {
         get { vasomotorSeverityRaw.flatMap(SymptomSeverity.init(rawValue:)) }
@@ -285,7 +327,7 @@ final class DailyFertilityLog {
         get { flowIntensityRaw.flatMap(FlowIntensity.init(rawValue:)) }
         set { flowIntensityRaw = newValue?.rawValue; updatedAt = .now }
     }
-    var hasContent: Bool { !symptoms.isEmpty || !moods.isEmpty || !supplements.isEmpty || flowIntensityRaw != nil || basalBodyTemperatureCelsius != nil || wristTemperatureCelsius != nil || weightKg != nil || waterMl != nil || !healthKitObservations.isEmpty || !notes.isEmpty || hotFlushCount != nil || nightSweatCount != nil || vasomotorSeverityRaw != nil || sleepQualityRaw != nil || !hrtTakenRaw.isEmpty }
+    var hasContent: Bool { !symptoms.isEmpty || !moods.isEmpty || !supplements.isEmpty || flowIntensityRaw != nil || basalBodyTemperatureCelsius != nil || wristTemperatureCelsius != nil || weightKg != nil || waterMl != nil || !healthKitObservations.isEmpty || !notes.isEmpty || hotFlushCount != nil || nightSweatCount != nil || vasomotorSeverityRaw != nil || sleepQualityRaw != nil || !hrtTakenRaw.isEmpty || dayImpactRaw != nil }
     private func split(_ value: String) -> [String] { value.split(separator: "|").map(String.init) }
 }
 

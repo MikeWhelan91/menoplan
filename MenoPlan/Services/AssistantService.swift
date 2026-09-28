@@ -27,6 +27,11 @@ struct AssistantUserContext: Encodable, Sendable {
     /// The HRT the person has said they use (names only, never doses).
     var hrtRegimen: [String] = []
     var hrtStartDate: String? = nil
+    var hrtDose: String? = nil
+    var hrtLastChanged: String? = nil
+    /// The symptoms the person said affect them most.
+    var focusSymptoms: [String] = []
+    var nextAppointment: String? = nil
     var expectedPeriodDate: String?
     var lastPeriodStartDate: String?
     var averageCycleLength: Int?
@@ -179,6 +184,10 @@ enum AssistantContextBuilder {
             menopauseStage: settings.menopauseStage.rawValue,
             hrtRegimen: settings.hrtRegimen,
             hrtStartDate: settings.hrtStartDate.map { formatter.string(from: $0) },
+            hrtDose: settings.hrtDoseText,
+            hrtLastChanged: settings.hrtLastChangedDate.map { formatter.string(from: $0) },
+            focusSymptoms: settings.focusSymptoms,
+            nextAppointment: settings.upcomingAppointment.map { formatter.string(from: $0) },
             expectedPeriodDate: settings.expectedPeriodDate.map { formatter.string(from: $0) },
             lastPeriodStartDate: settings.lastPeriodStartDate.map { formatter.string(from: $0) },
             averageCycleLength: settings.averageCycleLengthValue,
@@ -192,6 +201,7 @@ enum AssistantContextBuilder {
                 .prefix(maximumDailySummaries)
                 .map { log in
                     var parts = ["date=\(formatter.string(from: log.date))"]
+                    if let impact = log.dayImpact { parts.append("dayImpact=\(impact.rawValue)") }
                     if let flow = log.flowIntensity { parts.append("flow=\(flow.rawValue)") }
                     if let hot = log.hotFlushCount { parts.append("hotFlushes=\(hot)") }
                     if let sweats = log.nightSweatCount { parts.append("nightSweats=\(sweats)") }
@@ -202,7 +212,7 @@ enum AssistantContextBuilder {
                     if let weight = log.weightKg { parts.append(String(format: "weightKg=%.1f", weight)) }
                     if let water = log.waterMl { parts.append("waterMl=\(Int(water.rounded()))") }
                     if !log.healthKitObservations.isEmpty { parts.append("appleHealth=\(log.healthKitObservations.joined(separator: ","))") }
-                    if !log.symptoms.isEmpty { parts.append("symptoms=\(log.symptoms.joined(separator: ","))") }
+                    if !log.symptoms.isEmpty { parts.append("symptoms=\(log.ratedSymptomsText)") }
                     if !log.moods.isEmpty { parts.append("moods=\(log.moods.joined(separator: ","))") }
                     if !log.supplements.isEmpty { parts.append("supplements=\(log.supplements.joined(separator: ","))") }
                     if !log.notes.isEmpty { parts.append("notes=\(String(log.notes.prefix(120)))") }

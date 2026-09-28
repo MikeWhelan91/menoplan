@@ -36,6 +36,15 @@ final class UserSettings {
     /// daily log can offer just those to tick off.
     var hrtRegimenRaw: String?
     var hrtStartDate: Date?
+    /// What the prescriber set, in the person's words ("50mcg patch, twice a
+    /// week"). Recorded for their summary - MenoPlan never suggests doses.
+    var hrtDoseText: String?
+    var hrtLastChangedDate: Date?
+    /// Time of day for the daily HRT reminder, if on.
+    var hrtReminderTime: Date?
+    /// Symptoms pinned to Home's check-in; nil until the person chooses.
+    var focusSymptomsRaw: String?
+    var nextAppointmentDate: Date?
     var expectedPeriodDate: Date?
     var knownOvulationDate: Date?
     var trackingFocusRaw: String?
@@ -229,6 +238,16 @@ final class UserSettings {
     var menopauseStage: MenopauseStage {
         get { MenopauseStage(rawValue: menopauseStageRaw ?? "") ?? .perimenopause }
         set { menopauseStageRaw = newValue.rawValue }
+    }
+    var focusSymptoms: [String] {
+        get { focusSymptomsRaw.map { $0.split(separator: "|").map(String.init) } ?? FocusSymptoms.defaults }
+        set { focusSymptomsRaw = Array(newValue.prefix(FocusSymptoms.maximum)).joined(separator: "|") }
+    }
+    var hasChosenFocusSymptoms: Bool { focusSymptomsRaw != nil }
+    /// The next appointment, if one is set and hasn't passed.
+    var upcomingAppointment: Date? {
+        guard let date = nextAppointmentDate, Calendar.current.startOfDay(for: date) >= Calendar.current.startOfDay(for: .now) else { return nil }
+        return date
     }
     var hrtRegimen: [String] {
         get { (hrtRegimenRaw ?? "").split(separator: "|").map(String.init) }

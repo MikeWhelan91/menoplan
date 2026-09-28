@@ -105,34 +105,74 @@ final class MenopauseSummaryCalculatorTests: XCTestCase {
         XCTAssertEqual(year.twelveMonthProgress, 1)
     }
 
-    private func log(_ offset: Int, flushes: Int? = nil, sleep: SleepQuality? = nil, symptoms: [String] = []) -> DailyFertilityLog {
+    private func log(_ offset: Int, sleep: SleepQuality? = nil, symptoms: [String] = [], impact: DayImpact? = nil) -> DailyFertilityLog {
         let log = DailyFertilityLog(date: day(offset), symptoms: symptoms)
-        log.hotFlushCount = flushes
         log.sleepQuality = sleep
+        log.dayImpact = impact
         return log
     }
 
-    func testSymptomWeekComparesWithTheWeekBefore() {
-        let logs = [
-            log(0, flushes: 2, sleep: .poor, symptoms: ["Brain Fog"]),
-            log(-3, flushes: 1, symptoms: ["Brain Fog", "Joint Pain"]),
-            log(-8, flushes: 6)
-        ]
-        logs[0].nightSweatCount = 1
-        let week = SymptomWeekCalculator.summary(logs: logs, on: day(0), calendar: calendar)
-        XCTAssertEqual(week.hotFlushes, 3)
-        XCTAssertEqual(week.previousHotFlushes, 6)
-        XCTAssertEqual(week.nightSweats, 1)
-        XCTAssertEqual(week.previousNightSweats, 0)
-        XCTAssertEqual(week.badSleepNights, 1)
-        XCTAssertEqual(week.loggedDays, 2)
-        XCTAssertEqual(week.topSymptoms, ["Brain Fog", "Joint Pain"])
+    func testTappingASymptomStepsThroughSeverity() {
+        let log = DailyFertilityLog(date: day(0))
+        FocusSymptoms.advance("Brain Fog", in: log)
+        XCTAssertEqual(log.severity(of: "Brain Fog"), .mild)
+        XCTAssertTrue(log.symptoms.contains("Brain Fog"))
+        FocusSymptoms.advance("Brain Fog", in: log)
+        FocusSymptoms.advance("Brain Fog", in: log)
+        XCTAssertEqual(log.severity(of: "Brain Fog"), .severe)
+        FocusSymptoms.advance("Brain Fog", in: log)
+        XCTAssertNil(log.severity(of: "Brain Fog"))
+        XCTAssertFalse(log.symptoms.contains("Brain Fog"))
+        XCTAssertEqual(log.symptomSeverityRaw, "")
     }
 
-    func testEmptyWeekAsksForALog() {
-        let week = SymptomWeekCalculator.summary(logs: [], on: day(0), calendar: calendar)
-        XCTAssertTrue(week.isEmpty)
-        XCTAssertNil(week.previousHotFlushes)
-        XCTAssertNil(week.previousNightSweats)
+    func testSleepAndCountersUseTheirOwnFields() {
+        let log = DailyFertilityLog(date: day(0))
+        FocusSymptoms.advance(FocusSymptoms.sleep, in: log)
+        XCTAssertEqual(log.sleepQuality, .good)
+        XCTAssertFalse(FocusSymptoms.isPresent(FocusSymptoms.sleep, in: log))
+        FocusSymptoms.advance(FocusSymptoms.sleep, in: log)
+        XCTAssertTrue(FocusSymptoms.isPresent(FocusSymptoms.sleep, in: log))
+
+        FocusSymptoms.advance(FocusSymptoms.hotFlushes, in: log)
+        FocusSymptoms.advance(FocusSymptoms.hotFlushes, in: log)
+        XCTAssertEqual(log.hotFlushCount, 2)
+        FocusSymptoms.setCount(0, for: FocusSymptoms.hotFlushes, in: log)
+        XCTAssertNil(log.hotFlushCount)
     }
+
+    func testFocusSymptomsDefaultUntilChosenAndCapAtFive() {
+        let settings = UserSettings()
+        XCTAssertFalse(settings.hasChosenFocusSymptoms)
+        XCTAssertEqual(settings.focusSymptoms, FocusSymptoms.defaults)
+        XCTAssertFalse(FocusSymptoms.defaults.first == FocusSymptoms.hotFlushes)
+        settings.focusSymptoms = ["A", "B", "C", "D", "E", "F"]
+        XCTAssertEqual(settings.focusSymptoms.count, 5)
+        XCTAssertTrue(settings.hasChosenFocusSymptoms)
+    }
+
+    func testNoObservationUntilEnoughDaysAreLogged() {
+        let logs = (0..<6).map { log(-$0, symptoms: ["Brain Fog"]) }
+        XCTAssertNil(RecentChangeCalculator.observation(logs: logs, focus: ["Brain Fog"], on: day(0), calendar: calendar))
+    }
+
+    func testObservationComparesWithTheFortnightBefore() {
+        // Days without brain fog are still logged ("not at all"), so they count.
+        let recent = (0..<10).map { log(-$0, symptoms: $0 < 8 ? ["Brain Fog"] : [], impact: .notAtAll) }
+        let earlier = (14..<24).map { log(-$0, symptoms: $0 < 16 ? ["Brain Fog"] : [], impact: .notAtAll) }
+        let change = RecentChangeCalculator.observation(
+            logs: recent + earlier, focus: ["Anxiety", "Brain Fog"],
+            hrtChanged: day(-12), on: day(0), calendar: calendar
+        )
+        XCTAssertEqual(change?.title, "Brain fog on 8 of your last 10 logged days, up from 2 the fortnight before.")
+        XCTAssertEqual(change?.detail, "You changed your HRT 12 days ago.")
+    }
+
+    func testObservationFallsBackToTheMostCommonSymptom() {
+        let logs = (0..<8).map { log(-$0, sleep: $0 < 5 ? .poor : .good) }
+        let change = RecentChangeCalculator.observation(logs: logs, focus: [FocusSymptoms.sleep], on: day(0), calendar: calendar)
+        XCTAssertEqual(change?.title, "Broken or poor sleep on 5 of your last 8 logged days.")
+        XCTAssertNil(change?.detail)
+    }
+
 }

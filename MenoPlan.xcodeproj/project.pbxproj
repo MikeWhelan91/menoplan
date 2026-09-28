@@ -68,7 +68,6 @@
 		65B4B47062BA7CF72AFD4ECA /* WeeklyLunaUpdate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 217E25519B27A684021A0A3D /* WeeklyLunaUpdate.swift */; };
 		670C96409F966A87B4693308 /* DGChartViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = 56AE63248257729C92929CE6 /* DGChartViews.swift */; };
 		677E6E601882E63BE1C93293 /* PredictionExplanationBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A8C6BAFCA0EC0813F282CD0 /* PredictionExplanationBuilder.swift */; };
-		67CA07A2228A66612C212619 /* CycleJourneyCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 303407BD273AD2A6CBFCDAC9 /* CycleJourneyCalculator.swift */; };
 		68097ACEE4B2FB354F3C2125 /* HomeViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 869BBD6D563314137CF659B4 /* HomeViewModel.swift */; };
 		69820550EE45A15BE4C8CA94 /* AutoEnhancementEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 115FBC49657149E19B2ED5AA /* AutoEnhancementEngine.swift */; };
 		6A227F13B4CBC3A219EAB7DE /* Reminder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2C075326518E86A23A196E8 /* Reminder.swift */; };
@@ -120,6 +119,7 @@
 		BF23CD329C2135C97DA590F5 /* AdConsentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3B1C8E95AE9CD075352AA56A /* AdConsentService.swift */; };
 		BF6CD63E5A5C69D510141F93 /* PremiumViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD44638ADCD97A6DC5463D4F /* PremiumViewModel.swift */; };
 		BFFD05BF9277EC4D9A228413 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D0A57C047DCC035BE3B859 /* SettingsView.swift */; };
+		C307997B29CBE026FFFFEBE1 /* FocusSymptomPicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5DCD6883181247727FAEA9D7 /* FocusSymptomPicker.swift */; };
 		C32BD448815ACB35D06244A1 /* CycleWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8219AD492F65E8559025EA97 /* CycleWidget.swift */; };
 		C3D62B347AF4474DF9E3A6BE /* TestTemplateGeometryTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD4B08C5596A2C89E1C7D078 /* TestTemplateGeometryTests.swift */; };
 		C79959A4F4509088D5D92097 /* welcome.json in Resources */ = {isa = PBXBuildFile; fileRef = 56B18D32A198A00DFA191591 /* welcome.json */; };
@@ -135,13 +135,14 @@
 		E2DF6C31A4D7F7D625D0D3DD /* PlusJakartaSans-Bold.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 765668D0F7D50696C383BEC7 /* PlusJakartaSans-Bold.ttf */; };
 		E4BE5C0F11A5CAC595870FFA /* ScanImageSyncService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C33A69CE58CCE817B6D18B7C /* ScanImageSyncService.swift */; };
 		E54286668ACCB9C898394DE6 /* DGCharts in Frameworks */ = {isa = PBXBuildFile; productRef = 315EE4E8D7B451C39274CB5F /* DGCharts */; };
-		E854818348FBCFE8BF58CCA4 /* CycleJourneyCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 445F18E55CA5E6009B7198D6 /* CycleJourneyCalculatorTests.swift */; };
 		E8626918B27AD9CBC1A32071 /* HealthKitService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FF4EE449FC0064D3F9D24C73 /* HealthKitService.swift */; };
 		ECD29AB5395EC7550ECBD1C6 /* ImageEnhancementService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3C7527B7AFABB1B7BBCAC7D1 /* ImageEnhancementService.swift */; };
 		EE15B6445A64B7C862B48152 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = 871B37B396F647CCC2A01561 /* Components.swift */; };
+		F048F8A32BB11ADB4AB6EC24 /* CycleCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4576F49CA82896A45C30024 /* CycleCalculatorTests.swift */; };
 		F1E528678AA6410B44CF82D8 /* SettingsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF512DA5B3F95DD56E89D9FE /* SettingsViewModel.swift */; };
 		F46270880885B3767103FA00 /* PlusJakartaSans-Medium.ttf in Resources */ = {isa = PBXBuildFile; fileRef = 56660ECE0A87770DC95CEF9B /* PlusJakartaSans-Medium.ttf */; };
 		F677DBD08E2F80483BBF7B65 /* PredictionAndProgressionNarrativeTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B200461807E3E9306E463FB3 /* PredictionAndProgressionNarrativeTests.swift */; };
+		FB29AA571DAF5D828439A283 /* CheckIn.swift in Sources */ = {isa = PBXBuildFile; fileRef = A71628AB708891A0454E057C /* CheckIn.swift */; };
 		FBAE6D8F6761F8B41CC9D03F /* ScanFlowView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8FEB7444513A9CC6CD21A58E /* ScanFlowView.swift */; };
 		FBD70881C907E4C295D50FEF /* luna.png in Resources */ = {isa = PBXBuildFile; fileRef = 24A730479F4594EE2B6FDFCF /* luna.png */; };
 		FC656BEFA6106AA7640FF0D9 /* AICheckQuotaService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE94397C3C7477E82B116B36 /* AICheckQuotaService.swift */; };
@@ -204,7 +205,6 @@
 		24F690209B990CE64406B0AA /* HomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeView.swift; sourceTree = "<group>"; };
 		283F53344EB14C92BCC13759 /* EnhancerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EnhancerViewModel.swift; sourceTree = "<group>"; };
 		2A8C6BAFCA0EC0813F282CD0 /* PredictionExplanationBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PredictionExplanationBuilder.swift; sourceTree = "<group>"; };
-		303407BD273AD2A6CBFCDAC9 /* CycleJourneyCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleJourneyCalculator.swift; sourceTree = "<group>"; };
 		328D00171133C17EEEA26E4D /* LineAnalysisEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineAnalysisEngineTests.swift; sourceTree = "<group>"; };
 		32B96F1C2ABC11FD23AB3100 /* WidgetCycleSummary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WidgetCycleSummary.swift; sourceTree = "<group>"; };
 		32D50F0E96106985B8030EDE /* AutoEnhancementEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoEnhancementEngineTests.swift; sourceTree = "<group>"; };
@@ -217,7 +217,6 @@
 		3C7527B7AFABB1B7BBCAC7D1 /* ImageEnhancementService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImageEnhancementService.swift; sourceTree = "<group>"; };
 		4091D32B3297C0CA045C0E86 /* WeeklyLunaUpdateService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyLunaUpdateService.swift; sourceTree = "<group>"; };
 		4403800C4F280E22AE6F91B8 /* ScoutAvatar.svg */ = {isa = PBXFileReference; path = ScoutAvatar.svg; sourceTree = "<group>"; };
-		445F18E55CA5E6009B7198D6 /* CycleJourneyCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleJourneyCalculatorTests.swift; sourceTree = "<group>"; };
 		4ADCB88E3F7A236F5A86BCC2 /* WeeklyLunaUpdateViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WeeklyLunaUpdateViews.swift; sourceTree = "<group>"; };
 		4CC1BE576FD64B196500E5EF /* MetaAppConfigurationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetaAppConfigurationTests.swift; sourceTree = "<group>"; };
 		4FFC9A10A58FFFDAEC3EA8FB /* LottieView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LottieView.swift; sourceTree = "<group>"; };
@@ -226,6 +225,7 @@
 		56660ECE0A87770DC95CEF9B /* PlusJakartaSans-Medium.ttf */ = {isa = PBXFileReference; lastKnownFileType = file; path = "PlusJakartaSans-Medium.ttf"; sourceTree = "<group>"; };
 		56AE63248257729C92929CE6 /* DGChartViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DGChartViews.swift; sourceTree = "<group>"; };
 		56B18D32A198A00DFA191591 /* welcome.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = welcome.json; sourceTree = "<group>"; };
+		5DCD6883181247727FAEA9D7 /* FocusSymptomPicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusSymptomPicker.swift; sourceTree = "<group>"; };
 		5DCE1C32FE4956D05DF38D3A /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		5FEFB68447107FE88835B34B /* ManualEnhanceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManualEnhanceView.swift; sourceTree = "<group>"; };
 		63FBC34C44B924AC8BA43CD5 /* PeriodBulkEditService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PeriodBulkEditService.swift; sourceTree = "<group>"; };
@@ -267,6 +267,7 @@
 		A3DC4259521516741881AE12 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		A467961CB7971F91780C60B1 /* ovulate2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = ovulate2.json; sourceTree = "<group>"; };
 		A5471FAFCB650A80AF5860B1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		A71628AB708891A0454E057C /* CheckIn.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CheckIn.swift; sourceTree = "<group>"; };
 		AC2D00B9712ADA16DFF1C7E1 /* FreshInstallCalendarReproTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FreshInstallCalendarReproTests.swift; sourceTree = "<group>"; };
 		AD4B08C5596A2C89E1C7D078 /* TestTemplateGeometryTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TestTemplateGeometryTests.swift; sourceTree = "<group>"; };
 		AF612604B6D74F996424C80C /* MenoPlanTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = MenoPlanTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -291,6 +292,7 @@
 		CCF8598BB5F2F10D6530BF5B /* ResultMappingTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ResultMappingTests.swift; sourceTree = "<group>"; };
 		CD44638ADCD97A6DC5463D4F /* PremiumViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PremiumViewModel.swift; sourceTree = "<group>"; };
 		CE94397C3C7477E82B116B36 /* AICheckQuotaService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AICheckQuotaService.swift; sourceTree = "<group>"; };
+		D4576F49CA82896A45C30024 /* CycleCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CycleCalculatorTests.swift; sourceTree = "<group>"; };
 		D8C088BC37777FFC4A68B175 /* Fixtures */ = {isa = PBXFileReference; lastKnownFileType = folder; name = Fixtures; path = MenoPlanTests/Fixtures; sourceTree = SOURCE_ROOT; };
 		D9ADA6E14F1935280DFAA91F /* AuthenticationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuthenticationService.swift; sourceTree = "<group>"; };
 		E0189451BCF4AAA976904E14 /* GuidedCaptureCropMath.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GuidedCaptureCropMath.swift; sourceTree = "<group>"; };
@@ -412,7 +414,6 @@
 				D9ADA6E14F1935280DFAA91F /* AuthenticationService.swift */,
 				115FBC49657149E19B2ED5AA /* AutoEnhancementEngine.swift */,
 				9E5E90150B1AB2CE9AA1CE11 /* CloudKitSchemaInitializer.swift */,
-				303407BD273AD2A6CBFCDAC9 /* CycleJourneyCalculator.swift */,
 				E7EFD831A84AAF0E90455F60 /* CycleSignalsEngine.swift */,
 				03AD65FB9601B905894BB934 /* CycleTrendsCalculator.swift */,
 				ECE80BA94DCF754D40F86912 /* FertilityWindowCalculator.swift */,
@@ -461,6 +462,7 @@
 				871B37B396F647CCC2A01561 /* Components.swift */,
 				1D3CBE3A167905A426FA5242 /* CycleSignalsCard.swift */,
 				56AE63248257729C92929CE6 /* DGChartViews.swift */,
+				5DCD6883181247727FAEA9D7 /* FocusSymptomPicker.swift */,
 				4FFC9A10A58FFFDAEC3EA8FB /* LottieView.swift */,
 				220BBBE9B5A783A9CF341914 /* TrendsChartCard.swift */,
 			);
@@ -584,6 +586,7 @@
 		9C2FAB6DD352548FEE9E4912 /* Models */ = {
 			isa = PBXGroup;
 			children = (
+				A71628AB708891A0454E057C /* CheckIn.swift */,
 				CADF1C2A5AC7BFEBBD4FF97A /* Enums.swift */,
 				50EC628BBC4F825DEFE65954 /* HealthProfile.swift */,
 				C2C075326518E86A23A196E8 /* Reminder.swift */,
@@ -598,7 +601,7 @@
 			isa = PBXGroup;
 			children = (
 				32D50F0E96106985B8030EDE /* AutoEnhancementEngineTests.swift */,
-				445F18E55CA5E6009B7198D6 /* CycleJourneyCalculatorTests.swift */,
+				D4576F49CA82896A45C30024 /* CycleCalculatorTests.swift */,
 				02ACA676E113F06DA796AC9B /* CycleSignalsEngineTests.swift */,
 				220CC1B4D17973B2EAF46B93 /* CycleTrendsCalculatorTests.swift */,
 				FFF203C89CE81E7EA5DC9C81 /* FertilityWindowCalculatorTests.swift */,
@@ -893,11 +896,11 @@
 				1261C52FBCF3E6DC241C82AF /* CalendarView.swift in Sources */,
 				15835DB368D0FE9223A1DFFB /* CalendarViewModel.swift in Sources */,
 				604F34619A965716A0EF1680 /* CaptureViewModel.swift in Sources */,
+				FB29AA571DAF5D828439A283 /* CheckIn.swift in Sources */,
 				75CAF7DDE5556BFEF57999AA /* CloudKitSchemaInitializer.swift in Sources */,
 				73145119B92F8443FD5C8643 /* CompareView.swift in Sources */,
 				EE15B6445A64B7C862B48152 /* Components.swift in Sources */,
 				5B7896BAC690C4B00758BB47 /* Constants.swift in Sources */,
-				67CA07A2228A66612C212619 /* CycleJourneyCalculator.swift in Sources */,
 				94CD3B2831994D0BC2BD767D /* CycleSignalsCard.swift in Sources */,
 				71188C23EB60F9EC940DBB98 /* CycleSignalsEngine.swift in Sources */,
 				2736E3BB14381CAF3E0F9544 /* CycleTrendsCalculator.swift in Sources */,
@@ -908,6 +911,7 @@
 				5105DDD79B34E735FB2A5999 /* EnhancerViewModel.swift in Sources */,
 				0489320D5A7EBC3865F27FCC /* Enums.swift in Sources */,
 				3D4BBC65A19CE9DC85EFCBA2 /* FertilityWindowCalculator.swift in Sources */,
+				C307997B29CBE026FFFFEBE1 /* FocusSymptomPicker.swift in Sources */,
 				A7C87D72794316A260C7F052 /* GuidedCaptureCropMath.swift in Sources */,
 				E8626918B27AD9CBC1A32071 /* HealthKitService.swift in Sources */,
 				97BF73B7365BBA34197157D8 /* HealthKitSyncService.swift in Sources */,
@@ -968,7 +972,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				9AFAE3A9887A1C2F05280F3B /* AutoEnhancementEngineTests.swift in Sources */,
-				E854818348FBCFE8BF58CCA4 /* CycleJourneyCalculatorTests.swift in Sources */,
+				F048F8A32BB11ADB4AB6EC24 /* CycleCalculatorTests.swift in Sources */,
 				08CFF7CA6144C6E9E8019012 /* CycleSignalsEngineTests.swift in Sources */,
 				76FDEDB1FEE98BF00F0C2B1C /* CycleTrendsCalculatorTests.swift in Sources */,
 				083082CE626EB539B6C45DB0 /* FertilityWindowCalculatorTests.swift in Sources */,

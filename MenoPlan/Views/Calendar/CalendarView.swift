@@ -4295,6 +4295,7 @@ private struct CalendarDayDetailView: View {
 
     private func logLines(_ log: DailyFertilityLog) -> [(String, String, String)] {
         var rows: [(String, String, String)] = []
+        if let impact = log.dayImpact { rows.append(("Symptoms affected the day", impact.title, "sun.haze.fill")) }
         if let flow = log.flowIntensity { rows.append(("Flow", flow.title, "drop.circle.fill")) }
         if let vasomotor = log.vasomotorSummary { rows.append(("Flushes & sweats", vasomotor, "thermometer.sun.fill")) }
         if let sleep = log.sleepQuality { rows.append(("Sleep", sleep.title, "bed.double.fill")) }
@@ -4302,7 +4303,7 @@ private struct CalendarDayDetailView: View {
         if let wrist = log.wristTemperatureCelsius { rows.append(("Apple Watch wrist temperature", temperatureText(wrist), "applewatch")) }
         if let weight = log.weightKg { rows.append(("Weight", weightUnit.formatted(weight), "scalemass.fill")) }
         if let water = log.waterMl { rows.append(("Water", bodyUnit.formattedWater(water), "drop.fill")) }
-        if !log.symptoms.isEmpty { rows.append(("Symptoms", log.symptoms.joined(separator: ", "), "waveform.path.ecg")) }
+        if !log.symptoms.isEmpty { rows.append(("Symptoms", log.ratedSymptomsText, "waveform.path.ecg")) }
         if !log.moods.isEmpty { rows.append(("Mood", log.moods.joined(separator: ", "), "face.smiling")) }
         if !log.supplements.isEmpty { rows.append(("Supplements", log.supplements.joined(separator: ", "), "pills.fill")) }
         if !log.notes.isEmpty { rows.append(("Notes", log.notes, "note.text")) }

@@ -15,22 +15,6 @@ final class FertilityWindowCalculatorTests: XCTestCase {
         XCTAssertEqual(HomeReminderTitle.display(for: manual), manual.title)
     }
 
-    func testHomePeriodCheckInAppearsOnEstimateAndRespectsNotYetSnooze() throws {
-        let calendar = Calendar.current
-        let start = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 8, day: 26)))
-        let expected = try XCTUnwrap(calendar.date(byAdding: .day, value: 28, to: start))
-        let before = try XCTUnwrap(calendar.date(byAdding: .day, value: -1, to: expected))
-        let tomorrow = try XCTUnwrap(calendar.date(byAdding: .day, value: 1, to: expected))
-        let thisEvening = try XCTUnwrap(calendar.date(byAdding: .hour, value: 20, to: expected))
-        let cycle = CycleRecord(startDate: start)
-        let window = try XCTUnwrap(CycleTrackingService.window(for: expected, records: [cycle], settings: nil))
-
-        XCTAssertFalse(HomePeriodCheckInPolicy.shouldShow(on: before, window: window, cycle: cycle, periods: [], snoozedCycleID: "", snoozedUntil: 0))
-        XCTAssertTrue(HomePeriodCheckInPolicy.shouldShow(on: expected, window: window, cycle: cycle, periods: [], snoozedCycleID: "", snoozedUntil: 0))
-        XCTAssertFalse(HomePeriodCheckInPolicy.shouldShow(on: thisEvening, window: window, cycle: cycle, periods: [], snoozedCycleID: cycle.id.uuidString, snoozedUntil: tomorrow.timeIntervalSince1970))
-        XCTAssertTrue(HomePeriodCheckInPolicy.shouldShow(on: tomorrow, window: window, cycle: cycle, periods: [], snoozedCycleID: cycle.id.uuidString, snoozedUntil: tomorrow.timeIntervalSince1970))
-    }
-
     func testDoesNotInventCycleBeforeFirstLoggedPeriod() throws {
         let calendar = Calendar(identifier: .gregorian)
         let firstLoggedPeriod = try XCTUnwrap(calendar.date(from: DateComponents(year: 2026, month: 8, day: 3)))

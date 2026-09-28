@@ -17,6 +17,7 @@ struct OnboardingView: View {
         case welcome
         case name
         case goal
+        case focus
         case aboutYou
         case cycleDetails
         case reminders
@@ -48,6 +49,7 @@ struct OnboardingView: View {
     @State private var revealedWelcomeHighlights = 0
     @State private var userName = ""
     @State private var stage: MenopauseStage = .perimenopause
+    @State private var focusSymptoms: [String] = []
     @State private var quizAnswers = PersonalizationAnswers()
     @State private var quizIndex = 0
     @State private var quizMovingForward = true
@@ -56,7 +58,7 @@ struct OnboardingView: View {
     private var settings: UserSettings? { appState.settings }
     /// Apple Health only appears where Health exists (not on every iPad).
     private var setupPages: [Page] {
-        [.name, .goal, .aboutYou] + (stage.tracksCycle ? [.cycleDetails] : []) + [.reminders]
+        [.name, .goal, .focus, .aboutYou] + (stage.tracksCycle ? [.cycleDetails] : []) + [.reminders]
             + (HealthKitService.shared.isAvailable ? [.appleHealth] : [])
             + [.finish]
     }
@@ -134,6 +136,8 @@ struct OnboardingView: View {
             namePage
         case .goal:
             goalPage
+        case .focus:
+            focusPage
         case .aboutYou:
             aboutYouPage
         case .cycleDetails:
@@ -383,6 +387,23 @@ struct OnboardingView: View {
             Spacer(minLength: 12)
         }
         .frame(maxWidth: 640)
+    }
+
+    /// Pinned to Home's daily check-in and leading the appointment summary.
+    private var focusPage: some View {
+        ScrollView {
+            VStack(spacing: 22) {
+                pageIntro(
+                    eyebrow: "Your check-in",
+                    title: "What's affecting you most?",
+                    subtitle: "Pick up to five. These become your one-tap daily check-in and lead your appointment summary."
+                )
+                FocusSymptomPicker(selection: $focusSymptoms)
+            }
+            .frame(maxWidth: 640)
+            .padding(.bottom, 12)
+        }
+        .scrollIndicators(.hidden)
     }
 
     private func goalChoice(_ choice: MenopauseStage, title: String, symbol: String) -> some View {
@@ -861,11 +882,13 @@ struct OnboardingView: View {
             move(to: .welcome, forward: false)
         case .goal:
             move(to: .name, forward: false)
+        case .focus:
+            move(to: .goal, forward: false)
         case .aboutYou:
             if quizIndex > 0 {
                 stepQuiz(-1)
             } else {
-                move(to: .goal, forward: false)
+                move(to: .focus, forward: false)
             }
         case .cycleDetails:
             quizIndex = max(0, quizQuestions.count - 1)
@@ -891,6 +914,8 @@ struct OnboardingView: View {
         case .name:
             advanceFromName()
         case .goal:
+            move(to: .focus)
+        case .focus:
             quizIndex = 0
             move(to: .aboutYou)
         case .aboutYou:
@@ -1014,6 +1039,7 @@ struct OnboardingView: View {
         guard let settings else { return }
         settings.userName = userName
         settings.menopauseStage = stage
+        if !focusSymptoms.isEmpty { settings.focusSymptoms = focusSymptoms }
         quizAnswers.apply(to: settings, context: modelContext)
 
         settings.expectedPeriodDate = nil
@@ -1084,6 +1110,7 @@ struct OnboardingView: View {
         guard let settings else { return }
         userName = settings.userName
         stage = settings.menopauseStage
+        focusSymptoms = settings.hasChosenFocusSymptoms ? settings.focusSymptoms : []
         quizAnswers = PersonalizationAnswers(settings: settings)
         includeCycleDetails = settings.lastPeriodStartDate != nil
         lastPeriodStartDate = settings.lastPeriodStartDate ?? lastPeriodStartDate

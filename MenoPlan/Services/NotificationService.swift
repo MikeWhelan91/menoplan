@@ -124,6 +124,27 @@ final class NotificationService {
         return granted
     }
 
+    static let hrtReminderID = "menoplan.hrt.daily"
+
+    /// A repeating daily HRT reminder. Deliberately doseless: the person's
+    /// prescription is theirs, the reminder only nudges.
+    func scheduleDailyHRTReminder(at time: Date) async throws {
+        cancelDailyHRTReminder()
+        let content = UNMutableNotificationContent()
+        content.title = "Time for your HRT"
+        content.subtitle = "Daily reminder"
+        content.body = "Tick it off in MenoPlan so it shows alongside how you're feeling."
+        content.sound = .default
+        content.threadIdentifier = "menoplan.hrt"
+        let components = Calendar.current.dateComponents([.hour, .minute], from: time)
+        let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: true)
+        try await UNUserNotificationCenter.current().add(UNNotificationRequest(identifier: Self.hrtReminderID, content: content, trigger: trigger))
+    }
+
+    func cancelDailyHRTReminder() {
+        UNUserNotificationCenter.current().removePendingNotificationRequests(withIdentifiers: [Self.hrtReminderID])
+    }
+
     func isAuthorized() async -> Bool {
         let status = await authorizationStatus()
         switch status {
