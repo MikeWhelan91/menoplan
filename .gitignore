@@ -22,5 +22,6 @@ node_modules/
 # Local logs
 *.log
 
-# Local Meta app configuration
+# Local Meta app configuration and API secrets
 Configuration/Meta.local.xcconfig
+Configuration/Secrets.local.xcconfig

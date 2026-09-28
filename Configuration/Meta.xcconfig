@@ -1,7 +1,13 @@
 // TODO: MenoPlan Meta app. Empty keeps Meta app events inactive.
 // Meta app identifiers are public client configuration for the iOS SDK.
-META_APP_ID = 
-META_CLIENT_TOKEN = 
+META_APP_ID =
+META_CLIENT_TOKEN =
+
+// Shared secret the app sends to the MenoPlan API (x-menoplan-client-token);
+// it must match MENOPLAN_API_SHARED_SECRET on Vercel. Set the real value in
+// Secrets.local.xcconfig, which git ignores. Empty means no token is sent.
+MENOPLAN_AI_CLIENT_TOKEN =
 
 // Local overrides are ignored by git. CI can supply these build settings directly.
 #include? "Meta.local.xcconfig"
+#include? "Secrets.local.xcconfig"

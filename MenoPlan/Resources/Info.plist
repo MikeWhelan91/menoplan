@@ -42,7 +42,7 @@
 	<key>GADApplicationIdentifier</key>
 	<string>$(GAD_APPLICATION_IDENTIFIER)</string>
 	<key>LineCheckAIClientToken</key>
-	<string>OPTIONAL_SHARED_SECRET</string>
+	<string>$(MENOPLAN_AI_CLIENT_TOKEN)</string>
 	<key>LineCheckAIEndpoint</key>
 	<string>https://menoplan.vercel.app/api/analyse-fsh</string>
 	<key>NSCameraUsageDescription</key>
@@ -58,7 +58,7 @@
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>MenoPlan lets you import test photos from your photo library for line analysis.</string>
 	<key>NSUserNotificationUsageDescription</key>
-	<string>MenoPlan can remind you to retest or check ovulation tests at times you choose.</string>
+	<string>MenoPlan can remind you to take your HRT, check in or test at times you choose.</string>
 	<key>NSUserTrackingUsageDescription</key>
 	<string>MenoPlan uses this to show relevant ads and keep the app affordable.</string>
 	<key>RevenueCatAPIKey</key>
