@@ -660,6 +660,19 @@ private struct AssistantChatScreen: View {
             return
         }
         switch suggestion.kind {
+        case .fshScan:
+            appliedSuggestionIDs.insert(suggestion.id)
+            close()
+            appState.startScan(testType: .ovulation)
+        case .logSymptom:
+            appliedSuggestionIDs.insert(suggestion.id)
+            close()
+            appState.selectedTab = .home
+        case .careSummary:
+            appliedSuggestionIDs.insert(suggestion.id)
+            close()
+            appState.selectedTab = .home
+            appState.showAppointmentSummaryRequested = true
         case .calendar:
             appliedSuggestionIDs.insert(suggestion.id)
             close()
@@ -969,6 +982,9 @@ private struct AssistantSuggestionModifier: ViewModifier {
 
     private func icon(for kind: AssistantSuggestion.Kind) -> String {
         switch kind {
+        case .fshScan: "camera.viewfinder"
+        case .logSymptom: "square.and.pencil"
+        case .careSummary: "doc.text"
         case .reminder: "bell"
         case .ovulationScan: "waveform.path.ecg"
         case .calendar: "calendar"

@@ -19,7 +19,7 @@ final class LineAnalysisEngineTests: XCTestCase {
         let result = engine.analyse(image, testType: .ovulation)
 
         XCTAssertTrue(result.controlLineDetected)
-        XCTAssertTrue([.low, .rising].contains(result.resultType), "Expected weak test line to stay below high/peak, got \(result.resultType) at ratio \(result.testControlRatio)")
+        XCTAssertTrue([.low, .borderline].contains(result.resultType), "Expected weak test line to stay below high/peak, got \(result.resultType) at ratio \(result.testControlRatio)")
         XCTAssertLessThan(result.testControlRatio, 0.75)
     }
 
@@ -28,7 +28,7 @@ final class LineAnalysisEngineTests: XCTestCase {
         let result = engine.analyse(image, testType: .ovulation)
 
         XCTAssertTrue(result.controlLineDetected)
-        XCTAssertTrue([.low, .rising].contains(result.resultType), "Expected purple handle text and crop artifact to be ignored, got \(result.resultType) at ratio \(result.testControlRatio)")
+        XCTAssertTrue([.low, .borderline].contains(result.resultType), "Expected purple handle text and crop artifact to be ignored, got \(result.resultType) at ratio \(result.testControlRatio)")
         XCTAssertLessThan(result.testControlRatio, 0.70)
     }
 
@@ -51,14 +51,14 @@ final class LineAnalysisEngineTests: XCTestCase {
 
         XCTAssertTrue(result.controlLineDetected)
         XCTAssertTrue(result.testLineDetected)
-        XCTAssertEqual(result.resultType, .peak)
+        XCTAssertEqual(result.resultType, .elevated)
         XCTAssertGreaterThanOrEqual(result.testControlRatio, 0.95)
     }
 
     func testStandaloneLocalOvulationConsensusKeepsPeakInsteadOfAmbiguous() {
         let quality = ImageQualityResult(status: .hardToDetect, brightness: 0.5, blurScore: 0.4, overexposure: 0.2)
         let primary = LineAnalysisResult(
-            resultType: .peak,
+            resultType: .elevated,
             confidencePercentage: 60,
             certaintyPercentage: 60,
             controlLineDetected: true,
@@ -69,7 +69,7 @@ final class LineAnalysisEngineTests: XCTestCase {
             explanation: "Peak"
         )
         let fallback = LineAnalysisResult(
-            resultType: .high,
+            resultType: .elevated,
             confidencePercentage: 64,
             certaintyPercentage: 64,
             controlLineDetected: true,
@@ -82,14 +82,14 @@ final class LineAnalysisEngineTests: XCTestCase {
 
         let localResult = engine.preferredOvulationResult(primary: primary, fallback: fallback)
 
-        XCTAssertEqual(localResult.resultType, .peak)
+        XCTAssertEqual(localResult.resultType, .elevated)
         XCTAssertEqual(localResult.testControlRatio, 1.20, accuracy: 0.001)
     }
 
     func testAIOvulationResultIsNotOverriddenByLocalMeasurement() {
         let quality = ImageQualityResult(status: .good, brightness: 0.5, blurScore: 0.2, overexposure: 0.2)
         let ai = LineAnalysisResult(
-            resultType: .high,
+            resultType: .elevated,
             confidencePercentage: 91,
             certaintyPercentage: 91,
             controlLineDetected: true,
@@ -100,7 +100,7 @@ final class LineAnalysisEngineTests: XCTestCase {
             explanation: "High"
         )
         let local = LineAnalysisResult(
-            resultType: .peak,
+            resultType: .elevated,
             confidencePercentage: 68,
             certaintyPercentage: 68,
             controlLineDetected: true,
@@ -113,7 +113,7 @@ final class LineAnalysisEngineTests: XCTestCase {
 
         let reconciled = AIResultReconciler.reconcileOvulation(ai: ai, local: local)
 
-        XCTAssertEqual(reconciled.resultType, .high)
+        XCTAssertEqual(reconciled.resultType, .elevated)
         XCTAssertEqual(reconciled.testControlRatio, 0.84)
         XCTAssertEqual(reconciled.certaintyPercentage, 91)
     }

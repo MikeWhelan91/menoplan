@@ -80,7 +80,11 @@ struct AssistantResponse: Decodable, Sendable {
 }
 
 struct AssistantSuggestion: Codable, Hashable, Identifiable, Sendable {
+    /// Must include every kind api/assistant.js can return (SUGGESTION_KINDS).
     enum Kind: String, Codable, Sendable {
+        case fshScan
+        case logSymptom
+        case careSummary
         case reminder
         case ovulationScan
         case calendar
@@ -289,7 +293,7 @@ final class AssistantService: @unchecked Sendable {
         request.timeoutInterval = 45
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token = Self.clientToken {
-            request.setValue(token, forHTTPHeaderField: "x-linecheck-client-token")
+            request.setValue(token, forHTTPHeaderField: "x-menoplan-client-token")
         }
 
         let payload = AssistantRequest(

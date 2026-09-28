@@ -202,6 +202,8 @@ final class AppState {
     /// Test Trends - CalendarView is recreated fresh on every tab switch, so
     /// this is the only way another tab can reach its trends sheet.
     var showTrendsRequested = false
+    /// Set by Luna's "careSummary" suggestion; Home opens the appointment summary.
+    var showAppointmentSummaryRequested = false
     var storageWarning: String?
     var postScanPrompt: PostScanPrompt?
     let interstitialAds = InterstitialAdService()

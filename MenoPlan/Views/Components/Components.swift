@@ -526,7 +526,7 @@ struct ResultBadge: View {
 
 struct TestIllustration: View {
     var testType: TestType
-    var result: ScanResultType = .high
+    var result: ScanResultType = .elevated
     var compact = false
 
     var body: some View {
@@ -571,9 +571,8 @@ struct TestIllustration: View {
     private var controlAlpha: Double { result == .invalid ? 0.08 : 0.95 }
     private var testAlpha: Double {
         switch result {
-        case .peak: 0.95
-        case .high: 0.55
-        case .rising: 0.34
+        case .elevated: 0.9
+        case .borderline: 0.45
         case .low: 0.16
         default: 0.06
         }
@@ -596,7 +595,7 @@ struct ActionPanel: View {
                     Text(subtitle).font(.lineSubheadline()).foregroundStyle(Color.lineNavy)
                 }
                 Spacer()
-                TestIllustration(testType: testType, result: .high, compact: true)
+                TestIllustration(testType: testType, result: .elevated, compact: true)
             }
             .padding(16)
             .background(Color.linePurpleSoft, in: RoundedRectangle(cornerRadius: 12))
@@ -798,7 +797,7 @@ struct EmptyStateView: View {
         case .none:
             EmptyView()
         case .generic:
-            TestIllustration(testType: .ovulation, result: .high)
+            TestIllustration(testType: .ovulation, result: .borderline)
         case .homeTile(let testType):
             CalendarEmptyStateTestImage(testType: testType)
         case .icon(let name, let tint):
@@ -817,38 +816,13 @@ struct EmptyStateView: View {
 private struct CalendarEmptyStateTestImage: View {
     var testType: TestType
 
-    private var assetName: String {
-        "HomeOvulationTest"
-    }
-
     var body: some View {
-        Group {
-            if let uiImage = UIImage.lineCheckLibraryImage(named: assetName) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-            } else {
-                TestIllustration(testType: testType, result: .high)
-            }
-        }
+        TestIllustration(testType: testType, result: .borderline)
         .frame(maxWidth: 320)
         .frame(height: 94)
         .shadow(color: .black.opacity(0.08), radius: 5, y: 2)
         .allowsHitTesting(false)
         .accessibilityHidden(true)
-    }
-}
-
-private extension UIImage {
-    static func lineCheckLibraryImage(named name: String) -> UIImage? {
-        if let image = UIImage(named: name) { return image }
-        if let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "images") {
-            return UIImage(contentsOfFile: url.path)
-        }
-        if let url = Bundle.main.url(forResource: name, withExtension: "png") {
-            return UIImage(contentsOfFile: url.path)
-        }
-        return nil
     }
 }
 

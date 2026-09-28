@@ -2,7 +2,7 @@ import SwiftData
 import SwiftUI
 
 enum HistoryFilter: String, CaseIterable, Identifiable {
-    case ovulation = "Ovulation"
+    case ovulation = "FSH"
 
     var id: String { rawValue }
 
@@ -83,7 +83,7 @@ private struct ScanTrackingEditor: View {
     }
 
     private var validResults: [ScanResultType] {
-        [.low, .rising, .high, .peak, .unclear, .invalid, .manualSaved]
+        [.low, .borderline, .elevated, .unclear, .invalid, .manualSaved]
     }
 
     private func save() {
@@ -779,8 +779,8 @@ struct HistoryView: View {
     }
 
     private func cycleSummary(for group: HistoryCycleGroup) -> String {
-        let testLabel = "\(group.scans.count) ovulation test\(group.scans.count == 1 ? "" : "s")"
-        let peakSuffix = (filter == .ovulation && group.scans.contains(where: { $0.resultType == .peak })) ? " · Peak recorded" : ""
+        let testLabel = "\(group.scans.count) FSH test\(group.scans.count == 1 ? "" : "s")"
+        let peakSuffix = (filter == .ovulation && group.scans.contains(where: { $0.resultType == .elevated })) ? " · Elevated reading" : ""
 
         guard let cycle = group.cycle else {
             return testLabel + peakSuffix + ". Add a period in Calendar to place them in a cycle."
@@ -969,10 +969,10 @@ private struct HistoryStripRow: View {
                         .font(.app(size: LineType.size(11), weight: .semibold))
                         .lineLimit(1)
                         .minimumScaleFactor(0.72)
-                        .foregroundStyle(scan.resultType == .peak ? Color.white : scan.resultType.tint)
+                        .foregroundStyle(scan.resultType == .elevated ? Color.white : scan.resultType.tint)
                         .padding(.horizontal, 7)
                         .padding(.vertical, 5)
-                        .background(scan.resultType == .peak ? scan.resultType.tint : scan.resultType.tint.opacity(0.11), in: Capsule())
+                        .background(scan.resultType == .elevated ? scan.resultType.tint : scan.resultType.tint.opacity(0.11), in: Capsule())
                 }
                 if scan.excludedFromCalculations {
                     Label("Excluded", systemImage: "eye.slash.fill")

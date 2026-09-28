@@ -513,7 +513,7 @@ struct CalendarView: View {
 
     private var trackingPicker: some View {
         Picker("Tracking", selection: $selectedTrackingType) {
-            Text("Ovulation tests").tag(TestType.ovulation)
+            Text("FSH tests").tag(TestType.ovulation)
         }
         .pickerStyle(.segmented)
         .controlSize(layout.isRegular ? .large : .regular)
@@ -841,7 +841,7 @@ struct CalendarView: View {
             .frame(maxWidth: .infinity)
 
             HStack(spacing: 10) {
-                calendarAction("Ovulation\ntest", imageName: "CalendarOvulationTestIcon", tint: .linePurple) {
+                calendarAction("FSH\ntest", imageName: "CalendarOvulationTestIcon", tint: .linePurple) {
                     appState.startScan(testType: .ovulation)
                 }
                 calendarAction("Symptoms & Activities", imageName: "CalendarBodySignsIcon", tint: .linePurple) {
@@ -1003,7 +1003,7 @@ struct CalendarView: View {
     private enum TrendsExportScope: String, CaseIterable, Identifiable {
         case ovulation
         var id: String { rawValue }
-        var title: String { "Ovulation" }
+        var title: String { "FSH" }
     }
 
     /// Pro-only, mirroring the same gate/toast pattern ResultView uses for
@@ -1060,11 +1060,11 @@ struct CalendarView: View {
         }
         do {
             let peaks = scans
-                .filter { $0.testType == .ovulation && ($0.resultType == .peak || $0.resultType == .high) }
+                .filter { $0.testType == .ovulation && ($0.resultType == .elevated || $0.resultType == .elevated) }
                 .sorted { $0.createdAt > $1.createdAt }
                 .prefix(3)
             if !peaks.isEmpty {
-                lines.append(("Recent high test readings", peaks.map { DateFormatting.shortDate.string(from: $0.createdAt) }.joined(separator: ", ")))
+                lines.append(("Recent elevated FSH readings", peaks.map { DateFormatting.shortDate.string(from: $0.createdAt) }.joined(separator: ", ")))
             }
         }
         return lines
@@ -1892,8 +1892,8 @@ struct CalendarView: View {
         } else {
             chartEmptyState(
                 icon: "camera.viewfinder",
-                title: "No ovulation tests yet",
-                message: "Save an ovulation test to see your trend here.",
+                title: "No FSH tests yet",
+                message: "Save an FSH test to see your readings here.",
                 tint: .linePurple,
                 buttonTitle: "Scan now"
             ) { appState.startScan(testType: .ovulation) }
@@ -3471,7 +3471,7 @@ struct PeriodStartUpdateView: View {
                             .fixedSize(horizontal: false, vertical: true)
                     }
 
-                    Text("Your saved tests stay in history. Any old expected-period or ovulation date will be cleared so it cannot be mistaken for this new cycle.")
+                    Text("Your saved tests stay in history. Any old expected-period date will be cleared so it cannot be mistaken for this new cycle.")
                         .font(.app(.caption))
                         .foregroundStyle(Color.lineNavy.opacity(0.56))
                         .fixedSize(horizontal: false, vertical: true)
@@ -3882,8 +3882,8 @@ private struct AppleHealthTestRecord: Identifiable {
             title = "Ovulation Test"
             illustrationType = .ovulation
             switch value.lowercased() {
-            case "lh surge": result = .peak
-            case "estrogen surge": result = .high
+            case "lh surge": result = .elevated
+            case "estrogen surge": result = .elevated
             case "negative": result = .low
             default: result = .unclear
             }
@@ -4869,11 +4869,9 @@ private extension ScanResultType {
         switch self {
         case .low:
             Color(red: 0.82, green: 0.52, blue: 0.02)
-        case .rising:
-            Color(red: 0.24, green: 0.52, blue: 0.22)
-        case .high:
+        case .borderline:
             Color(red: 0.05, green: 0.34, blue: 0.67)
-        case .peak:
+        case .elevated:
             Color.linePurple
         case .invalid:
             Color(red: 1.0, green: 0.42, blue: 0.0)
@@ -4885,9 +4883,8 @@ private extension ScanResultType {
     var calendarOvulationStage: String {
         switch self {
         case .low: "Light line"
-        case .rising: "Getting stronger"
-        case .high: "Close to control"
-        case .peak: "Strongest"
+        case .borderline: "Lighter than control"
+        case .elevated: "Close to control"
         case .invalid: "Invalid"
         case .unclear: "Unclear"
         default: badgeTitle

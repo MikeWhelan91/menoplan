@@ -448,29 +448,7 @@ private struct TestImage: View {
     var testType: TestType
 
     var body: some View {
-        if let image = UIImage.lineCheckTestImage(named: imageName) {
-            Image(uiImage: image)
-                .resizable()
-        } else {
-            TestIllustration(testType: testType, result: .high)
-        }
-    }
-
-    private var imageName: String {
-        "HomeOvulationTest"
-    }
-}
-
-private extension UIImage {
-    static func lineCheckTestImage(named name: String) -> UIImage? {
-        if let image = UIImage(named: name) { return image }
-        if let url = Bundle.main.url(forResource: name, withExtension: "png", subdirectory: "images") {
-            return UIImage(contentsOfFile: url.path)
-        }
-        if let url = Bundle.main.url(forResource: name, withExtension: "png") {
-            return UIImage(contentsOfFile: url.path)
-        }
-        return nil
+        TestIllustration(testType: testType, result: .borderline)
     }
 }
 
@@ -641,12 +619,8 @@ struct CaptureGuideView: View {
                 .foregroundStyle(Color.lineNavy)
 
             captureTip("Fit the test inside the camera guide before taking the photo", icon: "viewfinder")
-            if flow.testType == .ovulation {
-                captureTip("Point the absorbent/MAX end left and the handle end right", icon: "arrow.right")
-            } else {
-                captureTip("Point the test tip left and the handle end right", icon: "arrow.right")
-            }
-            captureTip("Keep both result lines anywhere inside the T–C line area", icon: "character.textbox")
+            captureTip("Keep the C and T labels beside the result window in view", icon: "character.textbox")
+            captureTip("Read it at the time your test's instructions say", icon: "timer")
         }
         .padding(15)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -679,30 +653,17 @@ struct CaptureGuideView: View {
 
 }
 
+/// A drawn FSH cassette rather than a photo, so no brand's markings are
+/// implied: control and test lines with their C/T labels.
 private struct CaptureGuidePhoto: View {
     var testType: TestType
 
-    private var imageScale: CGFloat {
-        1.55
-    }
-
-    private var imageOffset: CGSize {
-        CGSize(width: 0, height: 18)
-    }
-
     var body: some View {
-        Group {
-            if let image = UIImage.lineCheckTestImage(named: imageName) {
-                Image(uiImage: image)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                TestImage(testType: testType)
-                    .aspectRatio(contentMode: .fill)
-            }
+        ZStack {
+            LinearGradient(colors: [Color.linePurple.opacity(0.10), Color.linePink.opacity(0.08)], startPoint: .topLeading, endPoint: .bottomTrailing)
+            TestIllustration(testType: testType, result: .borderline)
+                .scaleEffect(1.7)
         }
-        .scaleEffect(imageScale)
-        .offset(imageOffset)
         .aspectRatio(4.0 / 3.0, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
         .overlay {
@@ -710,10 +671,6 @@ private struct CaptureGuidePhoto: View {
                 .stroke(testType.tint.opacity(0.28), lineWidth: 1.5)
         }
         .accessibilityHidden(true)
-    }
-
-    private var imageName: String {
-        "captureov"
     }
 }
 

@@ -127,6 +127,11 @@ struct HomeView: View {
                     try? modelContext.save()
                 }
             }
+            .onChange(of: appState.showAppointmentSummaryRequested, initial: true) { _, requested in
+                guard requested else { return }
+                appState.showAppointmentSummaryRequested = false
+                showSummary = true
+            }
             .sheet(isPresented: $showSummary) {
                 if let settings {
                     AppointmentSummaryView(settings: settings)

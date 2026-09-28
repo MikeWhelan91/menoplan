@@ -334,8 +334,6 @@ struct ResultView: View {
         )
         let surface: CycleSignalSurface = .ovulationResult
         return CycleSignalsEngine.signals(for: surface, input)
-            // PCOS only changes the reading of a High/Peak - on a Low it's noise.
-            .filter { $0.id != "pcosLH" || [.high, .peak].contains(result.resultType) }
             .prefix(3)
             .map { $0 }
     }
@@ -518,9 +516,8 @@ struct ResultView: View {
         switch resultType {
         case .unclear: "You selected unclear because you could not confidently choose another result. You can retake the photo or repeat the test according to its instructions."
         case .low: "You selected low, indicating that the test line looks much lighter than the control line."
-        case .rising: "You selected rising, indicating that the test line is becoming more visible but remains lighter than the control line."
-        case .high: "You selected high, indicating that the test line looks close to the control line."
-        case .peak: "You selected peak, indicating that the test line looks as dark as or darker than the control line."
+        case .borderline: "You selected borderline, indicating that the test line is visible but lighter than the control line."
+        case .elevated: "You selected elevated, indicating that the test line looks close to, as dark as, or darker than the control line."
         default: "This is the result you selected and saved for your records."
         }
     }
@@ -823,7 +820,7 @@ struct ResultView: View {
             }
 
             if appState.settings?.proUnlocked == true, lineStrengthTrendScans.count >= 2 {
-                Text("Tracks how strong the test line has looked across your last \(lineStrengthTrendScans.count) ovulation scans.")
+                Text("Tracks how strong the test line has looked across your last \(lineStrengthTrendScans.count) FSH tests.")
                     .font(.app(.caption))
                     .foregroundStyle(.secondary)
             }
@@ -1102,7 +1099,7 @@ struct ResultView: View {
                     tint: result.resultType.ovulationTint,
                     help: TerminologyInfo(
                         title: "Test/control value",
-                        message: "This is a photo-based comparison of the test line with the control line. It is not a laboratory LH measurement. A value near 1 means the lines looked similarly dark."
+                        message: "This is a photo-based comparison of the test line with the control line. It is not a laboratory FSH measurement. A value near 1 means the lines looked similarly dark."
                     )
                 )
                 Divider().padding(.vertical, 4)
@@ -1174,16 +1171,16 @@ struct ResultView: View {
     }
 
     private func ovulationProgress(_ result: LineAnalysisResult) -> some View {
-        let stages: [ScanResultType] = [.low, .rising, .high, .peak]
+        let stages: [ScanResultType] = [.low, .borderline, .elevated]
         return VStack(alignment: .center, spacing: 14) {
             HStack(spacing: 6) {
-                Text("Ovulation-Test Line Stage")
+                Text("FSH Test Line")
                     .font(.app(.headline, weight: .bold))
                     .foregroundStyle(Color.lineNavy)
                 terminologyButton(
                     TerminologyInfo(
-                        title: "Ovulation-test line stage",
-                        message: "This describes how the test line looks beside the control line: low is much lighter, rising is visible but lighter, high is close, and strongest means it looks about as dark as or darker than the control. Follow the labels and timing in your test instructions."
+                        title: "FSH test line",
+                        message: "This describes how the test line looks beside the control line: low is much lighter or absent, borderline is visible but lighter, and elevated is close to or as dark as the control. It's a visual reading of one test, not a diagnosis - FSH changes from day to day in perimenopause. Follow the reading guide in your test's instructions."
                     )
                 )
             }
@@ -1255,15 +1252,11 @@ struct ResultView: View {
 
     private func ovulationGuidance(for result: ScanResultType) -> String {
         switch result {
-        case .peak: pick([
-            "The test line is as dark as, or darker than, the control line. One reading is one data point: levels can vary from day to day, so a few readings spaced out over time give a fuller picture.",
-            "This is a strong test line compared with the control. It's worth keeping alongside your symptoms and discussing with a doctor rather than reading it on its own."
+        case .elevated: pick([
+            "The test line is close to or as dark as the control line. One reading is one data point: FSH can vary a lot from day to day in perimenopause, so a few readings spaced out over time give a fuller picture.",
+            "This is a strong test line compared with the control. It's worth keeping alongside your symptoms and discussing with a doctor rather than reading it on its own - it isn't a diagnosis."
         ])
-        case .high: pick([
-            "The test line is close to the control line. Readings can move around from day to day, so comparing a few spaced-out tests tells you more than one.",
-            "This is a fairly strong test line. Keep it alongside your symptoms and cycle changes - together they give a clearer picture than any single test."
-        ])
-        case .rising: pick([
+        case .borderline: pick([
             "The test line is visible but still lighter than the control. Readings can vary, so testing again in a few days at a similar time helps you compare.",
             "A clear but lighter test line. Keep testing at a consistent time of day so your readings stay easy to compare."
         ])
@@ -1323,23 +1316,29 @@ struct ResultView: View {
         .accessibilityHint("Shows a short explanation")
     }
 
+    /// The earlier FSH reading, if any, so this one reads as part of a series.
+    private var previousFSHScan: Scan? {
+        scans.filter { $0.testType == .ovulation && $0.createdAt < (flow.capturedAt ?? .now).addingTimeInterval(-60) }
+            .max { $0.createdAt < $1.createdAt }
+    }
+
     private func ovulationCycleStats(_ result: LineAnalysisResult) -> some View {
         HStack(spacing: 0) {
             VStack(alignment: .center, spacing: 6) {
-                Text("Cycle Day")
+                Text("FSH Tests Saved")
                     .font(.app(.caption))
                     .foregroundStyle(Color.lineNavy.opacity(0.75))
-                Text(fertilityWindow.map { "\($0.cycleDay)" } ?? "--")
+                Text("\(scans.filter { $0.testType == .ovulation }.count)")
                     .font(.app(.title2, weight: .medium))
                     .foregroundStyle(Color.lineNavy)
             }
             .frame(maxWidth: .infinity, alignment: .center)
             Divider()
             VStack(alignment: .center, spacing: 6) {
-                Text("Predicted Ovulation")
+                Text("Previous Reading")
                     .font(.app(.caption))
                     .foregroundStyle(Color.lineNavy.opacity(0.75))
-                Text(predictedOvulationText(for: result.resultType))
+                Text(previousFSHScan.map { "\($0.resultType.title) · \(DateFormatting.shortDate.string(from: $0.createdAt))" } ?? "First test")
                     .font(.app(.headline, weight: .semibold))
                     .foregroundStyle(Color.lineNavy)
                     .multilineTextAlignment(.center)
@@ -1350,19 +1349,6 @@ struct ResultView: View {
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 8)
-    }
-
-    private var fertilityWindow: FertilityWindow? {
-        CycleTrackingService.window(records: cycleRecords, settings: appState.settings)
-    }
-
-    private func predictedOvulationText(for result: ScanResultType) -> String {
-        if result == .peak { return "Likely in 1–2 days" }
-        guard let window = fertilityWindow else { return "Set cycle" }
-        let days = Calendar.current.dateComponents([.day], from: Calendar.current.startOfDay(for: Date.now), to: Calendar.current.startOfDay(for: window.predictedOvulationDate)).day ?? 0
-        if abs(days) <= 1 { return "~24-36 hours" }
-        if days > 1 { return "~\(days)-\(days + 1) days" }
-        return "Passed"
     }
 
     private func readSummary(_ result: LineAnalysisResult) -> some View {
@@ -1585,7 +1571,7 @@ struct ResultView: View {
             }
             TipView(tcTip)
             HStack {
-                ForEach([ScanResultType.low, .rising, .high, .peak]) { item in
+                ForEach([ScanResultType.low, .borderline, .elevated]) { item in
                     VStack {
                         Circle().fill(item.tint).frame(width: 8, height: 8)
                         Text(item.title).font(.app(.caption2))
@@ -1614,10 +1600,9 @@ struct ResultView: View {
 
     private func ovulationActionTitle(for result: ScanResultType) -> String {
         switch result {
-        case .low: "Test line is still light"
-        case .rising: "Test line is getting stronger"
-        case .high: "Test line is close to the control"
-        case .peak: "Strongest result"
+        case .low: "Test line is light"
+        case .borderline: "Test line is lighter than control"
+        case .elevated: "Test line is close to control"
         case .unclear: "Result is not clear"
         case .invalid: "Test may be invalid"
         default: "Keep tracking"
@@ -1626,10 +1611,9 @@ struct ResultView: View {
 
     private func ovulationActionCopy(for result: ScanResultType) -> String {
         switch result {
-        case .low: "The test line looks lighter than the control line. Keep testing on the days suggested by your calendar and follow your test instructions."
-        case .rising: "The test line is visible but still lighter than the control. Testing again later today or tomorrow may help you catch your strongest result."
-        case .high: "The test line looks close to the control line. Keep testing consistently until the lines match or the test line becomes darker."
-        case .peak: "The test line looks similar to or darker than the control line. This is your strongest saved result so far; follow your test instructions for what to do next."
+        case .low: "The test line looks much lighter than the control line. One reading is one data point; your symptoms and cycle changes matter just as much."
+        case .borderline: "The test line is visible but lighter than the control. Testing again in a few days, at a similar time of day, makes readings easier to compare."
+        case .elevated: "The test line looks close to or as dark as the control line. Bring this reading and your symptom log to your GP or clinician - it's one data point, not a diagnosis."
         case .unclear: "The test and control lines can’t be compared clearly. Repeat the test with a new photo in even light."
         case .invalid: "The control line was not clear. Retake or repeat the test using the test instructions."
         default: "Keep comparing readings at similar times of day for a clearer trend."
@@ -1653,9 +1637,9 @@ struct ResultView: View {
     private var lunaPromptText: String {
         let dateText = flow.effectiveTestDate.formatted(date: .abbreviated, time: .omitted)
         guard let result = flow.analysisResult else {
-            return "Can you help me understand my ovulation test from \(dateText)?"
+            return "Can you help me understand my FSH test from \(dateText)?"
         }
-        return "About my ovulation test from \(dateText): the result was \"\(result.resultType.referenceTitle)\". Can you help me understand what this means?"
+        return "About my FSH test from \(dateText): the result was \"\(result.resultType.referenceTitle)\". Can you help me understand what this means?"
     }
 
     private func queuePostScanPromptIfNeeded() {
@@ -1853,9 +1837,8 @@ struct ResultView: View {
 
     private func reminderTitle() -> String {
         return switch flow.analysisResult?.resultType {
-        case .rising, .high: "Repeat ovulation test"
-        case .peak: "Check after strongest ovulation result"
-        default: "Ovulation test"
+        case .borderline, .elevated: "Repeat FSH test"
+        default: "FSH test"
         }
     }
 
@@ -1867,10 +1850,9 @@ struct ResultView: View {
             return Calendar.current.date(byAdding: .hour, value: 48, to: .now) ?? .now
         }
         switch flow.analysisResult?.resultType {
-        case .rising, .high:
-            return Calendar.current.date(byAdding: .hour, value: 12, to: .now) ?? .now
-        case .peak:
-            return Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now
+        case .borderline, .elevated:
+            // FSH home tests are usually repeated a few days apart.
+            return Calendar.current.date(byAdding: .day, value: 3, to: .now) ?? .now
         default:
             return Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now
         }
@@ -2083,7 +2065,8 @@ private struct LookAgainOpinionOverlay: View {
     var onCancel: () -> Void
 
     private var options: [(value: String, title: String)] {
-        [("peak", "Peak"), ("high", "High"), ("rising", "Rising"), ("low", "Low"), ("notSure", "Not sure")]
+        // Must match USER_OPINION_VALUES in api/analyse-fsh.js.
+        [("elevated", "Elevated"), ("borderline", "Borderline"), ("low", "Low"), ("notSure", "Not sure")]
     }
 
     var body: some View {
@@ -2128,12 +2111,12 @@ private struct ResultOverrideOverlay: View {
     @FocusState private var isRatioFieldFocused: Bool
 
     private var options: [ScanResultType] {
-        [.peak, .high, .rising, .low, .unclear, .invalid]
+        [.elevated, .borderline, .low, .unclear, .invalid]
     }
 
     /// Only categories with a real line have a ratio worth fine-tuning -
     /// unclear/invalid have none, so they skip straight through.
-    private var ratioAdjustableOptions: Set<ScanResultType> { [.peak, .high, .rising, .low] }
+    private var ratioAdjustableOptions: Set<ScanResultType> { [.elevated, .borderline, .low] }
 
     var body: some View {
         DisputeOverlayCard(onBackgroundTap: onCancel) {
@@ -2451,9 +2434,8 @@ private extension ScanResultType {
     var ovulationTint: Color {
         switch self {
         case .low: Color(red: 0.82, green: 0.52, blue: 0.02)
-        case .rising: Color(red: 0.24, green: 0.52, blue: 0.22)
-        case .high: Color(red: 0.05, green: 0.34, blue: 0.67)
-        case .peak: Color.linePurple
+        case .borderline: Color(red: 0.05, green: 0.34, blue: 0.67)
+        case .elevated: Color.linePurple
         case .invalid: Color(red: 1.0, green: 0.42, blue: 0.0)
         default: tint
         }
@@ -2463,9 +2445,8 @@ private extension ScanResultType {
         switch self {
         case .invalid: "Invalid"
         case .low: "Low"
-        case .rising: "Rising"
-        case .high: "High"
-        case .peak: "Peak"
+        case .borderline: "Borderline"
+        case .elevated: "Elevated"
         case .unclear: "Not Clear"
         case .manualSaved: "Manual"
         }
@@ -2475,9 +2456,8 @@ private extension ScanResultType {
         switch self {
         case .invalid: "Result can’t be read"
         case .low: "Test line much lighter than control"
-        case .rising: "Test line visible but lighter"
-        case .high: "Test line close to control"
-        case .peak: "Test line as dark as control"
+        case .borderline: "Test line visible but lighter"
+        case .elevated: "Test line close to or as dark as control"
         case .unclear: "Lines can’t be compared"
         case .manualSaved: "Test check saved"
         }
@@ -2487,7 +2467,7 @@ private extension ScanResultType {
         switch self {
         case .low: "info.circle"
         case .invalid: "exclamationmark.circle"
-        case .rising, .high, .peak: "waveform.path.ecg"
+        case .borderline, .elevated: "waveform.path.ecg"
         case .unclear: "questionmark.circle"
         case .manualSaved: "square.and.pencil"
         }
@@ -2495,7 +2475,7 @@ private extension ScanResultType {
 
     var testLineLabel: String {
         switch self {
-        case .rising, .high, .peak:
+        case .borderline, .elevated:
             "Line detected"
         case .low:
             "No strong line"
@@ -2511,9 +2491,8 @@ private extension ScanResultType {
     var ovulationReferenceTitle: String {
         switch self {
         case .low: "Test line is light"
-        case .rising: "Test line is getting stronger"
-        case .high: "Test line is close"
-        case .peak: "Strongest result"
+        case .borderline: "Test line is lighter"
+        case .elevated: "Test line is close to control"
         case .invalid: "Invalid"
         case .unclear: "Not Clear"
         default: referenceTitle
@@ -2523,9 +2502,8 @@ private extension ScanResultType {
     var ovulationStatusIcon: String {
         switch self {
         case .low: "circle.fill"
-        case .rising: "arrow.up"
-        case .high: "arrow.up"
-        case .peak: "star.circle.fill"
+        case .borderline: "circle.lefthalf.filled"
+        case .elevated: "circle.fill"
         case .invalid: "exclamationmark"
         default: "questionmark"
         }
@@ -2534,21 +2512,19 @@ private extension ScanResultType {
     var ovulationRatioDescription: String {
         switch self {
         case .low: "Test line much lighter than control"
-        case .rising: "Test line visible but lighter than control"
-        case .high: "Test line nearly as dark as control"
-        case .peak: "Test line as dark as or darker than control"
+        case .borderline: "Test line visible but lighter than control"
+        case .elevated: "Test line close to, as dark as or darker than control"
         case .invalid: "Control line not readable"
         case .unclear: "Lines can’t be compared clearly"
-        default: "Ovulation test result"
+        default: "FSH test result"
         }
     }
 
     var ovulationInsightIcon: String {
         switch self {
         case .low: "sun.max"
-        case .rising: "chart.line.uptrend.xyaxis"
-        case .high: "heart"
-        case .peak: "crown"
+        case .borderline: "chart.line.uptrend.xyaxis"
+        case .elevated: "stethoscope"
         case .invalid: "exclamationmark.triangle"
         default: "info.circle"
         }
@@ -2556,26 +2532,23 @@ private extension ScanResultType {
 
     var ovulationInsightTitle: String {
         switch self {
-        case .low: "No strong line yet."
-        case .rising: "The test line is getting stronger."
-        case .high: "The test line is close to the control."
-        case .peak: "This is your strongest result."
+        case .low: "The test line is light."
+        case .borderline: "The test line is lighter than control."
+        case .elevated: "The test line is close to the control."
         case .invalid: "This test may be invalid."
         case .unclear: "Repeat the test for a clearer result."
-        default: "Ovulation result"
+        default: "FSH result"
         }
     }
 
     var ovulationInsightCopy: String {
         switch self {
         case .low:
-            "The test line is still much lighter than the control. Continue testing on the days suggested by your calendar."
-        case .rising:
-            "The test line looks stronger. Test again later today or tomorrow."
-        case .high:
-            "The test line is close to the control. Continue testing to identify your strongest result."
-        case .peak:
-            "The test line looks as dark as, or darker than, the control. Follow your test instructions for how to use this result."
+            "The test line is much lighter than the control. One low reading doesn't rule anything out."
+        case .borderline:
+            "The test line is visible but lighter. Test again in a few days to compare."
+        case .elevated:
+            "The test line is close to or as dark as the control. Discuss it with your GP alongside your symptoms."
         case .invalid:
             "The control line is missing, so use a new test and follow its instructions."
         case .unclear:

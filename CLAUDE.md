@@ -24,7 +24,11 @@ This app is a fork of LineCheck (`/Users/mike/Dev/Apps/preg`) and should keep th
 
 ## Cycle engine (transitional)
 
-Fertility and pregnancy tracking are removed. The period estimate still comes from LineCheck's `FertilityWindowCalculator` / `CycleTrackingService` (it computes ovulation internally to place the next period), but nothing user-facing shows fertile days, ovulation, BBT or luteal data, and saved tests never move period dates. This engine is due to be replaced by a cycle-change calculator (cycle-length variability, 60+ day gaps, 12-month countdown). The test scan path still uses `TestType.ovulation` and LH-style result tiers until it's converted to FSH.
+Fertility and pregnancy tracking are removed. The period estimate still comes from LineCheck's `FertilityWindowCalculator` / `CycleTrackingService` (it computes ovulation internally to place the next period), but nothing user-facing shows fertile days, ovulation, BBT or luteal data, and saved tests never move period dates. Home, widgets and the summary use `CycleChangeCalculator` (cycle lengths, 7+ day changes, 60+ day gaps, 12-month progress) and never show predicted dates; the Calendar still draws LineCheck's predicted periods.
+
+## FSH test and AI API
+
+The scan reads home FSH tests. `TestType.ovulation` keeps LineCheck's case name (and "ovulation" rawValue / deep link) but is titled "FSH Test"; `ScanResultType` bands are low / borderline / elevated (test line <0.40, <0.75, else, relative to control), matching `api/analyse-fsh.js` exactly. The on-device comparator model is still LineCheck's LH-strip model. `api/assistant.js` accepts the app's `AssistantRequest` (recentScans, reminders, userContext, optional mode: resultNarrative / weeklyDigest / compare) and returns suggestion kinds the app's `AssistantSuggestion.Kind` must include. Both APIs check the `x-menoplan-client-token` header against `MENOPLAN_API_SHARED_SECRET`. Run `npm test` for the API contract tests.
 
 `MenopauseStage` (perimenopause / postmenopause / unsure) is chosen in onboarding and Settings; only perimenopause asks for cycle dates.
 

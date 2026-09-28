@@ -670,7 +670,7 @@ private func computeLocalScanResult(adjusted: UIImage, original: UIImage?, testT
     guard surfaceDetected || result.controlLineDetected
         || adjustedResult.controlLineDetected
         || originalResult?.controlLineDetected == true else {
-        let testName = "ovulation"
+        let testName = "FSH"
         return LineAnalysisResult(
             resultType: .invalid,
             confidencePercentage: 0,
@@ -689,7 +689,7 @@ private func computeLocalScanResult(adjusted: UIImage, original: UIImage?, testT
 private func localScanSummary(for result: LineAnalysisResult, testType: TestType) -> String {
     let control = result.controlLineDetected ? "Control line detected." : "Control line not detected."
     let test = testType == .ovulation
-        ? (result.testLineDetected ? "Surge line detected." : "No surge line detected.")
+        ? (result.testLineDetected ? "Test line detected." : "No test line detected.")
         : (result.testLineDetected ? "Possible test line detected." : "No test line detected.")
     return "\(control) \(test) This local scan used the adjusted image and did not send the photo off device."
 }

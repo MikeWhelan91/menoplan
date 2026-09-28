@@ -53,10 +53,11 @@ enum FeatureFlags {
 }
 
 enum LineAnalysisConstants {
-    // Matches the server's ratio tiering exactly (api/analyse-test.js
-    // normaliseResult: <0.40 low, <0.75 rising, <0.95 high, else peak) so the
-    // same photo can't land in a different tier between Local Scan and Luna
-    // Check purely from a boundary rounding difference.
+    // Matches the server's FSH ratio bands exactly (api/analyse-fsh.js
+    // normaliseResult: <0.40 low, <0.75 borderline, else elevated) so the
+    // same photo can't land in a different band between Local Scan and Luna
+    // Check purely from a boundary rounding difference. ovulationHighUpper
+    // is only used by the local scanner's strength heuristics now.
     static let ovulationLowUpper = 0.40
     static let ovulationRisingUpper = 0.75
     static let ovulationHighUpper = 0.95

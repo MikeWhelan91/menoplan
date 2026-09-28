@@ -65,7 +65,7 @@ struct CompareView: View {
                     } else {
                         EmptyStateView(
                             title: "Compare scans",
-                            message: "Choose two checks of the same type and—when comparing ovulation tests—from the same cycle.",
+                            message: "Choose two FSH tests to compare. FSH varies from day to day, so treat any change as one more data point.",
                             buttonTitle: nil,
                             action: nil
                         )
@@ -405,7 +405,7 @@ struct CompareView: View {
         if delta > 0.08 {
             return CompareSummary(
                 title: "The later test line looks stronger",
-                detail: "The later ovulation test line appears closer to the control line.",
+                detail: "The later FSH test line appears closer to the control line.",
                 metricNote: "Photo measurements can help show the test line moving closer to the control line, but always follow your test instructions.",
                 icon: "arrow.up.right",
                 tint: ovulationTint(for: later.resultType)
@@ -414,15 +414,15 @@ struct CompareView: View {
         if delta < -0.08 {
             return CompareSummary(
                 title: "The later test line looks lighter",
-                detail: "The later ovulation test appears lighter than the earlier saved result.",
-                metricNote: "Ovulation-test lines can change quickly depending on timing, hydration, and the test’s reading window.",
+                detail: "The later FSH test appears lighter than the earlier saved result.",
+                metricNote: "FSH often goes up and down in perimenopause, and timing, hydration and the reading window also affect the lines.",
                 icon: "arrow.down.right",
                 tint: Color.lineTeal
             )
         }
         return CompareSummary(
             title: "Results look similar",
-            detail: "The test line looks similar in these two saved ovulation-test photos.",
+            detail: "The test line looks similar in these two saved FSH test photos.",
             metricNote: "Testing at similar times of day makes comparisons more useful.",
             icon: "equal",
             tint: Color.lineNavy
@@ -599,9 +599,8 @@ struct CompareView: View {
     private func ovulationTint(for result: ScanResultType) -> Color {
         switch result {
         case .low: Color(red: 0.82, green: 0.52, blue: 0.02)
-        case .rising: Color(red: 0.24, green: 0.52, blue: 0.22)
-        case .high: Color(red: 0.05, green: 0.34, blue: 0.67)
-        case .peak: Color.linePurple
+        case .borderline: Color(red: 0.05, green: 0.34, blue: 0.67)
+        case .elevated: Color.linePurple
         case .invalid: Color(red: 1.0, green: 0.42, blue: 0.0)
         default: result.tint
         }

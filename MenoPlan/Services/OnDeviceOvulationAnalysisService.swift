@@ -75,24 +75,20 @@ enum OnDeviceOvulationReconciler {
 
     static func resultType(for ratio: Double) -> ScanResultType {
         if ratio <= lowUpper { return .low }
-        if ratio <= risingUpper { return .rising }
-        if ratio <= highUpper { return .high }
-        return .peak
+        if ratio <= risingUpper { return .borderline }
+        return .elevated
     }
 
     static func trendSummary(currentRatio: Double, recentRatios: [Double]) -> String {
         guard let previous = recentRatios.first else {
-            return "This is your first saved ovulation reading, so future scans will make the trend clearer."
+            return "This is your first saved FSH reading. FSH varies day to day, so readings spaced over time give a fuller picture."
         }
         let change = currentRatio - previous
-        if previous >= highUpper && change <= -0.18 {
-            return "This reading is lower than your last one after a stronger result, which can fit a falling LH pattern."
-        }
         if change >= 0.15 {
-            return "This reading is higher than your most recent scan, suggesting the test line may be getting stronger."
+            return "This reading is stronger than your most recent test. FSH often goes up and down in perimenopause, so one change isn't a trend."
         }
         if change <= -0.15 {
-            return "This reading is lower than your most recent scan. Another test later today or tomorrow can clarify the pattern."
+            return "This reading is lighter than your most recent test. FSH often goes up and down in perimenopause, so one change isn't a trend."
         }
         return "This is close to your most recent reading. Testing at a similar time can make changes easier to compare."
     }
@@ -102,12 +98,10 @@ enum OnDeviceOvulationReconciler {
         switch type {
         case .low:
             core = "The test line is much lighter than the control line."
-        case .rising:
-            core = "The test line is becoming more noticeable, but it is not yet as strong as the control line."
-        case .high:
-            core = "The test line is close to the control line."
-        case .peak:
-            core = "The test line is at least as strong as the control line."
+        case .borderline:
+            core = "The test line is visible but lighter than the control line."
+        case .elevated:
+            core = "The test line is close to, or at least as strong as, the control line."
         default:
             core = "This test could not be read clearly."
         }

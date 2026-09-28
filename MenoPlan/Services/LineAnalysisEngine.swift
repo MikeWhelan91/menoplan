@@ -32,9 +32,8 @@ extension LineAnalysisResult {
         let lineStrength: Double
         switch resultType {
         case .low: (testLineDetected, testControlRatio, lineStrength) = (true, 0.25, 0.22)
-        case .rising: (testLineDetected, testControlRatio, lineStrength) = (true, 0.55, 0.42)
-        case .high: (testLineDetected, testControlRatio, lineStrength) = (true, 0.85, 0.68)
-        case .peak: (testLineDetected, testControlRatio, lineStrength) = (true, 1.05, 0.84)
+        case .borderline: (testLineDetected, testControlRatio, lineStrength) = (true, 0.55, 0.42)
+        case .elevated: (testLineDetected, testControlRatio, lineStrength) = (true, 0.9, 0.72)
         default: (testLineDetected, testControlRatio, lineStrength) = (false, 0, 0)
         }
         return LineAnalysisResult(
@@ -56,9 +55,8 @@ extension LineAnalysisResult {
     static func defaultTestControlRatio(for resultType: ScanResultType) -> Double {
         switch resultType {
         case .low: 0.25
-        case .rising: 0.55
-        case .high: 0.85
-        case .peak: 1.05
+        case .borderline: 0.55
+        case .elevated: 0.9
         default: 0
         }
     }
@@ -339,7 +337,7 @@ final class LineAnalysisEngine {
            fallback.testLineDetected,
            consensusRatio >= 0.95 {
             return LineAnalysisResult(
-                resultType: .peak,
+                resultType: .elevated,
                 confidencePercentage: max(68, min(primary.certaintyPercentage, fallback.certaintyPercentage)),
                 certaintyPercentage: max(68, min(primary.certaintyPercentage, fallback.certaintyPercentage)),
                 controlLineDetected: true,
@@ -347,7 +345,7 @@ final class LineAnalysisEngine {
                 testControlRatio: min(2, consensusRatio),
                 lineStrength: max(primary.lineStrength, fallback.lineStrength),
                 quality: primary.quality,
-                explanation: explanation(for: .peak, ratio: consensusRatio)
+                explanation: explanation(for: .elevated, ratio: consensusRatio)
             )
         }
 
@@ -387,18 +385,16 @@ final class LineAnalysisEngine {
 
     func ovulationResult(ratio: Double, testDetected: Bool) -> ScanResultType {
         guard testDetected else { return .low }
-        if ratio <= LineAnalysisConstants.ovulationLowUpper { return .low }
-        if ratio <= LineAnalysisConstants.ovulationRisingUpper { return .rising }
-        if ratio <= LineAnalysisConstants.ovulationHighUpper { return .high }
-        return .peak
+        if ratio < LineAnalysisConstants.ovulationLowUpper { return .low }
+        if ratio < LineAnalysisConstants.ovulationRisingUpper { return .borderline }
+        return .elevated
     }
 
     private func ovulationRank(_ resultType: ScanResultType) -> Int {
         switch resultType {
         case .low: 0
-        case .rising: 1
-        case .high: 2
-        case .peak: 3
+        case .borderline: 1
+        case .elevated: 2
         default: -1
         }
     }
@@ -1242,9 +1238,8 @@ final class LineAnalysisEngine {
     private func explanation(for result: ScanResultType, ratio: Double) -> String {
         switch result {
         case .low: "The image appears to show a control line with a much lighter test line, or none."
-        case .rising: "The test line is visible but lighter than the control line."
-        case .high: "The test line appears close to the control line."
-        case .peak: "The test line appears similar to, or darker than, the control line."
+        case .borderline: "The test line is visible but lighter than the control line."
+        case .elevated: "The test line appears close to, similar to, or darker than the control line."
         case .invalid: "The control line was not detected. This test may be invalid or the photo may be unclear."
         default: "The line reading is unclear from this image."
         }

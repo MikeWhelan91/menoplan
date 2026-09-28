@@ -161,7 +161,7 @@ final class AIAnalysisService {
         request.timeoutInterval = 70
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         if let token = Self.clientToken {
-            request.setValue(token, forHTTPHeaderField: "x-linecheck-client-token")
+            request.setValue(token, forHTTPHeaderField: "x-menoplan-client-token")
         }
 
         let payload = AIAnalysisRequest(

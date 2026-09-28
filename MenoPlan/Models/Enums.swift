@@ -4,8 +4,9 @@ import SwiftUI
 enum TestType: String, CaseIterable, Codable, Identifiable {
     case ovulation
     var id: String { rawValue }
-    var title: String { "Ovulation Test" }
-    var shortTitle: String { "Ovulation" }
+    // The case keeps LineCheck's name; the test it reads is a home FSH test.
+    var title: String { "FSH Test" }
+    var shortTitle: String { "FSH" }
     var tint: Color { .linePurple }
 }
 
@@ -20,14 +21,15 @@ enum OvulationResult: String, CaseIterable, Codable {
 }
 
 enum ScanResultType: String, CaseIterable, Codable, Identifiable {
-    case low, rising, high, peak, unclear, invalid, manualSaved
+    /// Matches the FSH API's bands (api/analyse-fsh.js): test line much
+    /// lighter than control, lighter, or close to / as dark as control.
+    case low, borderline, elevated, unclear, invalid, manualSaved
     var id: String { rawValue }
     var title: String {
         switch self {
         case .low: "Low"
-        case .rising: "Rising"
-        case .high: "High"
-        case .peak: "Peak"
+        case .borderline: "Borderline"
+        case .elevated: "Elevated"
         case .unclear: "Not Clear"
         case .invalid: "Invalid Test"
         case .manualSaved: "Manual Check"
@@ -41,8 +43,8 @@ enum ScanResultType: String, CaseIterable, Codable, Identifiable {
     }
     var tint: Color {
         switch self {
-        case .low, .rising: .lineTeal
-        case .high, .peak: .linePurple
+        case .low, .borderline: .lineTeal
+        case .elevated: .linePurple
         case .invalid, .unclear, .manualSaved: .lineNavy
         }
     }
@@ -196,7 +198,7 @@ enum HRTOptions {
 enum TrackingFocus: String, CaseIterable, Codable, Identifiable {
     case ovulation
     var id: String { rawValue }
-    var title: String { "Ovulation Tests" }
+    var title: String { "FSH Tests" }
     var defaultTestType: TestType { .ovulation }
 }
 

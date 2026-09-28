@@ -888,7 +888,7 @@ struct SettingsView: View {
             let ovulation = addingDays(ovulationDay - 1, to: start)
             record.predictedOvulationDate = ovulation
             record.ovulationSource = .testSupported
-            let opkSteps: [(before: Int, ratio: Double, result: ScanResultType)] = [(5, 0.3, .low), (3, 0.55, .low), (2, 0.9, .high), (1, 1.2, .peak)]
+            let opkSteps: [(before: Int, ratio: Double, result: ScanResultType)] = [(5, 0.3, .low), (3, 0.55, .low), (2, 0.9, .elevated), (1, 1.2, .elevated)]
             for step in opkSteps {
                 modelContext.insert(Scan(
                     createdAt: addingDays(-step.before, to: ovulation).addingTimeInterval(15 * 3600),
