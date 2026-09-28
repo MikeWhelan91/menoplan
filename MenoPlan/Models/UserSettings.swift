@@ -45,6 +45,11 @@ final class UserSettings {
     /// Symptoms pinned to Home's check-in; nil until the person chooses.
     var focusSymptomsRaw: String?
     var nextAppointmentDate: Date?
+    /// The person's own words for the appointment summary.
+    var appointmentImpactNote: String?
+    var appointmentQuestions: String?
+    /// Top concerns chosen for the summary; nil lets MenoPlan pick them.
+    var appointmentConcernsRaw: String?
     var expectedPeriodDate: Date?
     var knownOvulationDate: Date?
     var trackingFocusRaw: String?
@@ -242,6 +247,10 @@ final class UserSettings {
     var focusSymptoms: [String] {
         get { focusSymptomsRaw.map { $0.split(separator: "|").map(String.init) } ?? FocusSymptoms.defaults }
         set { focusSymptomsRaw = Array(newValue.prefix(FocusSymptoms.maximum)).joined(separator: "|") }
+    }
+    var appointmentConcerns: [String]? {
+        get { appointmentConcernsRaw.map { $0.split(separator: "|").map(String.init) } }
+        set { appointmentConcernsRaw = newValue.map { $0.joined(separator: "|") } }
     }
     var hasChosenFocusSymptoms: Bool { focusSymptomsRaw != nil }
     /// The next appointment, if one is set and hasn't passed.

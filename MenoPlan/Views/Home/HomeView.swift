@@ -25,6 +25,7 @@ struct HomeView: View {
     @State private var showPeriodStartCheckIn = false
     @State private var showFocusSheet = false
     @State private var showAppointmentSheet = false
+    @State private var showSummary = false
     @State private var logRequest: HomeLogRequest?
     @State private var showPersonalization = false
     @State private var showBodySignals = false
@@ -124,6 +125,11 @@ struct HomeView: View {
                 FocusSymptomSheet(initial: focus) { chosen in
                     settings?.focusSymptoms = chosen
                     try? modelContext.save()
+                }
+            }
+            .sheet(isPresented: $showSummary) {
+                if let settings {
+                    AppointmentSummaryView(settings: settings)
                 }
             }
             .sheet(isPresented: $showAppointmentSheet) {
@@ -245,7 +251,7 @@ struct HomeView: View {
         AppointmentCard(
             appointment: settings?.upcomingAppointment,
             loggedDays: loggedDaysLast30,
-            onPrepare: openTrends,
+            onPrepare: { showSummary = true },
             onSetDate: { showAppointmentSheet = true }
         )
     }

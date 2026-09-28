@@ -53,9 +53,15 @@ final class MenopauseDailyLogTests: XCTestCase {
     }
 
     func testBleedingLeadsTheLogOnlyWhilePeriodsAreTracked() {
-        XCTAssertEqual(DailyLogSection.ordered(for: .perimenopause).first, .flow)
-        XCTAssertEqual(DailyLogSection.ordered(for: .postmenopause).first, .flushes)
-        XCTAssertEqual(DailyLogSection.ordered(for: .unsure).first, .flushes)
+        func index(_ section: DailyLogSection, _ stage: MenopauseStage) -> Int {
+            DailyLogSection.ordered(for: stage).firstIndex(of: section) ?? -1
+        }
+        for stage in MenopauseStage.allCases {
+            XCTAssertEqual(DailyLogSection.ordered(for: stage).first, .day)
+        }
+        XCTAssertLessThan(index(.flow, .perimenopause), index(.symptoms, .perimenopause))
+        XCTAssertGreaterThan(index(.flow, .postmenopause), index(.symptoms, .postmenopause))
+        XCTAssertGreaterThan(index(.flow, .unsure), index(.symptoms, .unsure))
         for stage in MenopauseStage.allCases {
             XCTAssertEqual(Set(DailyLogSection.ordered(for: stage)), Set(DailyLogSection.allCases))
         }
